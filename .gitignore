@@ -4,3 +4,4 @@ build/
 *.tgz
 .DS_Store
 .orca/
+*.h2kext

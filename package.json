@@ -9,14 +9,22 @@
     "packages/*",
     "extensions/*"
   ],
+  "//test": [
+    "`extensions/bundles.test.ts` builds and packs EVERY extension, so it sits",
+    "above them all rather than inside any one, and needs naming here — no",
+    "workspace owns it. Last, because a failure there is read against unit",
+    "tests that have already answered."
+  ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present && node --experimental-strip-types --test 'extensions/*.test.ts'",
     "typecheck": "tsc --noEmit && npm run typecheck --workspaces --if-present",
     "pack": "npm run pack --workspaces --if-present"
   },
   "devDependencies": {
+    "@ham2k/extension-tools": "^0.2.0",
     "@types/node": "^24.13.3",
+    "esbuild": "^0.25.12",
     "typescript": "^5.8.0"
   },
   "engines": {
