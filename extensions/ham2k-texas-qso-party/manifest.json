@@ -6,7 +6,7 @@
   "description": "The Texas QSO Party — counties, county lines and a submittable Cabrillo",
   "category": "contest",
   "enabledByDefault": false,
-  "icon": "star",
+  "icon": "star-box",
   "accentColor": "#8E24AA",
   "api": 1,
   "keywords": [

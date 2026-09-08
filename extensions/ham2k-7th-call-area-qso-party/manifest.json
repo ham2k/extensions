@@ -6,7 +6,7 @@
   "description": "The 7QP — the eight states of the 7th call area, county lines, DX multipliers and a submittable Cabrillo",
   "category": "contest",
   "enabledByDefault": false,
-  "icon": "star",
+  "icon": "star-box",
   "accentColor": "#8E24AA",
   "api": 1,
   "keywords": [

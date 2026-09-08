@@ -51,6 +51,15 @@ Everything specific to one QSO party is data. Adding one is:
    - `src/index.ts` — `defineQsoParty(PARTY)` and five `registerHook` calls.
 3. `npm install` (a new workspace has to reach the root lock), then `npm test`.
 
+The `icon` is **per event**, and the two here are only defaults: `star-box` for
+a QSO party, `leaf-maple` for a Canadian one. They live in the manifest so that
+any event can be given its own without touching the engine or its party data —
+which is where a sponsor's own glyph would go. The engine falls back to
+`star-box` for a party whose manifest names none. Both are
+[MDI](https://pictogrammers.com/library/mdi/) names, and the app renders only
+what its codepoint table carries, so check a new one against
+`packages/halo_widgets/lib/src/icon_codepoints.g.dart` before using it.
+
 `geo` is worth a moment. It **ranks** an extension in the catalog and in the
 Extensions panel for the operator's own callsign; nothing is hidden by it.
 These three declare `{"countries": ["us", "ca"]}` rather than
@@ -88,10 +97,10 @@ extensions use:
 
 | bundle | `index.js` | `.h2kext` |
 |---|---:|---:|
-| `ham2k-texas-qso-party` | 137,514 | 37,828 |
-| `ham2k-canadian-prairies-qso-party` | 136,399 | 37,053 |
-| `ham2k-7th-call-area-qso-party` | 143,704 | 39,555 |
-| **three events** | **417,617** | **114,436** |
+| `ham2k-texas-qso-party` | 137,748 | 37,916 |
+| `ham2k-canadian-prairies-qso-party` | 136,676 | 37,167 |
+| `ham2k-7th-call-area-qso-party` | 144,010 | 39,685 |
+| **three events** | **418,434** | **114,768** |
 | the app's own `qp.js`, all fifty parties | 318,890 | — |
 
 Three events cost more than fifty do inside the app, and the reason is worth
@@ -100,9 +109,10 @@ stating plainly rather than discovering later. Texas breaks down as:
 | | bytes |
 |---|---:|
 | `@ham2k/extension-sdk` | 65,969 |
-| `@ham2k/lib-qso-party` — the engine | 57,467 |
+| `@ham2k/lib-qso-party` — the engine | 57,697 |
 | the party itself — 254 counties, its options and its dates | 6,004 |
-| this extension's own code, and esbuild's runtime | 3,838 |
+| this extension's own code | 3,842 |
+| esbuild's runtime and its IIFE wrapper | 4,236 |
 
 **The event is 4% of its own bundle.** The other 96% is code every party's
 bundle carries an identical copy of, because the app is untouched by this work:

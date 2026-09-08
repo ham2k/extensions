@@ -423,7 +423,9 @@ export function qsoPartyScorer(params: QsoPartyParams): ContestScorer<QsoPartySc
         [party.refType]: {
           key: party.refType,
           for: scope,
-          icon: party.icon ?? 'star',
+          // The default for a QSO party, for an extension whose manifest names
+          // none. Each event's own manifest is where a distinct icon goes.
+          icon: party.icon ?? 'star-box',
           total,
           points,
           mults: mult,
