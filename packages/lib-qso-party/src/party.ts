@@ -19,6 +19,8 @@
 // exchange declared as an array of field names, and the two option names for
 // the one "counties are multipliers in the party" rule.
 
+import type { HookContext } from "@ham2k/extension-sdk"
+
 import type {
   ModeClass,
   OperatorClass,
@@ -26,6 +28,8 @@ import type {
   PartyEntity,
   PowerClass,
   QsoPartyBonus,
+  QsoPartyLabel,
+  QsoPartyLabels,
   QsoPartyParams,
   StationClass,
 } from "./params.ts"
@@ -60,6 +64,17 @@ export interface Party extends QsoPartyParams {
     overlay: OverlayClass[]
   }
   exchange: { number: boolean; name: boolean }
+  labels: QsoPartyLabels
+}
+
+/// One operator-facing label: the party's own translator, a plain override, or
+/// the engine's English when it declares neither.
+///
+/// The `ctx` is the one the hook was already handed, so a translator sees the
+/// locale the app is running in without the engine knowing anything about
+/// locales.
+export function resolveLabel(value: QsoPartyLabel | undefined, ctx: HookContext, fallback: string): string {
+  return typeof value === 'function' ? value(ctx) : (value ?? fallback)
 }
 
 /// A code as everything else spells it — see the file header.
@@ -132,6 +147,7 @@ export function resolveParty(params: QsoPartyParams): Party {
       number: params.exchange?.number ?? false,
       name: params.exchange?.name ?? false,
     },
+    labels: params.labels ?? {},
   }
   RESOLVED.set(params, party)
   return party

@@ -43,28 +43,58 @@ import {
   preferredCodesFor,
 } from "./exchange.ts"
 import { COUNTY_LINE_SEPARATOR, guessedStateOf } from "./location.ts"
-import type { QsoPartyParams } from "./params.ts"
-import { daysUntil, hasAlreadyRun, type Party, resolveParty } from "./party.ts"
+import type {
+  ModeClass,
+  OperatorClass,
+  OverlayClass,
+  PowerClass,
+  QsoPartyLabel,
+  QsoPartyParams,
+  StationClass,
+} from "./params.ts"
+import { daysUntil, hasAlreadyRun, type Party, resolveLabel, resolveParty } from "./party.ts"
 
-/// The labels an operator reads. English only: the params carry a sponsor's own
-/// names and no translator, so a party's controls speak the language its rules
-/// are published in.
+/// The English an operator reads where the party's own translator says nothing.
+/// Every key here is a key of `QsoPartyLabels` — which is the only place a
+/// party overrides one, and the reason no default is written down twice.
 const LABELS = {
   classNone: 'Not declared',
+  countyLineHelp: 'On a county line, send both:',
+  lastUpdated: '**Data last updated:**',
+  mobileHelp: 'Roving? Type BREAK and change your county each time you move.',
+  mode: 'Mode',
   operator: 'Entry Class',
   ourEmail: 'E-mail for the log submission',
   ourName: 'Our Name',
-  ourPower: 'Power',
   ourSerial: 'Our #',
-  mode: 'Mode',
   overlay: 'Overlay',
+  period: '**Period:**',
+  power: 'Power',
   station: 'Station',
+  status: '**Status:**',
   theirName: 'Name',
   theirSerial: 'Their #',
-  mobileHelp: 'Roving? Type BREAK and change your county each time you move.',
 }
 
-const OPERATOR_LABELS: Record<string, string> = {
+/// The party's own translator over the engine's English, for the whole of one
+/// hook call. The key set is `LABELS`, so a label with no English default
+/// cannot be asked for.
+function labelsFor(party: Party, ctx: HookContext): (key: keyof typeof LABELS) => string {
+  return (key) => resolveLabel(party.labels[key], ctx, LABELS[key])
+}
+
+/// What one CLASS is called. A class the party leaves untranslated reads as the
+/// engine's English rather than as its Cabrillo code.
+function classLabel<C extends string>(
+  overrides: Partial<Record<C, QsoPartyLabel>> | undefined,
+  english: Record<C, string>,
+  code: C,
+  ctx: HookContext,
+): string {
+  return resolveLabel(overrides?.[code], ctx, english[code])
+}
+
+const OPERATOR_LABELS: Record<OperatorClass, string> = {
   'SINGLE-OP': 'Single Operator',
   'SINGLE-OP-ASSISTED': 'Single Operator, Assisted',
   'MULTI-ONE': 'Multi Operator, One Transmitter',
@@ -72,13 +102,13 @@ const OPERATOR_LABELS: Record<string, string> = {
   'MULTI-UNLIMITED': 'Multi Operator, Unlimited',
 }
 
-const POWER_LABELS: Record<string, string> = {
+const POWER_LABELS: Record<PowerClass, string> = {
   QRP: 'QRP',
   LOW: 'Low Power',
   HIGH: 'High Power',
 }
 
-const STATION_LABELS: Record<string, string> = {
+const STATION_LABELS: Record<StationClass, string> = {
   FIXED: 'Fixed',
   MOBILE: 'Mobile',
   PORTABLE: 'Portable',
@@ -90,14 +120,14 @@ const STATION_LABELS: Record<string, string> = {
   EOC: 'Emergency Operations Center',
 }
 
-const MODE_LABELS: Record<string, string> = {
+const MODE_LABELS: Record<ModeClass, string> = {
   CW: 'CW',
   PHONE: 'Phone',
   DIGITAL: 'Digital',
   MIXED: 'Mixed',
 }
 
-const OVERLAY_LABELS: Record<string, string> = {
+const OVERLAY_LABELS: Record<OverlayClass, string> = {
   ROOKIE: 'Rookie',
   YOUTH: 'Youth',
   YL: 'YL',
@@ -164,19 +194,21 @@ function relevanceOf(party: Party, nowMillis: number): number {
   return 1 / (1 + days / 60)
 }
 
-function infoMarkdown(party: Party): string {
+function infoMarkdown(party: Party, ctx: HookContext): string {
+  const t = labelsFor(party, ctx)
   const lines: string[] = []
   if (party.url) lines.push(`[${party.url}](${party.url})`)
   // Each period in full rather than folded into one range: a party that runs
   // Saturday afternoon and Sunday morning has a gap in the middle, and one range
   // spanning it would claim hours the sponsor does not score.
   for (const period of party.periods) {
-    lines.push(`**Period:** ${fmtUtcDay(period.startMillis)} — ${fmtUtcDay(period.endMillis)}`)
+    lines.push(`${t('period')} ${fmtUtcDay(period.startMillis)} — ${fmtUtcDay(period.endMillis)}`)
   }
   // `status` and `lastUpdated` describe the DATA, which is what an operator
-  // needs to judge how far to trust the dates and the county list.
-  if (party.status) lines.push(`**Status:** ${party.status}`)
-  if (party.lastUpdated) lines.push(`**Data last updated:** ${party.lastUpdated}`)
+  // needs to judge how far to trust the dates and the county list. Their TEXT is
+  // the party's own note, so only the heading goes through the translator.
+  if (party.status) lines.push(`${t('status')} ${party.status}`)
+  if (party.lastUpdated) lines.push(`${t('lastUpdated')} ${party.lastUpdated}`)
   return lines.join('\n\n')
 }
 
@@ -187,9 +219,15 @@ function infoMarkdown(party: Party): string {
 /// power table it multiplies the score. A guess would either misstate the entry
 /// to a checker or invent a multiplier the sponsor would not award — so an
 /// unanswered question stays unanswered, and both readers treat it as no claim.
-function entryClassElements(party: Party, ref: Record<string, unknown> | undefined): FormElement[] {
+function entryClassElements(
+  party: Party,
+  ref: Record<string, unknown> | undefined,
+  ctx: HookContext,
+): FormElement[] {
   const elements: FormElement[] = []
   const classes = party.entryClasses
+  const t = labelsFor(party, ctx)
+  const labels = party.labels
 
   const select = (
     key: string,
@@ -205,36 +243,49 @@ function entryClassElements(party: Party, ref: Record<string, unknown> | undefin
       label,
       value: value ?? '',
       // "Not declared" first, and the value a fresh setup keeps.
-      options: [{ value: '', label: LABELS.classNone }, ...options],
+      options: [{ value: '', label: t('classNone') }, ...options],
     })
   }
 
-  select('operator', LABELS.operator, ourOperatorClass(party, undefined, ref),
-    classes.operator.map((code) => ({ value: code, label: OPERATOR_LABELS[code] })))
+  select('operator', t('operator'), ourOperatorClass(party, undefined, ref),
+    classes.operator.map((code) => ({
+      value: code,
+      label: classLabel(labels.operatorClasses, OPERATOR_LABELS, code, ctx),
+    })))
 
-  select('power', LABELS.ourPower, ourPowerClass(party, undefined, ref),
+  select('power', t('power'), ourPowerClass(party, undefined, ref),
     classes.power.map((code) => {
       // The watts are the party's own, and the multiplier is shown where there
       // is one, because that is the operator's reason to care.
       const limit = classes.powerLimits[code]
       const mult = party.powerMultipliers[code]
       const detail = [limit, mult !== undefined && mult !== 1 ? `×${mult}` : ''].filter((x) => x).join(' • ')
-      return { value: code, label: detail ? `${POWER_LABELS[code]} — ${detail}` : POWER_LABELS[code] }
+      const name = classLabel(labels.powerClasses, POWER_LABELS, code, ctx)
+      return { value: code, label: detail ? `${name} — ${detail}` : name }
     }))
 
-  select('station', LABELS.station, ourStationClass(party, undefined, ref),
-    classes.station.map((code) => ({ value: code, label: STATION_LABELS[code] })))
+  select('station', t('station'), ourStationClass(party, undefined, ref),
+    classes.station.map((code) => ({
+      value: code,
+      label: classLabel(labels.stationClasses, STATION_LABELS, code, ctx),
+    })))
 
-  select('mode', LABELS.mode, ourModeClass(party, undefined, ref),
-    classes.mode.map((code) => ({ value: code, label: MODE_LABELS[code] })))
+  select('mode', t('mode'), ourModeClass(party, undefined, ref),
+    classes.mode.map((code) => ({
+      value: code,
+      label: classLabel(labels.modeClasses, MODE_LABELS, code, ctx),
+    })))
 
-  select('overlay', LABELS.overlay, ourOverlayClass(party, undefined, ref),
-    classes.overlay.map((code) => ({ value: code, label: OVERLAY_LABELS[code] })))
+  select('overlay', t('overlay'), ourOverlayClass(party, undefined, ref),
+    classes.overlay.map((code) => ({
+      value: code,
+      label: classLabel(labels.overlayClasses, OVERLAY_LABELS, code, ctx),
+    })))
 
   // Said once, next to the station class that makes it true, rather than as a
   // standing instruction: a rover's county changes through segments.
   if (classes.station.some((code) => ROVING_STATION_CLASSES.includes(code))) {
-    elements.push({ type: 'markdown', text: LABELS.mobileHelp })
+    elements.push({ type: 'markdown', text: t('mobileHelp') })
   }
 
   return elements
@@ -291,16 +342,17 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
     /// it is two counties and a separator rather than one choice from a list.
     async operationControls(
       { operation }: { operation: Record<string, JSONValue> },
-      _ctx: HookContext,
+      ctx: HookContext,
     ): Promise<LoggingControlDescriptor[]> {
       const ref = refOfType(operation as Record<string, unknown>, party.refType)
+      const t = labelsFor(party, ctx)
 
       const elements: FormElement[] = [
         {
           type: 'field',
           fieldType: 'text',
           key: 'location',
-          label: `Our ${party.labelForCounty}`,
+          label: resolveLabel(party.labels.ourLocation, ctx, `Our ${party.labelForCounty}`),
           value: ourLocationText(party, undefined, ref),
           placeholder: Object.keys(party.counties)[0],
         },
@@ -310,7 +362,9 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
         const [first, second] = Object.keys(party.counties)
         elements.push({
           type: 'markdown',
-          text: `On a county line, send both: ${first}${COUNTY_LINE_SEPARATOR}${second ?? first}`,
+          // The example is the party's own codes, appended: a translation states
+          // the instruction, and the codes are not words.
+          text: `${t('countyLineHelp')} ${first}${COUNTY_LINE_SEPARATOR}${second ?? first}`,
         })
       }
       if (party.exchange.name) {
@@ -318,24 +372,24 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
           type: 'field',
           fieldType: 'text',
           key: 'ourName',
-          label: LABELS.ourName,
+          label: t('ourName'),
           value: ourName(party, undefined, ref),
         })
       }
       // The classes THIS party publishes, and only those: an axis a sponsor does
       // not classify by is a question with no answer, and the operator should not
       // be made to look at it.
-      for (const element of entryClassElements(party, ref)) elements.push(element)
+      for (const element of entryClassElements(party, ref, ctx)) elements.push(element)
 
       elements.push({
         type: 'field',
         fieldType: 'email',
         key: 'email',
-        label: LABELS.ourEmail,
+        label: t('ourEmail'),
         value: ourEmail(party, undefined, ref),
       })
 
-      elements.push({ type: 'markdown', text: infoMarkdown(party) })
+      elements.push({ type: 'markdown', text: infoMarkdown(party, ctx) })
 
       return [
         {
@@ -357,22 +411,23 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
     /// parties that number their contacts, and a name for those that trade them.
     async loggingControls(
       { qso }: { operation: Record<string, JSONValue>; qso?: Record<string, JSONValue> },
-      _ctx: HookContext,
+      ctx: HookContext,
     ): Promise<LoggingControlDescriptor[]> {
       const controls: LoggingControlDescriptor[] = []
       const chrome = { icon: party.icon, color: party.accentColor }
+      const t = labelsFor(party, ctx)
 
       if (party.exchange.number) {
         controls.push({
           key: `${party.refType}/ourSerial`,
-          label: LABELS.ourSerial,
+          label: t('ourSerial'),
           ...chrome,
           order: 10,
           input: { kind: 'serial', refType: party.refType, field: 'ourSerial', sequence: { key: 'serial' } },
         })
         controls.push({
           key: `${party.refType}/theirSerial`,
-          label: LABELS.theirSerial,
+          label: t('theirSerial'),
           ...chrome,
           order: 20,
           input: { kind: 'text', refType: party.refType, field: 'theirSerial', numeric: true, maxLength: 5 },
@@ -382,7 +437,7 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
       if (party.exchange.name) {
         controls.push({
           key: `${party.refType}/theirName`,
-          label: LABELS.theirName,
+          label: t('theirName'),
           ...chrome,
           order: 30,
           input: { kind: 'text', refType: party.refType, field: 'theirName', maxLength: 12 },
@@ -394,7 +449,7 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
       const inheritPrefix = exchangeInheritPrefix(party)
       controls.push({
         key: `${party.refType}/location`,
-        label: party.labelForCounty,
+        label: resolveLabel(party.labels.theirLocation, ctx, party.labelForCounty),
         ...chrome,
         order: 40,
         input: {

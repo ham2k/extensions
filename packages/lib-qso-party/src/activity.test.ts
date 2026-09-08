@@ -9,28 +9,60 @@ import assert from "node:assert/strict"
 
 import type {
   FormElement,
+  FormField,
+  FormFieldOption,
   FormInputDescriptor,
+  HookContext,
   JSONValue,
   OptionsInputDescriptor,
 } from "@ham2k/extension-sdk"
 
 import { qsoPartyActivity } from "./activity.ts"
-import type { QsoPartyParams } from "./params.ts"
+import type { QsoPartyLabels, QsoPartyParams } from "./params.ts"
 import { qsoPartyRefHandler } from "./refHandler.ts"
 import { CA, MN, NEQP, NV, NY, WI } from "./testFixtures.ts"
 
 const ctx = { online: false } as never
 
+/// An app running in Spanish. Every hook is handed one of these, and it is the
+/// only thing a party's translator has to go on.
+const ES: HookContext = { online: false, locale: 'es' }
+
 function operation(ref: Record<string, JSONValue> = {}, params: QsoPartyParams = NY): Record<string, JSONValue> {
   return { uuid: 'op', stationCall: 'N0DEV', refs: [{ type: params.refType, ...ref }] }
 }
 
-async function setupForm(params: QsoPartyParams, ref: Record<string, JSONValue> = {}) {
+async function setupForm(
+  params: QsoPartyParams,
+  ref: Record<string, JSONValue> = {},
+  hookCtx: HookContext = ctx,
+) {
   const controls = await qsoPartyActivity(params).operationControls!(
     { operation: operation(ref, params) },
-    ctx,
+    hookCtx,
   )
   return (controls[0].input as FormInputDescriptor).form
+}
+
+function fieldOf(form: { elements: FormElement[] }, key: string): FormField {
+  const field = form.elements.find((element) => element.type === 'field' && element.key === key)
+  assert.ok(field, `the form asks nothing under ${key}`)
+  return field as FormField
+}
+
+function labelOf(form: { elements: FormElement[] }, key: string): string {
+  return fieldOf(form, key).label
+}
+
+function optionLabels(form: { elements: FormElement[] }, key: string): string[] {
+  return (fieldOf(form, key).options as FormFieldOption[]).map((option) => option.label)
+}
+
+function markdownOf(form: { elements: FormElement[] }): string {
+  return form.elements
+    .filter((element) => element.type === 'markdown')
+    .map((element) => element.text)
+    .join('\n')
 }
 
 /// The questions a setup form asks, in order. The help text and the information
@@ -39,10 +71,14 @@ function fieldKeys(form: { elements: FormElement[] }): string[] {
   return form.elements.flatMap((element) => ('key' in element && element.key ? [element.key] : []))
 }
 
-async function exchangeInput(params: QsoPartyParams, qso?: Record<string, JSONValue>) {
+async function exchangeInput(
+  params: QsoPartyParams,
+  qso?: Record<string, JSONValue>,
+  hookCtx: HookContext = ctx,
+) {
   const controls = await qsoPartyActivity(params).loggingControls!(
     { operation: operation({}, params), qso },
-    ctx,
+    hookCtx,
   )
   const control = controls.find((c) => c.key === `${params.refType}/location`)!
   return { controls, input: control.input as OptionsInputDescriptor }
@@ -163,6 +199,120 @@ test('the information panel says when the party runs and how far to trust that',
     .map((element) => element.text).join('\n')
     .match(/\*\*Period:/g)
   assert.equal(periods?.length, 2)
+})
+
+/// One label as an event with its own catalog supplies it: a function of the
+/// ctx the hook was handed, and of nothing else.
+function localized(en: string, es: string) {
+  return (hookCtx: HookContext) => (hookCtx.locale === 'es' ? es : en)
+}
+
+/// A party translating the form into its operators' language. Deliberately
+/// PARTIAL on the classes — `QRP`, `HIGH` and the modes are left alone — because
+/// what an untranslated class falls back to is half of what the seam promises.
+const SPANISH: QsoPartyLabels = {
+  ourLocation: localized('Our County', 'Nuestro Condado'),
+  theirLocation: localized('County', 'Condado'),
+  countyLineHelp: localized('On a county line, send both:', 'En una línea de condados, envía ambos:'),
+  mobileHelp: localized('Roving?', '¿En movimiento?'),
+  ourName: localized('Our Name', 'Nuestro nombre'),
+  ourEmail: localized('E-mail', 'Correo para enviar el log'),
+  ourSerial: localized('Our #', 'Nuestro #'),
+  theirSerial: localized('Their #', 'Su #'),
+  theirName: localized('Name', 'Nombre'),
+  classNone: localized('Not declared', 'Sin declarar'),
+  operator: localized('Entry Class', 'Categoría'),
+  power: localized('Power', 'Potencia'),
+  station: localized('Station', 'Estación'),
+  mode: localized('Mode', 'Modo'),
+  overlay: localized('Overlay', 'Categoría adicional'),
+  period: localized('**Period:**', '**Periodo:**'),
+  status: localized('**Status:**', '**Estado:**'),
+  lastUpdated: localized('**Data last updated:**', '**Datos actualizados:**'),
+  operatorClasses: { 'SINGLE-OP': localized('Single Operator', 'Operador único') },
+  powerClasses: { LOW: localized('Low Power', 'Potencia baja') },
+  stationClasses: { MOBILE: localized('Mobile', 'Móvil') },
+  overlayClasses: { ROOKIE: localized('Rookie', 'Novato') },
+}
+
+const TRANSLATED: QsoPartyParams = {
+  ...NY,
+  labels: SPANISH,
+  exchange: { number: true, name: true },
+  status: 'Verificado para 2026',
+  lastUpdated: '2026-09-06',
+}
+
+test("a party's own translator answers for every label the form asks", async () => {
+  // The engine has no catalog to merge and no idea what a party calls things:
+  // every label is resolved through the party's function from the ctx the hook
+  // was handed. A seam that dropped either would render the engine's English.
+  const form = await setupForm(TRANSLATED, {}, ES)
+
+  assert.equal(labelOf(form, 'location'), 'Nuestro Condado')
+  assert.equal(labelOf(form, 'ourName'), 'Nuestro nombre')
+  assert.equal(labelOf(form, 'email'), 'Correo para enviar el log')
+  assert.equal(labelOf(form, 'operator'), 'Categoría')
+  assert.equal(labelOf(form, 'power'), 'Potencia')
+  assert.equal(labelOf(form, 'station'), 'Estación')
+  assert.equal(labelOf(form, 'mode'), 'Modo')
+  assert.equal(labelOf(form, 'overlay'), 'Categoría adicional')
+
+  // The ANSWERS too: a form whose questions are translated and whose options
+  // are not is worse than an English one. `Sin declarar` first, the classes this
+  // party translated in their own words, and the ones it did not in the
+  // engine's English rather than as Cabrillo codes — with the sponsor's own
+  // watts still beside them.
+  assert.deepEqual(optionLabels(form, 'operator'), [
+    'Sin declarar', 'Operador único', 'Multi Operator, One Transmitter', 'Multi Operator, Unlimited',
+  ])
+  assert.deepEqual(optionLabels(form, 'power'), [
+    'Sin declarar', 'QRP — 5 watts', 'Potencia baja — 100 watts', 'High Power — >100 watts',
+  ])
+  assert.deepEqual(optionLabels(form, 'station'), [
+    'Sin declarar', 'Fixed', 'Móvil', 'Portable', 'School',
+  ])
+  assert.deepEqual(optionLabels(form, 'overlay'), ['Sin declarar', 'Novato', 'Youth', 'YL'])
+
+  const markdown = markdownOf(form)
+  // The instruction is the party's; the EXAMPLE is its own county codes, which
+  // the engine appends — a translation states the words and no more.
+  assert.match(markdown, /En una línea de condados, envía ambos: ALB\/ALL/)
+  assert.match(markdown, /¿En movimiento\?/)
+  // The headings translate; the dates, the status note and the sponsor's URL do
+  // not, because they are the party's own data rather than the engine's words.
+  assert.match(markdown, /\*\*Periodo:\*\* 2026-10-17 14:00Z — 2026-10-18 01:59Z/)
+  assert.match(markdown, /\*\*Estado:\*\* Verificado para 2026/)
+  assert.match(markdown, /\*\*Datos actualizados:\*\* 2026-09-06/)
+
+  // And the exchange row, which is the other half of what an operator reads.
+  const { controls } = await exchangeInput(TRANSLATED, undefined, ES)
+  const labels = Object.fromEntries(controls.map((control) => [control.key, control.label]))
+  assert.equal(labels[`${TRANSLATED.refType}/ourSerial`], 'Nuestro #')
+  assert.equal(labels[`${TRANSLATED.refType}/theirSerial`], 'Su #')
+  assert.equal(labels[`${TRANSLATED.refType}/theirName`], 'Nombre')
+  assert.equal(labels[`${TRANSLATED.refType}/location`], 'Condado')
+})
+
+test('a party that supplies no translator reads exactly as it did before there was one', async () => {
+  // The seam costs an event nothing: a party that declares no labels renders the
+  // engine's English whatever locale the app is in — the same strings, composed
+  // the same way, as when there was no seam at all.
+  const form = await setupForm({ ...NY, status: 'Verified for 2026' }, {}, ES)
+  assert.equal(labelOf(form, 'location'), 'Our County')
+  assert.equal(labelOf(form, 'email'), 'E-mail for the log submission')
+  assert.equal(labelOf(form, 'operator'), 'Entry Class')
+  assert.deepEqual(optionLabels(form, 'operator').slice(0, 2), ['Not declared', 'Single Operator'])
+  const markdown = markdownOf(form)
+  assert.match(markdown, /On a county line, send both: ALB\/ALL/)
+  assert.match(markdown, /Roving\? Type BREAK/)
+  assert.match(markdown, /\*\*Status:\*\* Verified for 2026/)
+  assert.match(markdown, /\*\*Period:\*\* 2026-10-17 14:00Z/)
+
+  // A party whose subdivisions are its own word keeps it: the noun is the
+  // sponsor's, and only the sentence around it is the engine's.
+  const districts = await setupForm({ ...NY, labelForCounty: 'District' }, {}, ES)
+  assert.equal(labelOf(districts, 'location'), 'Our District')
 })
 
 test('the exchange field asks for a serial only where the sponsor does', async () => {

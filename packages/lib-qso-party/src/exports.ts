@@ -33,7 +33,7 @@ import {
 } from "./exchange.ts"
 import { allInParty, parseLocations } from "./location.ts"
 import type { QsoPartyParams } from "./params.ts"
-import { type Party, resolveParty } from "./party.ts"
+import { type Party, resolveLabel, resolveParty } from "./party.ts"
 
 function filenameFor(
   party: Party,
@@ -107,7 +107,7 @@ export function qsoPartyExport(params: QsoPartyParams): ExportHook {
   const party = resolveParty(params)
 
   return {
-    async suggestExportOptions(args: ExportOptionsRequest, _ctx: HookContext): Promise<ExportOption[]> {
+    async suggestExportOptions(args: ExportOptionsRequest, ctx: HookContext): Promise<ExportOption[]> {
       if (!refOfType(args.operation as Record<string, unknown>, party.refType)) return []
       const named = (extension: string) =>
         filenameFor(party, args.operation, args.qsos ?? [], extension, args.compactFilenames)
@@ -115,7 +115,7 @@ export function qsoPartyExport(params: QsoPartyParams): ExportHook {
       const options: ExportOption[] = [{
         exportType: 'contest-adif',
         format: 'adif',
-        label: `ADIF for ${party.short}`,
+        label: resolveLabel(party.labels.adifExport, ctx, `ADIF for ${party.short}`),
         filename: named('adi'),
         selectedByDefault: true,
         refType: party.refType,
@@ -128,7 +128,7 @@ export function qsoPartyExport(params: QsoPartyParams): ExportHook {
         options.push({
           exportType: 'cabrillo',
           format: 'cabrillo',
-          label: `Cabrillo for ${party.short}`,
+          label: resolveLabel(party.labels.cabrilloExport, ctx, `Cabrillo for ${party.short}`),
           filename: named('log'),
           selectedByDefault: true,
           refType: party.refType,

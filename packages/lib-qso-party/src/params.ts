@@ -21,7 +21,7 @@
 // Every option is optional and every default is stated on the field. A party
 // file states the rules its sponsor publishes and nothing else.
 
-import type { JSONValue } from "@ham2k/extension-sdk"
+import type { HookContext, JSONValue } from "@ham2k/extension-sdk"
 
 /// Which national county/section vocabulary a party belongs to — `K` for the US
 /// parties, `VE` for the Canadian ones. Decides which of the two tables an
@@ -93,6 +93,80 @@ export interface QsoPartyExchangeFields {
   number?: boolean
   /// The operator's name each way (MN).
   name?: boolean
+}
+
+/// One operator-facing label: a plain string that replaces the engine's
+/// English, or the party's OWN translator closed over its own catalog.
+///
+/// A function rather than a catalog handed over, because the engine has nothing
+/// to merge one into: an event that ships translations builds a translator from
+/// `ctx.locale` (the SDK's `createCachedTranslator`) and hands back the finished
+/// string. The same shape the SDK's activity scoring rules take for `refNoun`
+/// and `p2pLabel`, and for the same reason.
+export type QsoPartyLabel = string | ((ctx: HookContext) => string)
+
+/// The strings an operator reads that are the ENGINE's words rather than the
+/// sponsor's — the setup form's questions, the exchange row's labels, the
+/// export sheet's options.
+///
+/// Every key defaults to the English constant the engine carries, so a party
+/// that declares none reads exactly as it would with this block absent: the
+/// seam costs an event nothing until it uses it.
+///
+/// What is deliberately NOT here: the party's name and short name, its county
+/// names and codes, the sponsor's own power limits, the status and update notes
+/// and the contest dates. Those are what the rules are published as, and an
+/// operator checking a form against a rule book wants them in the rule book's
+/// words.
+///
+/// A label is the WHOLE string an operator reads, except where the comment on
+/// the key says the engine appends a value — a translation that omits the half
+/// it thought was appended renders half a label.
+export interface QsoPartyLabels {
+  /// The setup form's location field — `Our County`. Whoever translates it owns
+  /// the noun too: `labelForCounty` is the sponsor's word only where the
+  /// sponsor has one, and English otherwise.
+  ourLocation?: QsoPartyLabel
+  /// The exchange row's location field — the bare noun, `County`. As
+  /// `ourLocation`.
+  theirLocation?: QsoPartyLabel
+  /// The county-line instruction. The engine appends an EXAMPLE built from this
+  /// party's own county codes, so a translation states the instruction alone.
+  countyLineHelp?: QsoPartyLabel
+  /// The standing note shown to a party that classes mobiles and rovers.
+  mobileHelp?: QsoPartyLabel
+  ourName?: QsoPartyLabel
+  ourEmail?: QsoPartyLabel
+  ourSerial?: QsoPartyLabel
+  theirSerial?: QsoPartyLabel
+  theirName?: QsoPartyLabel
+  /// The empty option every class select carries — `Not declared`, and the
+  /// answer a fresh setup keeps.
+  classNone?: QsoPartyLabel
+  /// The class selects' own labels — `Entry Class`, `Power`, and the rest.
+  operator?: QsoPartyLabel
+  power?: QsoPartyLabel
+  station?: QsoPartyLabel
+  mode?: QsoPartyLabel
+  overlay?: QsoPartyLabel
+  /// The information panel's headings. The engine appends the period, the
+  /// status text and the date they describe.
+  period?: QsoPartyLabel
+  status?: QsoPartyLabel
+  lastUpdated?: QsoPartyLabel
+  /// The export sheet's two options — `ADIF for TXQP`. The party's short name
+  /// is part of the label rather than appended, because where it belongs in the
+  /// sentence is the translator's business.
+  adifExport?: QsoPartyLabel
+  cabrilloExport?: QsoPartyLabel
+  /// What each class this party publishes is CALLED. Keyed by the class, so an
+  /// event translates the ones its sponsor classifies by and leaves the rest;
+  /// an untranslated class reads as the engine's English.
+  operatorClasses?: Partial<Record<OperatorClass, QsoPartyLabel>>
+  powerClasses?: Partial<Record<PowerClass, QsoPartyLabel>>
+  stationClasses?: Partial<Record<StationClass, QsoPartyLabel>>
+  modeClasses?: Partial<Record<ModeClass, QsoPartyLabel>>
+  overlayClasses?: Partial<Record<OverlayClass, QsoPartyLabel>>
 }
 
 /// The bonuses won once for the whole log rather than per QSO. All zero unless
@@ -328,6 +402,15 @@ export interface QsoPartyParams {
   entryClasses?: QsoPartyEntryClasses
   /// What the entry row asks for besides the location. Default: neither.
   exchange?: QsoPartyExchangeFields
+
+  // ------------------------------------------------------------------ labels
+
+  /// What an operator reads on the setup form, the exchange row and the export
+  /// sheet, where the words are the engine's rather than the sponsor's.
+  /// Default: the English every key documents on `QsoPartyLabels`. An event
+  /// that ships no translations declares nothing here and reads as it always
+  /// has.
+  labels?: QsoPartyLabels
 
   // --------------------------------------------------------------- overrides
   //

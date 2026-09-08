@@ -18,6 +18,8 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { registerHooks } from "node:module"
 
+import type { HookContext } from "@ham2k/extension-sdk"
+
 const SDK_STUB = `
 export function contestScorer(scorer, options) {
   return { scorer, scope: options?.scope, scoreQsos: async () => ({}) }
@@ -97,6 +99,37 @@ test('a Cabrillo is offered only by a party that names the contest', async () =>
     await defineQsoParty(NY).export.suggestExportOptions!({ operation: { uuid: 'op', refs: [] }, qsos: [] }, ctx),
     [],
   )
+})
+
+test('the export sheet names the two files in the party′s own words', async () => {
+  // The labels an operator picks between are the ENGINE's words, not the
+  // sponsor's, so they take the same translator seam the setup form does. The
+  // short name is part of the label rather than appended to it, because where a
+  // name belongs in a sentence is the translator's business and not this
+  // module's.
+  const es = { locale: 'es' } as never
+  const translated = {
+    ...NY,
+    labels: {
+      adifExport: (hookCtx: HookContext) => (hookCtx.locale === 'es' ? 'ADIF del NYQP' : 'ADIF for NYQP'),
+      cabrilloExport: (hookCtx: HookContext) => (
+        hookCtx.locale === 'es' ? 'Cabrillo del NYQP' : 'Cabrillo for NYQP'
+      ),
+    },
+  }
+  const spanish = await defineQsoParty(translated).export.suggestExportOptions!(
+    { operation: operation(translated), qsos: [] },
+    es,
+  )
+  assert.deepEqual(spanish.map((option) => option.label), ['ADIF del NYQP', 'Cabrillo del NYQP'])
+
+  // A party that names neither reads as English in any locale: the seam costs
+  // an event nothing until it uses it.
+  const plain = await defineQsoParty(NY).export.suggestExportOptions!(
+    { operation: operation(), qsos: [] },
+    es,
+  )
+  assert.deepEqual(plain.map((option) => option.label), ['ADIF for NYQP', 'Cabrillo for NYQP'])
 })
 
 test('the Cabrillo is the sponsor′s file, headers and all', async () => {

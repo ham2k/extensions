@@ -36,6 +36,8 @@ export type {
   QsoPartyBonus,
   QsoPartyEntryClasses,
   QsoPartyExchangeFields,
+  QsoPartyLabel,
+  QsoPartyLabels,
   QsoPartyLocation,
   QsoPartyParams,
   QsoPartyPeriod,

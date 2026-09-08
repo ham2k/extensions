@@ -21,6 +21,11 @@ Party.
     field, one Cabrillo writer and one setup form, built from the
     `QsoPartyParams` a party hands it. Every rule a sponsor can state is an
     option or a table there; nothing about a particular party lives in code.
+    The form's own words are English unless an event supplies a translator for
+    them — `labels` in `QsoPartyParams`, one function per label, taking the
+    `ctx` the hook is handed. It is the same seam the manifest already gives
+    the extension's name and description, reaching the setup form, the exchange
+    row and the export sheet.
   - `@ham2k/qso-parties` — every party's rules, counties and dates as
     `QsoPartyParams`, one module per event, **generated** from the sponsors'
     own files. Edit a fixture and re-run the generator; never edit a module.
@@ -97,10 +102,10 @@ extensions use:
 
 | bundle | `index.js` | `.h2kext` |
 |---|---:|---:|
-| `ham2k-texas-qso-party` | 137,748 | 37,916 |
-| `ham2k-canadian-prairies-qso-party` | 136,676 | 37,167 |
-| `ham2k-7th-call-area-qso-party` | 144,010 | 39,685 |
-| **three events** | **418,434** | **114,768** |
+| `ham2k-texas-qso-party` | 139,148 | 38,298 |
+| `ham2k-canadian-prairies-qso-party` | 138,076 | 37,542 |
+| `ham2k-7th-call-area-qso-party` | 145,410 | 40,060 |
+| **three events** | **422,634** | **115,900** |
 | the app's own `qp.js`, all fifty parties | 318,890 | — |
 
 Three events cost more than fifty do inside the app, and the reason is worth
@@ -109,7 +114,7 @@ stating plainly rather than discovering later. Texas breaks down as:
 | | bytes |
 |---|---:|
 | `@ham2k/extension-sdk` | 65,969 |
-| `@ham2k/lib-qso-party` — the engine | 57,697 |
+| `@ham2k/lib-qso-party` — the engine | 59,097 |
 | the party itself — 254 counties, its options and its dates | 6,004 |
 | this extension's own code | 3,842 |
 | esbuild's runtime and its IIFE wrapper | 4,236 |
