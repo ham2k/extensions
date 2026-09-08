@@ -9,6 +9,7 @@
 // `defineQsoParty(params)` answers with everything it registers, so a party
 // file states rules and never repeats a hook.
 
+import { contestScorer, entityPrefixForCall } from "@ham2k/extension-sdk"
 import type {
   ActivityHook,
   AdifFieldsHook,
@@ -19,7 +20,12 @@ import type {
   ScoringScope,
 } from "@ham2k/extension-sdk"
 
+import { qsoPartyActivity } from "./activity.ts"
+import { registerEntityLookup } from "./dxcc.ts"
+import { qsoPartyAdifFields, qsoPartyExport } from "./exports.ts"
 import type { QsoPartyParams } from "./params.ts"
+import { qsoPartyRefHandler } from "./refHandler.ts"
+import { qsoPartyScorer } from "./scorer.ts"
 
 export type {
   ModeClass,
@@ -37,6 +43,18 @@ export type {
   QsoPartyStanding,
   StationClass,
 } from "./params.ts"
+
+// The host's country file, handed to the seam the scorer and the exchange read
+// it through (`dxcc.ts`). Registered here because this module is the package's
+// only entry — an extension that imports anything from this engine has already
+// run this line — and because it is the SDK's runtime that the engine's own
+// tests cannot load.
+registerEntityLookup(entityPrefixForCall)
+
+export { qsoPartyActivity } from "./activity.ts"
+export { qsoPartyAdifFields, qsoPartyExport } from "./exports.ts"
+export { qsoPartyRefHandler } from "./refHandler.ts"
+export { qsoPartyScorer } from "./scorer.ts"
 
 /// The scorer's running record. A `type` rather than an `interface`, which is
 /// what makes it satisfy the SDK's `Scoresheet` (JSON) constraint: the core
@@ -103,36 +121,23 @@ export interface QsoPartyHooks {
   scoring: ScoringHook & { scope: ScoringScope }
 }
 
-/// Scores a log under one party's rules: our county against theirs, county
-/// lines both ways, bonus stations, sweeps and the power multiplier.
-export function qsoPartyScorer(_params: QsoPartyParams): ContestScorer<QsoPartyScoresheet> {
-  throw new Error("not implemented")
-}
-
-/// The setup form, the exchange field, and the exchange projected into the
-/// generic QSON fields the rest of the app reads.
-export function qsoPartyActivity(_params: QsoPartyParams): ActivityHook {
-  throw new Error("not implemented")
-}
-
-/// The ref's own label, subtitle, operation title and rules link.
-export function qsoPartyRefHandler(_params: QsoPartyParams): RefHandlerHook {
-  throw new Error("not implemented")
-}
-
-/// The contest fields one contact contributes to an ADIF file — `CONTEST_ID`,
-/// the exchange sent and received, serials and names.
-export function qsoPartyAdifFields(_params: QsoPartyParams): AdifFieldsHook {
-  throw new Error("not implemented")
-}
-
-/// The submittable files: the sponsor's Cabrillo, and a contest ADIF that
-/// resolves every exchange the same way the Cabrillo does.
-export function qsoPartyExport(_params: QsoPartyParams): ExportHook {
-  throw new Error("not implemented")
-}
-
 /// One party's whole app-facing surface.
-export function defineQsoParty(_params: QsoPartyParams): QsoPartyHooks {
-  throw new Error("not implemented")
+///
+/// Every hook is built from the SAME params object, which is what keeps the
+/// scoreboard and the submitted file reading one set of rules: an extension that
+/// built its scorer from one set of options and its export from another would
+/// disagree with itself, contact by contact, and only in the file.
+export function defineQsoParty(params: QsoPartyParams): QsoPartyHooks {
+  return {
+    refType: params.refType,
+    activity: qsoPartyActivity(params),
+    refHandler: qsoPartyRefHandler(params),
+    adifFields: qsoPartyAdifFields(params),
+    export: qsoPartyExport(params),
+    scoring: contestScorer(qsoPartyScorer(params), { scope: { refTypes: [params.refType] } }),
+  }
 }
+
+/// Re-exported so an extension can name the scorer's type without reaching into
+/// the engine's own modules.
+export type { ContestScorer }

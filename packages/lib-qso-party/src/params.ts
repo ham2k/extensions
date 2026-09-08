@@ -150,8 +150,9 @@ export interface QsoPartyLocation {
 export interface QsoPartyPointsArgs {
   qso: Record<string, JSONValue>
   band: string
-  /// The super-mode — `CW`, `SSB`, `DATA` — before `dataAndCWCountAsSameMode`
-  /// folds digital into CW.
+  /// The super-mode — `CW`, `PHONE`, `DATA` — before `dataAndCWCountAsSameMode`
+  /// folds digital into CW. Phone is `PHONE`; `SSB` is the Cabrillo header's
+  /// spelling and appears nowhere a party's rules are read.
   superMode: string
   /// Our locations and theirs, already resolved. One contact is worth the price
   /// times `ours.length * theirs.length`, so answer the price of ONE pairing.
@@ -298,7 +299,7 @@ export interface QsoPartyParams {
   /// Valid exchange values and offered in the picker, but never in-party and
   /// never part of the county sweep. Default `{}`.
   otherCounties?: Record<string, string>
-  /// Super-mode (`CW`, `SSB`, `DATA`) → points for one contact. Default `{}`,
+  /// Super-mode (`CW`, `PHONE`, `DATA`) → points for one contact. Default `{}`,
   /// and an unlisted mode is worth 1: no sponsor lists every mode it allows,
   /// and zeroing a contact is a rules claim a missing entry does not make.
   pointsByMode?: Record<string, number>
