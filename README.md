@@ -43,7 +43,7 @@ Everything specific to one QSO party is data. Adding one is:
    the updated files in and run `node scripts/convert-parties.mjs <dir>`; the
    diff is reviewable and the differential test says what changed.
 2. `mkdir extensions/ham2k-<event-name>` with four files, copied from an
-   existing event — the three here differ only in identity and in which party
+   existing event — the four here differ only in identity and in which party
    they import:
    - `manifest.json` — key, name, `shortName`, version, description,
      `category: "contest"`, `api: 1`, icon, accent, keywords, `hooks`, `geo`,
@@ -67,7 +67,7 @@ what its codepoint table carries, so check a new one against
 
 `geo` is worth a moment. It **ranks** an extension in the catalog and in the
 Extensions panel for the operator's own callsign; nothing is hidden by it.
-These three declare `{"countries": ["us", "ca"]}` rather than
+These four declare `{"countries": ["us", "ca"]}` rather than
 `{"entities": ["K", "VE"]}`, because the DXCC entity `K` is the lower 48:
 Alaska is `KL` and Hawaii is `KH6`, and an operator in either is a prime
 multiplier in every one of these events rather than someone to rank it away
@@ -105,10 +105,11 @@ extensions use:
 | `ham2k-texas-qso-party` | 139,148 | 38,298 |
 | `ham2k-canadian-prairies-qso-party` | 138,076 | 37,542 |
 | `ham2k-7th-call-area-qso-party` | 145,410 | 40,060 |
-| **three events** | **422,634** | **115,900** |
+| `ham2k-new-york-qso-party` | 135,472 | 36,824 |
+| **four events** | **558,106** | **152,724** |
 | the app's own `qp.js`, all fifty parties | 318,890 | — |
 
-Three events cost more than fifty do inside the app, and the reason is worth
+Four events cost more than fifty do inside the app, and the reason is worth
 stating plainly rather than discovering later. Texas breaks down as:
 
 | | bytes |
@@ -119,14 +120,15 @@ stating plainly rather than discovering later. Texas breaks down as:
 | this extension's own code | 3,842 |
 | esbuild's runtime and its IIFE wrapper | 4,236 |
 
-**The event is 4% of its own bundle.** The other 96% is code every party's
-bundle carries an identical copy of, because the app is untouched by this work:
-the host offers a fixed list of shared libraries, the engine is not on that
-list, so each bundle brings its own. Making `@ham2k/lib-qso-party` a host
-shared module — the same mechanism `@ham2k/lib-qson-cabrillo` and the rest
+**The event is 4% of its own bundle** — which is why New York, with 62 counties
+against Texas's 254, is only 3,676 bytes smaller. The other 96% is code every
+party's bundle carries an identical copy of, because the app is untouched by
+this work: the host offers a fixed list of shared libraries, the engine is not
+on that list, so each bundle brings its own. Making `@ham2k/lib-qso-party` a
+host shared module — the same mechanism `@ham2k/lib-qson-cabrillo` and the rest
 already go through — takes each of these to roughly ten kilobytes, and is what
 makes fifty separate extensions cheaper than one extension holding fifty
-parties. Until then, an operator who installs three pays for three engines.
+parties. Until then, an operator who installs four pays for four engines.
 
 ## The `ham2k-` prefix, and what it means for testing
 
