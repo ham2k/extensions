@@ -1,5 +1,5 @@
 // Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: MIT
 //
 // Turns the sponsors' hand-maintained party files into `QsoPartyParams`
 // modules — `packages/qso-parties/fixtures/*.json` in, `src/parties/*.ts` and
@@ -32,7 +32,7 @@ const PARTIES_DIR = join(PACKAGE_DIR, "src", "parties")
 
 const HEADER = [
   "// Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>",
-  "// SPDX-License-Identifier: MPL-2.0",
+  "// SPDX-License-Identifier: MIT",
 ]
 
 /// What each of these six parties carries that app-polo's copy of the same file

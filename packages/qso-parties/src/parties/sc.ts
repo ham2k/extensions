@@ -1,5 +1,5 @@
 // Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: MIT
 //
 // DIVERGES from app-polo, deliberately. polo's copy ends on 2025-2-29, a date
 // that year does not have, which a date parser rolls forward into a period

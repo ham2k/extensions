@@ -1,5 +1,5 @@
 // Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: MIT
 //
 // The exchange on its way in (what the entry row offers) and on its way out
 // (what the sponsor receives). The Cabrillo cases are the ones that matter most:

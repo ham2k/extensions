@@ -1,5 +1,5 @@
 // Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: MIT
 //
 // How the party is found, set up, typed into and named — the surface an
 // operator touches, as opposed to what the scorer makes of it.

@@ -145,4 +145,7 @@ loadable build is wanted sooner, `inline: ['@ham2k/lib-qson-cabrillo']` in a
 
 ## License
 
-MPL-2.0, as the app and the SDK are.
+MIT — see [LICENSE.md](LICENSE.md). The app and the SDK are MPL-2.0; this repo
+is deliberately the looser of the two, so that an event's own club can take
+what is here and publish under its own name without inheriting a copyleft
+obligation from us.

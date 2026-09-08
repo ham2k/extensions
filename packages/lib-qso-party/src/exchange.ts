@@ -1,5 +1,5 @@
 // Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: MIT
 //
 // The exchange as the operator sees it and as the sponsor receives it: which
 // codes the entry row offers, which of them are floated to the top, and the

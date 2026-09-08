@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "The shared QSO-party engine: scoring, exchange handling and submittable files for state, provincial and regional QSO parties",
   "author": "Sebastian Delmont <sd@ham2k.com>",
-  "license": "MPL-2.0",
+  "license": "MIT",
   "type": "module",
   "//exports": [
     "Consumed as TypeScript source: the only consumers are extensions, which",

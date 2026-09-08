@@ -1,5 +1,5 @@
 // Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: MIT
 //
 // The sponsor's contest page is gone (404) and app-polo marks this party
 // `disabled`; its dates are still 2025 and nothing here re-derives them. The

@@ -1,5 +1,5 @@
 // Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: MIT
 //
 // The QSO-party engine: one set of rules, one scorer, one exchange field and
 // one submittable file for every party that hands this module a

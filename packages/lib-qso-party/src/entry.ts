@@ -1,5 +1,5 @@
 // Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: MIT
 //
 // What the operator declares once per operation — read off the party's ref, in
 // one place, so the setup form, the scorer, the ADIF and the Cabrillo cannot

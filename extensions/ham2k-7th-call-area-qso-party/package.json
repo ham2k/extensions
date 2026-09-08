@@ -4,7 +4,7 @@
   "private": true,
   "description": "Ham2K Logger extension: the 7th Call Area QSO Party",
   "author": "Sebastian Delmont <sd@ham2k.com>",
-  "license": "MPL-2.0",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "build": "node build.mjs",

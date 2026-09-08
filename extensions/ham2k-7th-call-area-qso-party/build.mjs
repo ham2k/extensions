@@ -1,5 +1,5 @@
 // Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: MIT
 //
 // Builds this extension the way any third party builds one: esbuild is ours to
 // bring, the preset carries the settings the sandbox requires, and everything

@@ -1,5 +1,5 @@
 // Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: MIT
 //
 // The files a party's log leaves as: the sponsor's Cabrillo, and a contest ADIF
 // that resolves every exchange the same way the Cabrillo does.

@@ -3,7 +3,7 @@
   "private": true,
   "description": "Official Ham2K Logger extensions, published to catalog.ham2k.net",
   "author": "Sebastian Delmont <sd@ham2k.com>",
-  "license": "MPL-2.0",
+  "license": "MIT",
   "type": "module",
   "workspaces": [
     "packages/*",

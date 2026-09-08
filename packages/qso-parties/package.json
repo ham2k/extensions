@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Every QSO party's rules, counties and dates as QsoPartyParams — one module per event, generated from the sponsors' own files",
   "author": "Sebastian Delmont <sd@ham2k.com>",
-  "license": "MPL-2.0",
+  "license": "MIT",
   "type": "module",
   "//exports": [
     "An extension imports the one party it is — `@ham2k/qso-parties/tx` — which",

@@ -1,5 +1,5 @@
 // Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: MIT
 //
 // GENERATED — `node scripts/convert-parties.mjs` writes this from
 // `fixtures/de.json`. Edit the fixture and re-run; an edit here is lost

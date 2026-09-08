@@ -1,5 +1,5 @@
 // Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: MIT
 //
 // Every party this package carries, keyed by the code the bundled version used
 // to name one — which is also the fixture's own name, and so the column a

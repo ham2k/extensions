@@ -1,5 +1,5 @@
 // Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: MIT
 //
 // DIVERGES from app-polo, deliberately. polo's copy still carries 2025 dates
 // and the old `warsalmonrun.org`, which no longer resolves; the event's page

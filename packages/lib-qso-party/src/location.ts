@@ -1,5 +1,5 @@
 // Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: MIT
 //
 // What a QSO party exchange MEANS: turning `ORDES/JEF`, `MD`, `DC` or an empty
 // field into the locations a contact is scored and submitted under.

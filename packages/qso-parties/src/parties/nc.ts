@@ -1,5 +1,5 @@
 // Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: MIT
 //
 // DIVERGES from app-polo, deliberately. polo's copy carries a 2025 end year
 // against a 2026 start; these dates were re-read from the sponsor's own
