@@ -1,0 +1,25 @@
+{
+  "name": "@ham2k/extensions",
+  "private": true,
+  "description": "Official Ham2K Logger extensions, published to catalog.ham2k.net",
+  "author": "Sebastian Delmont <sd@ham2k.com>",
+  "license": "MPL-2.0",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "extensions/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "tsc --noEmit && npm run typecheck --workspaces --if-present",
+    "pack": "npm run pack --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "typescript": "^5.8.0"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

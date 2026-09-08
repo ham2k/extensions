@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    // Imports name the .ts file they mean, so `node --experimental-strip-types`
+    // runs the tests and esbuild bundles the extensions, neither needing a
+    // build step of its own.
+    "allowImportingTsExtensions": true,
+    "types": ["node"]
+  }
+}
