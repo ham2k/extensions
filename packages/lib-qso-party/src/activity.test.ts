@@ -17,7 +17,7 @@ import type {
 import { qsoPartyActivity } from "./activity.ts"
 import type { QsoPartyParams } from "./params.ts"
 import { qsoPartyRefHandler } from "./refHandler.ts"
-import { CA, MN, NV, NY, WI } from "./testFixtures.ts"
+import { CA, MN, NEQP, NV, NY, WI } from "./testFixtures.ts"
 
 const ctx = { online: false } as never
 
@@ -59,6 +59,25 @@ test('the party is found by its own name, its short name or its state', async ()
   // Unless this extension alone was asked, in which case the answer is what it
   // has: a scoped search is the operator looking AT this party, not for it.
   assert.equal((await suggest({ operation: {}, searchTerm: 'texas', scoped: true }, ctx)).length, 1)
+})
+
+test('a party spanning several states is found by any one of them', async () => {
+  // A multi-state party has NO `state` — none of its own outranks the others —
+  // and its name says nothing about where it is. Without the states it spans,
+  // an operator in Massachusetts typing where they are finds nothing at all.
+  const suggest = qsoPartyActivity(NEQP).suggest!
+  for (const term of ['MA', 'ma', ' CT ', 'RI']) {
+    assert.equal((await suggest({ operation: {}, searchTerm: term }, ctx)).length, 1, `"${term}" finds nothing`)
+  }
+  // A state this party does not span is somebody else's answer. The term is
+  // matched WHOLE, as a single state is: a two-character code tested as a
+  // substring would answer for a party it has nothing to do with.
+  assert.deepEqual(await suggest({ operation: {}, searchTerm: 'AK' }, ctx), [])
+
+  // And a single-state party still answers for its own state and no other.
+  const ny = qsoPartyActivity(NY).suggest!
+  assert.equal((await ny({ operation: {}, searchTerm: 'ny' }, ctx)).length, 1)
+  assert.deepEqual(await ny({ operation: {}, searchTerm: 'MA' }, ctx), [])
 })
 
 test('a suggestion carries everything the activity row shows', async () => {

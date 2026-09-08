@@ -245,7 +245,7 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
 
   return {
     /// One suggestion, for this party: the operator finds it by the sponsor's
-    /// name, its short name, or the state it belongs to.
+    /// name, its short name, or a state it covers.
     ///
     /// Everything the app displays is carried HERE: the suggestion path persists
     /// what this returns verbatim and never calls `decorateRef`, so a ref added
@@ -256,9 +256,16 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
       const namesThisParty = !term
         || party.short.toUpperCase().includes(term)
         || party.name.toUpperCase().includes(term)
-        // A party spanning several states has no state to be found by; its own
-        // name and short name are what an operator there searches for.
+        // The state, or ANY of the states a party spanning several of them
+        // spans: an operator in Massachusetts looks for the New England party
+        // by where they are, and neither its name nor its short name says
+        // Massachusetts.
+        //
+        // Equality where the names match on substring, because a state code is
+        // two characters: `IN` inside a longer word would answer for Indiana in
+        // half the searches an operator types.
         || party.state?.toUpperCase() === term
+        || !!party.states?.some((state) => state.toUpperCase() === term)
         || party.refType.toUpperCase().includes(term)
       // Not ours, and nobody asked us in particular.
       if (!namesThisParty && !scoped) return []
