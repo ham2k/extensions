@@ -135,13 +135,13 @@ publishing it to the catalog, or building it under a key that is not `ham2k-`.
 
 ## Open, and load-bearing
 
-`@ham2k/lib-qson-cabrillo` **1.2.0 is not published.** It carries the Cabrillo
-*writer* the engine calls; the newest release is 1.1.0, which reads Cabrillo
-and cannot write it. Every manifest here declares `^1.2.0`, which is the honest
-statement of what the code needs — and it means the host will refuse to load
-these bundles until that version ships and an app build carries it. If a
-loadable build is wanted sooner, `inline: ['@ham2k/lib-qson-cabrillo']` in a
-`build.mjs` ships a private copy and says so.
+**The host must carry `@ham2k/lib-qson-cabrillo` 1.2.0 or newer.** That release
+added the Cabrillo *writer* the engine calls; 1.1.0 and earlier read Cabrillo
+and cannot write it. Every manifest here declares `^1.2.0`, and the host checks
+a declared range against the copy it actually holds — so an app built against
+an older one refuses these bundles by name and version rather than failing at
+the moment someone exports a log. The app's own `extensions/package.json` is
+where that floor is raised.
 
 ## License
 

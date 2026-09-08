@@ -23,13 +23,12 @@
     "typecheck": "tsc --noEmit"
   },
   "//dependencies": [
-    "lib-qson-cabrillo is a local path until the Cabrillo WRITER it now carries",
-    "is published; it becomes ^1.2.0 then. The host bundles its own copy of",
-    "this library, so an extension needs the published version to be at least",
-    "that before the writer is reachable at runtime."
+    "The Cabrillo WRITER arrived in lib-qson-cabrillo 1.2.0, so that is the",
+    "floor: the host holds its own copy of this library and an extension built",
+    "against an older one finds no writer at runtime."
   ],
   "dependencies": {
-    "@ham2k/lib-qson-cabrillo": "file:../../../ham-js-libs/packages/lib-qson-cabrillo"
+    "@ham2k/lib-qson-cabrillo": "^1.2.0"
   },
   "//peerDependencies": [
     "The SDK is provided by the extension that consumes this package: its own",
