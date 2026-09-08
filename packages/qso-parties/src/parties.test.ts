@@ -341,8 +341,9 @@ function resolvedEntryClasses(params: QsoPartyParams): ReferenceParty['entryClas
 
 /// The state a county belongs to, by the rule the params contract documents:
 /// the party's own callback, else the first two characters of a long
-/// abbreviation, else `state`.
-function stateOfCounty(params: QsoPartyParams, county: string): string {
+/// abbreviation, else `state` — which a multi-state party does not have, so a
+/// short code it forgets to table comes back with no state at all.
+function stateOfCounty(params: QsoPartyParams, county: string): string | undefined {
   const code = county.toUpperCase()
   return params.stateOfCounty?.(code) ?? (code.length > 4 ? code.slice(0, 2) : params.state)
 }
@@ -402,8 +403,12 @@ for (const key of Object.keys(REFERENCE).sort()) {
 
     // `state` and `stateOfCounty` together have to answer what one function of
     // the party KEY answered before — the key is gone, and a county that comes
-    // back with no state, or with the wrong one, silently scores under
-    // out-of-party rules.
+    // back with the wrong state silently scores under out-of-party rules.
+    //
+    // A multi-state party has no `state`, so its short codes have nothing to
+    // fall back on: if one of those ever stopped being tabled, this compares
+    // `undefined` against the reference's party key and says so here rather
+    // than leaving a county with no state at all.
     for (const county of Object.keys(reference.counties)) {
       assert.equal(
         stateOfCounty(params, county),
@@ -603,6 +608,55 @@ test('a county knows its state, three different ways', () => {
   // replaced the bundled version's party key.
   assert.equal(stateOfCounty(party('NY'), 'ALB'), 'NY')
   assert.equal(party('NY').state, 'NY')
+})
+
+test('a party says where its counties are exactly one way', () => {
+  // Neither is a party whose short county codes have no state at all. Both is
+  // two answers that can disagree — and `state` is the one a score reads, so
+  // the list would be the half nobody notices going stale.
+  for (const key of Object.keys(PARTIES)) {
+    const params = party(key)
+    assert.equal(
+      Boolean(params.state) !== Boolean(params.states),
+      true,
+      `${key} declares ${params.state ? 'a state and' : 'neither a state nor'} a state list`,
+    )
+  }
+})
+
+test('every county of a multi-state party is in a state that party spans', () => {
+  // The list is derived from the county data, so it can only disagree with the
+  // data if the DATA changed: a county code mistyped in a re-sync (`OSDES` for
+  // `ORDES`) lands in a state the party does not span, and a list carried over
+  // from another party's file keeps a state no county of this one is in. Both
+  // directions, because each catches only its own.
+  const multiState = Object.keys(PARTIES).filter((key) => party(key).states).sort()
+  assert.deepEqual(multiState, ['7QP', 'ACQP', 'CPQP', 'NEQP'])
+
+  for (const key of multiState) {
+    const params = party(key)
+    const declared = new Set(params.states)
+    const derived = new Set<string>()
+    for (const county of Object.keys(params.counties)) {
+      const state = stateOfCounty(params, county)
+      assert.ok(state, `${key}: ${county} names no state, and ${key} has none to fall back on`)
+      assert.ok(declared.has(state), `${key}: ${county} is in ${state}, which ${key} does not span`)
+      derived.add(state)
+    }
+    assert.deepEqual([...derived].sort(), [...declared].sort(), `${key} spans what its counties say`)
+  }
+})
+
+test('the states each multi-state party spans', () => {
+  // Spelled out, because the derivation above proves the list agrees with the
+  // counties and NOT that either is right. These four are the sponsors' own:
+  // the 7th call area's eight states, New England's six, Atlantic Canada's four
+  // provinces and the three prairie ones. A re-sync that adds or drops a state
+  // is a change to what the party IS, and lands here to be read.
+  assert.deepEqual(party('7QP').states, ['AZ', 'ID', 'MT', 'NV', 'OR', 'UT', 'WA', 'WY'])
+  assert.deepEqual(party('NEQP').states, ['CT', 'MA', 'ME', 'NH', 'RI', 'VT'])
+  assert.deepEqual(party('ACQP').states, ['NB', 'NL', 'NS', 'PE'])
+  assert.deepEqual(party('CPQP').states, ['AB', 'MB', 'SK'])
 })
 
 test('a date the calendar does not have is refused, not rolled forward', () => {

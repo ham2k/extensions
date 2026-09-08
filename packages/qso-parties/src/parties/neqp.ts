@@ -14,10 +14,11 @@ export const PARTY: QsoPartyParams = {
   refType: "new-england-qso-party",
   name: "New England QSO Party",
   short: "NEQP",
-  // Every county here names its own state, in its abbreviation or in the table
-  // below, so nothing reads this fallback. The party's own code stands in it:
-  // a lead state for a party spanning several would be an invention.
-  state: "NEQP",
+  // Several states, no one of them this party's own. Every county below names
+  // its state, in its abbreviation or in the table, and `states` is the list
+  // each of those has to fall in — a check on the county data, and nothing a
+  // score reads.
+  states: ["CT", "MA", "ME", "NH", "RI", "VT"],
   cabrilloName: "NEQP",
   url: "https://www.neqp.org/",
   status: "Updated for 2026, but not verified",

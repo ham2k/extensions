@@ -18,10 +18,11 @@ export const PARTY: QsoPartyParams = {
   refType: "atlantic-canada-qso-party",
   name: "Atlantic Canada QSO Party",
   short: "ACQP",
-  // Every county here names its own state, in its abbreviation or in the table
-  // below, so nothing reads this fallback. The party's own code stands in it:
-  // a lead state for a party spanning several would be an invention.
-  state: "ACQP",
+  // Several states, no one of them this party's own. Every county below names
+  // its state, in its abbreviation or in the table, and `states` is the list
+  // each of those has to fall in — a check on the county data, and nothing a
+  // score reads.
+  states: ["NB", "NL", "NS", "PE"],
   cabrilloName: "AC-QSO-PARTY",
   url: "https://www.acqp.ca/",
   status: "Updated for 2026, but not verified",

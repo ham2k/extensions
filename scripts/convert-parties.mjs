@@ -165,6 +165,28 @@ function shortFor(raw, key) {
   return str(raw.short) ?? (key.endsWith("QP") ? key : `${key}QP`)
 }
 
+/// The states or provinces a multi-state party spans, by the same two rules
+/// `stateForCounty` reads in the same order: the party's own table, else the
+/// state a code longer than four characters carries in its first two.
+///
+/// Derived from the county data rather than typed, so the list cannot claim a
+/// state the counties are not in — which is the whole of what it is for. A
+/// county that answers NEITHER rule throws: the party has no `state` to fall
+/// back on, so that county would score with no state at all, silently.
+function statesOf(counties, countyStates, key) {
+  const states = new Set()
+  for (const county of Object.keys(counties)) {
+    const state = countyStates[county] ?? (county.length > 4 ? county.slice(0, 2) : undefined)
+    if (!state) {
+      throw new Error(
+        `${key}: county ${county} names no state, and a party spanning several has none to fall back on`,
+      )
+    }
+    states.add(state)
+  }
+  return [...states].sort()
+}
+
 /// The ref type an extension owns, from the party's own name: `Texas QSO Party`
 /// is `texas-qso-party`. Derived rather than stated so two parties cannot be
 /// given the same one by hand — and the fifty names are distinct, which the
@@ -411,16 +433,21 @@ function emitParty(raw, key) {
   ], 2))
 
   // `state` answers what the bundled version's party KEY answered: the state a
-  // county belongs to when its own abbreviation does not say. The four
-  // regionals have no such county — every one of theirs carries its state, in
-  // its prefix or in a table — so their code stands here rather than a lead
-  // state, which for a party spanning eight of them would be an invention.
-  if (!/^[A-Z]{2}$/.test(key)) {
-    lines.push(`  // Every county here names its own state, in its abbreviation or in the table`)
-    lines.push(`  // below, so nothing reads this fallback. The party's own code stands in it:`)
-    lines.push(`  // a lead state for a party spanning several would be an invention.`)
+  // county belongs to when its own abbreviation does not say. A party whose key
+  // IS a state carries it; the four spanning several do NOT — none of their
+  // states outranks the others, and naming one would put every county that
+  // reached the fallback in a state the sponsor never claimed. They name what
+  // they span instead, derived from their own counties.
+  const identity = []
+  if (/^[A-Z]{2}$/.test(key)) {
+    identity.push(["state", quote(key)])
+  } else {
+    lines.push(`  // Several states, no one of them this party's own. Every county below names`)
+    lines.push(`  // its state, in its abbreviation or in the table, and \`states\` is the list`)
+    lines.push(`  // each of those has to fall in — a check on the county data, and nothing a`)
+    lines.push(`  // score reads.`)
+    identity.push(["states", `[${statesOf(counties, countyStates, key).map(quote).join(", ")}]`])
   }
-  const identity = [["state", quote(key)]]
   const cabrilloName = str(raw.cabrilloName)
   if (cabrilloName) identity.push(["cabrilloName", quote(cabrilloName)])
   const url = sanitizeUrl(raw.url)
