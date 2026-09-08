@@ -1,0 +1,41 @@
+{
+  "name": "@ham2k/qso-parties",
+  "version": "0.1.0",
+  "description": "Every QSO party's rules, counties and dates as QsoPartyParams — one module per event, generated from the sponsors' own files",
+  "author": "Sebastian Delmont <sd@ham2k.com>",
+  "license": "MPL-2.0",
+  "type": "module",
+  "//exports": [
+    "An extension imports the one party it is — `@ham2k/qso-parties/tx` — which",
+    "pulls in that party's county table and nothing else. The root export is the",
+    "map of all fifty, for tools and tests; importing it carries every county",
+    "list into the bundle.",
+    "Consumed as TypeScript source, like the engine: esbuild bundles the",
+    "extension that reads it, so there is no build step and no dist/."
+  ],
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json",
+    "./*": "./src/parties/*.ts"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "convert": "node ../../scripts/convert-parties.mjs",
+    "test": "node --experimental-strip-types --test 'src/**/*.test.ts'",
+    "typecheck": "tsc --noEmit"
+  },
+  "//dependencies": [
+    "The engine is a type-only import here: these modules are data, and nothing",
+    "in them runs its code."
+  ],
+  "dependencies": {
+    "@ham2k/lib-qso-party": "^0.1.0"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}
