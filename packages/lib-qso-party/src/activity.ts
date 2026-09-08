@@ -256,7 +256,9 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
       const namesThisParty = !term
         || party.short.toUpperCase().includes(term)
         || party.name.toUpperCase().includes(term)
-        || party.state.toUpperCase() === term
+        // A party spanning several states has no state to be found by; its own
+        // name and short name are what an operator there searches for.
+        || party.state?.toUpperCase() === term
         || party.refType.toUpperCase().includes(term)
       // Not ours, and nobody asked us in particular.
       if (!namesThisParty && !scoped) return []

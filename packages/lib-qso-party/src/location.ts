@@ -142,7 +142,11 @@ function multCodeFor(party: Party, code: string, entityPrefix: string, standing:
   // Inside the party, some sponsors multiply by STATE rather than by county.
   if (!party.countiesAreMultipliersInParty && standing.weAreInParty && standing.theyAreInParty
       && isInParty(party, code)) {
-    return stateForCounty(party, code)
+    // A county whose state nothing answers multiplies as ITSELF. The empty
+    // string is one key: every stateless county in the party would collapse
+    // into a single multiplier, and a party spanning three provinces would
+    // score one where its sponsor awards three.
+    return stateForCounty(party, code) || code
   }
   if (code === 'DX' && party.dxEntityIsMultiplier) return `DX:${entityPrefix}`
   return code

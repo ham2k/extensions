@@ -21,7 +21,7 @@ const PERIOD = { startMillis: Date.UTC(2026, 9, 17, 14), endMillis: Date.UTC(202
 
 type PartySpec =
   & Partial<QsoPartyParams>
-  & Pick<QsoPartyParams, 'refType' | 'short' | 'state' | 'counties'>
+  & Pick<QsoPartyParams, 'refType' | 'short' | 'counties'>
 
 function party(spec: PartySpec): QsoPartyParams {
   return { name: `${spec.short} Test Party`, periods: [PERIOD], ...spec }
@@ -59,12 +59,18 @@ export const MD = party({
   counties: { ALLE: 'Allegany', ANNE: 'Anne Arundel' },
 })
 
-/// New England: seven states in one party, where an in-party pair multiplies by
+/// New England: six states in one party, where an in-party pair multiplies by
 /// STATE and the county is only an exchange.
+///
+/// No `state`, like every multi-state party: each of its county codes carries
+/// its own, so nothing here ever reaches that fallback — and a code that did
+/// would resolve to no state rather than to whichever one was named lead.
+/// `states` names what the TRIMMED county list below spans, not the sponsor's
+/// six, because it is the counties here that it has to agree with.
 export const NEQP = party({
   refType: 'neqp',
   short: 'NEQP',
-  state: 'MA',
+  states: ['CT', 'MA', 'RI'],
   countyLine: true,
   dcCountsAsMaryland: true,
   stateCountsForInState: true,
@@ -80,7 +86,7 @@ export const NEQP = party({
 export const ACQP = party({
   refType: 'acqp',
   short: 'ACQP',
-  state: 'NS',
+  states: ['NB', 'NS'],
   entity: 'VE',
   countyLine: true,
   dcCountsAsMaryland: true,
@@ -308,12 +314,13 @@ export const MN = party({
   counties: { AITK: 'Aitkin', ANOK: 'Anoka' },
 })
 
-/// The 7th Call Area party: seven states, five-character codes, and the
-/// neighbouring parties' counties its entrants also work.
+/// The 7th Call Area party: eight states, five-character codes, and the
+/// neighbouring parties' counties its entrants also work. No `state`, and
+/// `states` names what the trimmed county list below spans — see `NEQP`.
 export const SEVEN_QP = party({
   refType: '7qp',
   short: '7QP',
-  state: 'OR',
+  states: ['ID', 'OR', 'UT', 'WA'],
   countyLine: true,
   dcCountsAsMaryland: true,
   dxEntityIsMultiplier: true,

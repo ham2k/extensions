@@ -526,7 +526,8 @@ test('typing your STATE where your county belongs is said out loud', () => {
   assert.equal(run([qso({ location: 'ERI' })], { ourLocation: 'ALB' }).scores[0].alerts, undefined)
   // And a genuine out-of-party entrant is not nagged about their own state.
   assert.equal(run([qso({ location: 'ERI' })], { ourLocation: 'NJ' }).scores[0].alerts, undefined)
-  // A multi-state party knows all of its own states, not just the lead one.
+  // A multi-state party knows every one of its own states, and it has no
+  // `state` field to have learnt them from: they come from the county codes.
   assert.deepEqual(
     run([qso({ location: 'ORDES', refType: SEVEN_QP.refType })], {
       params: SEVEN_QP,

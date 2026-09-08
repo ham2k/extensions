@@ -14,9 +14,9 @@
 //     field cannot name a party by key.
 //   * `state` is the state or province a county belongs to when nothing else
 //     says — the answer the bundled version took from the party key, which no
-//     longer exists. Required for that reason: without it a county code short
-//     enough to carry no state prefix has no state at all, and the sponsor's own
-//     state stops being a multiplier for its entrants.
+//     longer exists. A single-state party needs it, because its own county
+//     codes carry no state; a party spanning several must NOT have one, because
+//     no one of its states outranks the others.
 //
 // Every option is optional and every default is stated on the field. A party
 // file states the rules its sponsor publishes and nothing else.
@@ -174,12 +174,26 @@ export interface QsoPartyParams {
   /// export filenames and the summary's headings.
   short: string
   /// The state or province this party's counties belong to when no other rule
-  /// says. Required, and the reason is above: a per-party ref carries no key
-  /// for a fallback to read.
+  /// says — the fallback the SHORT county codes of a single-state party land
+  /// in. Nothing in `ALB` says New York; `state` is where that answer comes
+  /// from, and a party whose counties are coded that way needs it.
   ///
-  /// A party spanning several states (7QP, ACQP, CPQP) answers per county
-  /// through `stateOfCounty` and states its lead state here.
-  state: string
+  /// A party spanning several has NO state. None of them outranks the others,
+  /// so naming one would put every county that reaches the fallback in a state
+  /// the sponsor never claimed. Such a party answers per county instead —
+  /// through `stateOfCounty`, or through the state its own codes carry in their
+  /// first two characters — and names what it spans in `states`.
+  ///
+  /// With no `state`, and neither earlier rule answering, a county has NO
+  /// state: `stateForCounty` says so with `''` rather than inventing one.
+  state?: string
+  /// The states or provinces a multi-state party spans. Read for VERIFICATION
+  /// and nothing else — no score, no exchange and no file consults it: every
+  /// county's derived state has to be in this list, which is what catches a
+  /// mistyped county code and a list carried over from another party's file.
+  /// A single-state party does not declare it; its `state` says the same thing
+  /// once.
+  states?: string[]
   /// The `CONTEST:` line a submitted Cabrillo carries. Without one no Cabrillo
   /// is offered at all: inventing a name produces a file that looks
   /// submittable and is not.
@@ -323,8 +337,9 @@ export interface QsoPartyParams {
 
   /// The state or province a county belongs to. Default: a county code longer
   /// than four characters carries its state in its first two (`ORDES` is
-  /// Oregon's Deschutes), and anything shorter belongs to `state`. The
-  /// multi-state parties answer from their own table here.
+  /// Oregon's Deschutes), and anything shorter belongs to `state` — or to
+  /// nothing at all, in a party that has none. The multi-state parties whose
+  /// codes are too short to carry a state answer from their own table here.
   stateOfCounty?: (county: string) => string | undefined
 
   /// What ONE pairing of our location with theirs is worth, for a sponsor

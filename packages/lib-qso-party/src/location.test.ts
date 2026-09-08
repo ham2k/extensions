@@ -18,7 +18,7 @@ import {
   theirLocations,
 } from "./location.ts"
 import { resolveParty } from "./party.ts"
-import { IL, MD, NEQP, NY, SEVEN_QP } from "./testFixtures.ts"
+import { ACQP, IL, MD, NEQP, NY, SEVEN_QP } from "./testFixtures.ts"
 
 const ny = resolveParty(NY)
 const codes = (params: typeof NY, text: string, opts?: Parameters<typeof parseLocations>[2]) =>
@@ -106,6 +106,23 @@ test('inside a party that multiplies by state, a county multiplies as its STATE'
     standing: { weAreInParty: false, theyAreInParty: true },
   })
   assert.equal(outside.multCode, 'MAWOR')
+})
+
+test('a county whose state nothing answers multiplies as ITSELF', () => {
+  // A multi-state party has no `state` to fall back on, so a short code its own
+  // table forgets has no state at all — and this is the party that multiplies an
+  // in-party pair BY state. Keying that on the empty string makes every
+  // forgotten county ONE multiplier: a log working two of them scores a single
+  // mult, and nothing ever says which county went missing.
+  const forgetful = resolveParty({
+    ...ACQP,
+    counties: { ...ACQP.counties, YOR: 'York', HFX: 'Halifax' },
+  })
+  const inParty = { weAreInParty: true, theyAreInParty: true }
+  assert.equal(parseLocations(forgetful, 'YOR', { standing: inParty })[0].multCode, 'YOR')
+  assert.equal(parseLocations(forgetful, 'HFX', { standing: inParty })[0].multCode, 'HFX')
+  // The counties that DO name their state still multiply by it.
+  assert.equal(parseLocations(forgetful, 'NSANP', { standing: inParty })[0].multCode, 'NS')
 })
 
 test('both sides resolve together, because theirs depends on ours', () => {

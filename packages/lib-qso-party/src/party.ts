@@ -143,15 +143,21 @@ export function isInParty(party: Party, location: string): boolean {
   return party.counties[normalizeCode(location)] !== undefined
 }
 
-/// The state or province a county belongs to. A code longer than four
-/// characters carries its state in its first two (`ORDES` is Oregon's
-/// Deschutes); anything shorter belongs to the party's own state, which is why
-/// `state` is a required param.
+/// The state or province a county belongs to, by three rules in this order:
+/// the party's own table; then the state a code longer than four characters
+/// carries in its first two (`ORDES` is Oregon's Deschutes); then the party's
+/// `state`, which is what a single-state party's short codes land in.
+///
+/// A party spanning several states has no `state` — none of them outranks the
+/// others — so a short code it does not table has NO state, and the answer is
+/// `''`. Callers have to read that as the absence of an answer: `''` is not a
+/// state, and using it as one keys a multiplier on nothing.
 export function stateForCounty(party: Party, county: string): string {
   const code = normalizeCode(county)
   const declared = party.stateOfCounty?.(code)
   if (declared) return declared.toUpperCase()
-  return code.length > 4 ? code.slice(0, 2) : party.state.toUpperCase()
+  if (code.length > 4) return code.slice(0, 2)
+  return party.state?.toUpperCase() ?? ''
 }
 
 const PARTY_STATES = new WeakMap<Party, Set<string>>()
@@ -169,7 +175,13 @@ export function partyStates(party: Party): Set<string> {
   // rescore and every live-scoring keystroke run.
   const cached = PARTY_STATES.get(party)
   if (cached) return cached
-  const states = new Set(Object.keys(party.counties).map((county) => stateForCounty(party, county)))
+  // `''` is `stateForCounty` saying it has no answer, and a set of states holds
+  // states — never the absence of one.
+  const states = new Set(
+    Object.keys(party.counties)
+      .map((county) => stateForCounty(party, county))
+      .filter((state) => state),
+  )
   PARTY_STATES.set(party, states)
   return states
 }
