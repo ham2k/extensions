@@ -1,0 +1,26 @@
+{
+  "name": "@ham2k/ext-deqp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ham2K Logger extension: the Delaware QSO Party",
+  "author": "Sebastian Delmont <sd@ham2k.com>",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit",
+    "pack": "npm run build && h2kext-pack build --force-name"
+  },
+  "dependencies": {
+    "@ham2k/lib-qso-party": "^0.1.0",
+    "@ham2k/qso-parties": "^0.1.0"
+  },
+  "devDependencies": {
+    "@ham2k/extension-sdk": "^0.2.0",
+    "@ham2k/extension-tools": "^0.2.0",
+    "esbuild": "^0.25.5"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

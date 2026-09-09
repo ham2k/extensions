@@ -1,0 +1,43 @@
+// Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>
+// SPDX-License-Identifier: MIT
+//
+// The Washington Salmon Run.
+//
+// Every rule this extension applies is `@ham2k/lib-qso-party`'s and every fact
+// about the event is `@ham2k/qso-parties`'; this file is only where the two meet
+// the host. So an event with options, a points table and bonus stations is
+// exactly as long as one with none: what differs between two QSO parties is
+// DATA, and a rule that is not in the party file is a rule this extension does
+// not apply.
+//
+// GENERATED — `node scripts/generate-event-extensions.mjs` writes this file and
+// the manifest beside it from `packages/qso-parties`. Edit the party's fixture
+// and re-run; an edit here is lost on the next re-sync.
+
+import { defineExtension } from "@ham2k/extension-sdk"
+import { defineQsoParty } from "@ham2k/lib-qso-party"
+import { PARTY } from "@ham2k/qso-parties/wa"
+
+import manifest from "../manifest.json" with { type: "json" }
+
+// The icon and the accent are the EXTENSION's, not the sponsor's rules: the
+// party data is generated from the sponsor's own file and carries no chrome,
+// and the manifest is where the Extensions panel reads them from already.
+const hooks = defineQsoParty({ ...PARTY, icon: manifest.icon, accentColor: manifest.accentColor })
+
+defineExtension({
+  ...manifest,
+  onActivation({ registerHook }) {
+    registerHook("activity", { hook: hooks.activity, key: manifest.key })
+    // The ref TYPE names the party and deliberately does NOT follow the
+    // compact key: the key identifies the package in the catalog, the refType
+    // identifies the activation stored in an operator's operation, which a
+    // renamed package still has to answer for. This extension is the only
+    // thing that answers for it, and `manifest.hooks` has to say the same, or
+    // the app is told about a hook nobody registered.
+    registerHook(`ref:${hooks.refType}`, { hook: hooks.refHandler, key: manifest.key })
+    registerHook("adifFields", { hook: hooks.adifFields, key: manifest.key })
+    registerHook("export", { hook: hooks.export, key: manifest.key })
+    registerHook("scoring", { hook: hooks.scoring, key: manifest.key })
+  },
+})

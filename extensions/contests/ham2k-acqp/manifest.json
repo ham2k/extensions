@@ -1,0 +1,61 @@
+{
+  "key": "ham2k-acqp",
+  "name": "ACQP: Atlantic Canada QSO Party",
+  "shortName": "ACQP",
+  "version": "0.1.0",
+  "description": "Work stations in NB, NL, NS and PE.",
+  "category": "contest",
+  "enabledByDefault": false,
+  "icon": "leaf-maple",
+  "accentColor": "#8E24AA",
+  "api": 1,
+  "keywords": [
+    "contest",
+    "qso party",
+    "provincial qso party",
+    "county",
+    "counties",
+    "cabrillo",
+    "acqp",
+    "atlantic canada qso party",
+    "new brunswick",
+    "newfoundland and labrador",
+    "nova scotia",
+    "prince edward island"
+  ],
+  "hooks": [
+    "activity",
+    "adifFields",
+    "export",
+    "ref:atlantic-canada-qso-party",
+    "scoring"
+  ],
+  "geo": {
+    "countries": [
+      "ca",
+      "us"
+    ]
+  },
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "@ham2k/lib-qson-cabrillo": "^1.2.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "description": "Trabaja estaciones en NB, NL, NS y PE.",
+      "keywords": [
+        "concurso",
+        "condado",
+        "condados",
+        "canadá"
+      ]
+    }
+  }
+}

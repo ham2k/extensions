@@ -41,6 +41,8 @@ those stay unpublished while the app still ships them.
 - `extensions/bundles.test.ts` — builds, packs and loads every extension. It
   belongs to no workspace, so the root `npm test` names it directly.
 - `scripts/convert-parties.mjs` — the party generator.
+- `scripts/generate-event-extensions.mjs` — the event generator: one extension
+  per party, from that party's own module. See **Adding an event**.
 - `scripts/sdk-node-resolve.mjs` — makes the published SDK's `dist/` loadable by
   Node, so unit tests can import what the bundles import. See **The SDK gap**.
 
@@ -52,11 +54,28 @@ Everything specific to one QSO party is data. Adding one is:
    from `fixtures/<code>.json`. If the sponsor has published a new season, drop
    the updated files in and run `node scripts/convert-parties.mjs <dir>`; the
    diff is reviewable and the differential test says what changed.
-2. `mkdir extensions/contests/ham2k-<abbr>` — the event's own abbreviation,
-   lowercased (`ham2k-txqp`), which is also the manifest `key` and the directory
-   name —
-   with four files, copied from an existing event; the four here differ only
-   in identity and in which party they import:
+2. `node scripts/generate-event-extensions.mjs` — it writes
+   `extensions/contests/ham2k-<abbr>/` for every party that has no directory yet
+   and leaves the ones that do alone (`--force` rewrites them). The abbreviation
+   is the event's own, lowercased (`ham2k-txqp`), and is also the manifest `key`
+   and the directory name. Every event differs from every other only in identity
+   and in which party it imports, so all four files are **derived from the
+   party's own module** rather than typed: the key from its short name, the
+   description and the keywords from its states, the icon and the `geo` ranking
+   from its entity, and `hooks` from the refType it states. A sponsor's re-sync
+   therefore reaches the extensions by re-running this, and an event edited by
+   hand is one the next run reverts. Two rules worth knowing before reading a
+   surprising key:
+   - a party whose fixture says `disabled` gets no extension — nobody has
+     verified its rules against a sponsor, and an extension built from one would
+     score an operator's log by guesses (`NSARA`, whose sponsor's page is gone);
+   - two parties can share an abbreviation — Nebraska and New England are both
+     `NEQP` — and then BOTH fall back to their party code, `ham2k-ne` and
+     `ham2k-neqp`. Both, rather than first-come, so that which one keeps the
+     abbreviation never depends on the order the parties are walked in, and
+     adding a third never renames an existing one.
+
+   The four files it writes:
    - `manifest.json` — key, name, `shortName`, version, description,
      `category: "contest"`, `api: 1`, icon, accent, keywords, `hooks`, `geo`,
      `sharedDependencies`, and any `translations`. `name` is
@@ -93,7 +112,8 @@ what its codepoint table carries, so check a new one against
 
 `geo` is worth a moment. It **ranks** an extension in the catalog and in the
 Extensions panel for the operator's own callsign; nothing is hidden by it.
-These four declare `{"countries": ["us", "ca"]}` rather than
+Every event declares both countries, its own first —
+`{"countries": ["us", "ca"]}` for a US party — rather than
 `{"entities": ["K", "VE"]}`, because the DXCC entity `K` is the lower 48:
 Alaska is `KL` and Hawaii is `KH6`, and an operator in either is a prime
 multiplier in every one of these events rather than someone to rank it away
@@ -251,6 +271,8 @@ extensions use:
 | `ham2k-7qp` | 145,260 | 39,937 |
 | `ham2k-nyqp` | 135,318 | 36,711 |
 | **four events** | **557,510** | **152,366** |
+| **the other 45, generated** | **6,121,172** | **1,658,121** |
+| **all 49 events** | **6,678,682** | **1,810,487** |
 | the app's own `qp.js`, all fifty parties | 318,890 | — |
 
 Four events cost more than fifty do inside the app, and the reason is worth
@@ -272,7 +294,9 @@ on that list, so each bundle brings its own. Making `@ham2k/lib-qso-party` a
 host shared module — the same mechanism `@ham2k/lib-qson-cabrillo` and the rest
 already go through — takes each of these to roughly ten kilobytes, and is what
 makes fifty separate extensions cheaper than one extension holding fifty
-parties. Until then, an operator who installs four pays for four engines.
+parties. Until then, an operator who installs four pays for four engines — and
+the catalog holding all 49 carries the engine and the SDK 49 times, which is
+what the 6.7 MB above almost entirely is.
 
 ## The `ham2k-` prefix, and what it means for testing
 

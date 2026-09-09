@@ -1,0 +1,59 @@
+{
+  "key": "ham2k-moqp",
+  "name": "MOQP: Missouri QSO Party",
+  "shortName": "MOQP",
+  "version": "0.1.0",
+  "description": "Work stations in Missouri.",
+  "category": "contest",
+  "enabledByDefault": false,
+  "icon": "star-box",
+  "accentColor": "#8E24AA",
+  "api": 1,
+  "keywords": [
+    "contest",
+    "qso party",
+    "state qso party",
+    "county",
+    "counties",
+    "cabrillo",
+    "mo",
+    "moqp",
+    "missouri",
+    "missouri qso party"
+  ],
+  "hooks": [
+    "activity",
+    "adifFields",
+    "export",
+    "ref:missouri-qso-party",
+    "scoring"
+  ],
+  "geo": {
+    "countries": [
+      "us",
+      "ca"
+    ]
+  },
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "@ham2k/lib-qson-cabrillo": "^1.2.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "description": "Trabaja estaciones en Misuri.",
+      "keywords": [
+        "concurso",
+        "condado",
+        "condados",
+        "misuri"
+      ]
+    }
+  }
+}

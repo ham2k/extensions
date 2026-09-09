@@ -1,0 +1,59 @@
+{
+  "key": "ham2k-qcqp",
+  "name": "QCQP: Quebec QSO Party",
+  "shortName": "QCQP",
+  "version": "0.1.0",
+  "description": "Work stations in Quebec.",
+  "category": "contest",
+  "enabledByDefault": false,
+  "icon": "leaf-maple",
+  "accentColor": "#8E24AA",
+  "api": 1,
+  "keywords": [
+    "contest",
+    "qso party",
+    "provincial qso party",
+    "county",
+    "counties",
+    "cabrillo",
+    "qc",
+    "qcqp",
+    "quebec",
+    "quebec qso party"
+  ],
+  "hooks": [
+    "activity",
+    "adifFields",
+    "export",
+    "ref:quebec-qso-party",
+    "scoring"
+  ],
+  "geo": {
+    "countries": [
+      "ca",
+      "us"
+    ]
+  },
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "@ham2k/lib-qson-cabrillo": "^1.2.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "description": "Trabaja estaciones en Quebec.",
+      "keywords": [
+        "concurso",
+        "condado",
+        "condados",
+        "quebec"
+      ]
+    }
+  }
+}

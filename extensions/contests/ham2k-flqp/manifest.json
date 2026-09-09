@@ -1,0 +1,59 @@
+{
+  "key": "ham2k-flqp",
+  "name": "FLQP: Florida QSO Party",
+  "shortName": "FLQP",
+  "version": "0.1.0",
+  "description": "Work stations in Florida.",
+  "category": "contest",
+  "enabledByDefault": false,
+  "icon": "star-box",
+  "accentColor": "#8E24AA",
+  "api": 1,
+  "keywords": [
+    "contest",
+    "qso party",
+    "state qso party",
+    "county",
+    "counties",
+    "cabrillo",
+    "fl",
+    "flqp",
+    "florida",
+    "florida qso party"
+  ],
+  "hooks": [
+    "activity",
+    "adifFields",
+    "export",
+    "ref:florida-qso-party",
+    "scoring"
+  ],
+  "geo": {
+    "countries": [
+      "us",
+      "ca"
+    ]
+  },
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "@ham2k/lib-qson-cabrillo": "^1.2.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "description": "Trabaja estaciones en Florida.",
+      "keywords": [
+        "concurso",
+        "condado",
+        "condados",
+        "florida"
+      ]
+    }
+  }
+}
