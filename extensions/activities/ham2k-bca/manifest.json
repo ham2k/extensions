@@ -1,0 +1,57 @@
+{
+  "key": "ham2k-bca",
+  "name": "BCA: Belgium Castles & Fortresses",
+  "shortName": "BCA",
+  "version": "0.1.0",
+  "description": "Belgian castle references, activation logging, and self-spotting",
+  "category": "activity",
+  "enabledByDefault": false,
+  "icon": "castle",
+  "accentColor": "#7B5E3B",
+  "api": 1,
+  "keywords": [
+    "castles",
+    "fortresses",
+    "belgium",
+    "activation"
+  ],
+  "geo": {
+    "entities": [
+      "ON"
+    ]
+  },
+  "hooks": [
+    "activity",
+    "adifFields",
+    "adifImport",
+    "dataFile",
+    "export",
+    "ref:bcaActivation",
+    "scoring",
+    "spots"
+  ],
+  "domains": [
+    "drive.google.com",
+    "www.cqgma.org"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "description": "Referencias de castillos belgas, registro de activaciones y auto-spotting",
+      "keywords": [
+        "castillos",
+        "bélgica",
+        "activación"
+      ]
+    }
+  }
+}

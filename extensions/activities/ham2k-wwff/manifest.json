@@ -1,0 +1,55 @@
+{
+  "key": "ham2k-wwff",
+  "name": "WWFF: World Wide Flora & Fauna",
+  "shortName": "WWFF",
+  "version": "0.1.0",
+  "description": "Park references, activation and hunting, spots and spotting",
+  "category": "activity",
+  "enabledByDefault": false,
+  "icon": "flower",
+  "accentColor": "#4C7A3F",
+  "api": 1,
+  "keywords": [
+    "flora",
+    "fauna",
+    "parks",
+    "activation",
+    "hunting"
+  ],
+  "hooks": [
+    "activity",
+    "adifFields",
+    "adifImport",
+    "dataFile",
+    "export",
+    "ref:wwff",
+    "ref:wwffActivation",
+    "scoring",
+    "spots"
+  ],
+  "domains": [
+    "wwff.co",
+    "spots.wwff.co"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "description": "Referencias de parques, activación y caza, spots y spotting",
+      "keywords": [
+        "flora",
+        "fauna",
+        "parques",
+        "activación"
+      ]
+    }
+  }
+}

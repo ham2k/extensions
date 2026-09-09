@@ -1,0 +1,53 @@
+{
+  "key": "ham2k-pga",
+  "name": "PGA: Polish Gmina Award",
+  "shortName": "PGA",
+  "version": "0.1.0",
+  "description": "Polish gmina references and activation logging",
+  "category": "activity",
+  "enabledByDefault": false,
+  "icon": "map-outline",
+  "accentColor": "#B03A48",
+  "api": 1,
+  "keywords": [
+    "gmina",
+    "poland",
+    "activation"
+  ],
+  "geo": {
+    "entities": [
+      "SP"
+    ]
+  },
+  "hooks": [
+    "activity",
+    "adifFields",
+    "adifImport",
+    "dataFile",
+    "export",
+    "ref:pgaActivation"
+  ],
+  "domains": [
+    "www.sq7acp.pl"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "description": "Referencias de gminas polacas y registro de activaciones",
+      "keywords": [
+        "gmina",
+        "polonia",
+        "activación"
+      ]
+    }
+  }
+}

@@ -28,6 +28,10 @@ those stay unpublished while the app still ships them.
     `ctx` the hook is handed. It is the same seam the manifest already gives
     the extension's name and description, reaching the setup form, the exchange
     row and the export sheet.
+  - `@ham2k/lib-gma-spots` — cqgma.org's spot endpoint, which GMA and the
+    castle, lighthouse, mill and tower awards built on its infrastructure all
+    post through. A package rather than a file each of them copies, because
+    eight copies of one endpoint's quirks diverge.
   - `@ham2k/qso-parties` — every party's rules, counties and dates as
     `QsoPartyParams`, one module per event, **generated** from the sponsors'
     own files. Edit a fixture and re-run the generator; never edit a module.
@@ -171,6 +175,12 @@ extensions above are its replacement.
    same goes for everything else the log or the local database already carries:
    spot `source` values, `dbLookupSelect*` categories, logging-control keys like
    `pota/hunter`. Rename the package; never rename the data.
+
+   **`referenceActivity({ key })` is one of those**, and it does not look like
+   it. That `key` is not a registration key: the SDK builds the logging-control
+   keys (`wca/activation`, `wca/hunter`) and the `dbLookup` category out of it,
+   which is also what the extension's own `DataFileDefinition.category` has to
+   equal. It stays the app's key while every `registerHook` around it moves.
 8. **Registration keys move into the new key's namespace.** Every
    `registerHook(..., { key })` becomes `manifest.key`, written as `manifest.key`
    rather than a literal so it cannot drift. A registration that deliberately used
@@ -229,8 +239,12 @@ The app's extensions build against the SDK's **source**; these build against the
 
 - **A symbol the published SDK does not export yet** goes into the extension's
   own `src/sdkGap.ts`, copied verbatim from the SDK with a comment saying what it
-  is a copy of. `looksLikeReference` is POTA's one. Grep for `sdkGap.ts` to find
-  every such debt at once, and delete them when the SDK next publishes.
+  is a copy of. `looksLikeReference` is POTA's one, and SOTA's. The hook-test
+  harness — `loadExtension`, `fixtureOperation`, `fixtureQso` — is the other, in
+  WWBOTA: the SDK holds it in `src/testing.ts` and keeps it out of the barrel
+  deliberately, so every extension does not bundle it, and publishes no
+  `./testing` subpath to import it by instead. Grep for `sdkGap.ts` to find every
+  such debt at once, and delete them when the SDK next publishes.
 - **The published `dist/` is bundler-only**: its barrel re-exports `./types` with
   no file extension and its catalogs import `.json` with no import attribute.
   esbuild resolves both, which is why every bundle builds; Node resolves neither,

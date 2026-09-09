@@ -1,0 +1,57 @@
+{
+  "key": "ham2k-blha",
+  "name": "BLHA: Belgian Lighthouses and Lightships",
+  "shortName": "BLHA",
+  "version": "0.1.0",
+  "description": "Belgian lighthouse references, activation logging, and self-spotting",
+  "category": "activity",
+  "enabledByDefault": false,
+  "icon": "lighthouse",
+  "accentColor": "#2E6F9E",
+  "api": 1,
+  "keywords": [
+    "lighthouses",
+    "lightships",
+    "belgium",
+    "activation"
+  ],
+  "geo": {
+    "entities": [
+      "ON"
+    ]
+  },
+  "hooks": [
+    "activity",
+    "adifFields",
+    "adifImport",
+    "dataFile",
+    "export",
+    "ref:blhaActivation",
+    "scoring",
+    "spots"
+  ],
+  "domains": [
+    "drive.google.com",
+    "www.cqgma.org"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "description": "Referencias de faros belgas, registro de activaciones y auto-spotting",
+      "keywords": [
+        "faros",
+        "bélgica",
+        "activación"
+      ]
+    }
+  }
+}

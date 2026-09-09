@@ -1,0 +1,40 @@
+{
+  "name": "@ham2k/lib-gma-spots",
+  "version": "0.1.0",
+  "description": "Posting spots to cqgma.org, shared by the award programs that use its infrastructure",
+  "author": "Sebastian Delmont <sd@ham2k.com>",
+  "license": "MIT",
+  "type": "module",
+  "//exports": [
+    "Consumed as TypeScript source: the only consumers are extensions, which",
+    "esbuild bundles, so there is no build step and no dist/ to point at."
+  ],
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "//peerDependencies": [
+    "Both are the consuming extension's to provide: its bundle carries one copy",
+    "of the SDK and declares lib-callsigns in its manifest, and the build",
+    "rewrites that import to the host's instance."
+  ],
+  "peerDependencies": {
+    "@ham2k/extension-sdk": "^0.2.0",
+    "@ham2k/lib-callsigns": "^1.0.0"
+  },
+  "devDependencies": {
+    "@ham2k/extension-sdk": "^0.2.0",
+    "@ham2k/lib-callsigns": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

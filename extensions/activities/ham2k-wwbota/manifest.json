@@ -1,0 +1,50 @@
+{
+  "key": "ham2k-wwbota",
+  "name": "WWBOTA: Bunkers on the Air",
+  "shortName": "WWBOTA",
+  "version": "0.1.0",
+  "description": "Bunker references, activation and chasing, spots and spotting",
+  "category": "activity",
+  "enabledByDefault": false,
+  "icon": "nuke",
+  "accentColor": "#5A6B72",
+  "api": 1,
+  "keywords": [
+    "bunkers",
+    "activation",
+    "chasing"
+  ],
+  "hooks": [
+    "activity",
+    "adifFields",
+    "adifImport",
+    "dataFile",
+    "export",
+    "ref:wwbota",
+    "ref:wwbotaActivation",
+    "scoring",
+    "spots"
+  ],
+  "domains": [
+    "api.wwbota.org"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "description": "Referencias de búnkeres, activación y caza, spots y spotting",
+      "keywords": [
+        "búnkeres",
+        "activación"
+      ]
+    }
+  }
+}

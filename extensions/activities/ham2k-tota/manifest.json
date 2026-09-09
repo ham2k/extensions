@@ -1,0 +1,53 @@
+{
+  "key": "ham2k-tota",
+  "name": "TOTA: Towers on the Air",
+  "shortName": "TOTA",
+  "version": "0.1.0",
+  "description": "Lookout tower references, activation and hunting, and spots",
+  "category": "activity",
+  "enabledByDefault": false,
+  "icon": "tower-fire",
+  "accentColor": "#8C5A3C",
+  "api": 1,
+  "keywords": [
+    "towers",
+    "lookouts",
+    "activation",
+    "hunting"
+  ],
+  "hooks": [
+    "activity",
+    "adifFields",
+    "adifImport",
+    "dataFile",
+    "export",
+    "ref:tota",
+    "ref:totaActivation",
+    "scoring",
+    "spots"
+  ],
+  "domains": [
+    "rozhledny.eu",
+    "www.rozhledny.eu"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "description": "Referencias de torres miradoras, activación y caza, y spots",
+      "keywords": [
+        "torres",
+        "miradores",
+        "activación"
+      ]
+    }
+  }
+}

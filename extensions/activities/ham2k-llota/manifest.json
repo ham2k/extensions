@@ -1,0 +1,52 @@
+{
+  "key": "ham2k-llota",
+  "name": "LLOTA: Lakes and Lagoons on the Air",
+  "shortName": "LLOTA",
+  "version": "0.1.0",
+  "description": "Lake references, activation and hunting, spots and spotting",
+  "category": "activity",
+  "enabledByDefault": false,
+  "icon": "waves",
+  "accentColor": "#2F7FA6",
+  "api": 1,
+  "keywords": [
+    "lakes",
+    "lagoons",
+    "activation",
+    "hunting"
+  ],
+  "hooks": [
+    "activity",
+    "adifFields",
+    "adifImport",
+    "dataFile",
+    "export",
+    "ref:llota",
+    "ref:llotaActivation",
+    "scoring",
+    "spots"
+  ],
+  "domains": [
+    "llota.app"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "description": "Referencias de lagos, activación y caza, spots y spotting",
+      "keywords": [
+        "lagos",
+        "lagunas",
+        "activación"
+      ]
+    }
+  }
+}

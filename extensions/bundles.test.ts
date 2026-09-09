@@ -55,6 +55,13 @@ function stubSharedModules(): Record<string, Record<string, unknown>> {
       ADIF_SUBMODES_BY_MODE: {},
       MODES: [],
       superModeForMode: (mode: string) => mode,
+      // The VHF+ contest families spread these into their event tables while
+      // the module initializes, so a missing one is a TypeError before any
+      // hook is registered rather than an empty list somewhere later.
+      VHF_BANDS: [],
+      UHF_BANDS: [],
+      SHF_BANDS: [],
+      EHF_BANDS: [],
     },
     "@ham2k/lib-qson-cabrillo": {},
     "i18next": { default: {}, createInstance: () => ({}) },
@@ -180,20 +187,37 @@ test("every extension builds, packs and loads", async (t) => {
       const { definition, registrations } = loadBundle(bundle)
       assert.equal(definition.key, manifest.key)
 
-      // What the manifest PROMISES is what the bundle registers, both ways. The
-      // panel and the catalog read this list without loading anything, so a
-      // promise nobody keeps is an extension the operator is told does
-      // something it does not — and a hook registered off the list is one the
-      // app was never told to expect.
+      // What the manifest PROMISES is what the bundle registers. The panel and
+      // the catalog read this list without loading anything, so a promise
+      // nobody keeps is an extension the operator is told does something it
+      // does not.
       //
       // Deduplicated, because a category is legitimately registered twice under
       // two keys (POTA's activator and hunter exports) and `hooks` names each
       // category once.
+      const isRef = (category: string) => category.startsWith("ref:")
+      const declaredHooks = [...new Set(manifest.hooks as string[])]
+      const registered = [...new Set(registrations.map((r) => r.category))]
+
+      // A PLAIN category matches both ways: the host decides what an extension
+      // IS from these, so one registered off the list is one it was never told
+      // to expect.
       assert.deepEqual(
-        [...new Set(registrations.map((r) => r.category))].sort(),
-        [...new Set(manifest.hooks as string[])].sort(),
+        registered.filter((c) => !isRef(c)).sort(),
+        declaredHooks.filter((c) => !isRef(c)).sort(),
         `${name}'s manifest.hooks and its registrations disagree`,
       )
+
+      // A `ref:` entry is one-directional, deliberately: it claims to publish a
+      // CONTROL for that type, not merely to answer for it. WCA registers for
+      // English and Belgian castle references and WWBOTA for the legacy UKBOTA
+      // ones, and neither may DECLARE those — the host reads this list to offer
+      // enabling a switched-off extension for an unhandled ref, and an offer
+      // that leads to no control leaves the row exactly as red as it was. So a
+      // declared type must be registered; a registered one need not be
+      // declared. The app's own `extensions/hook-check.mjs` is the spec.
+      const unanswered = declaredHooks.filter(isRef).filter((c) => !registered.includes(c)).sort()
+      assert.deepEqual(unanswered, [], `${name} lists ${unanswered.join(", ")} in hooks but registers nothing for it`)
 
       // Every hook inside the extension's own key namespace — its key, or a
       // `<key>-…` under it, which is the shape the kernel's own `bundleMayDefine`
@@ -206,16 +230,17 @@ test("every extension builds, packs and loads", async (t) => {
         )
       }
 
-      // A `ref:` category names a ref TYPE, and a scoped scorer names the types
-      // it scores. The two disagreeing is a scoreboard that stays at zero for an
-      // operation whose ref is right there — and each half looks correct on its
-      // own. An unscoped scorer runs for every operation and is not this check's
+      // A `ref:` entry names a ref TYPE the extension publishes a control for,
+      // and a scoped scorer names the types it scores. The two disagreeing is a
+      // scoreboard that stays at zero for an operation whose ref is right there
+      // — and each half looks correct on its own. Against the DECLARED types,
+      // not every registered one: the types an extension merely answers for
+      // (WCA's English and Belgian castles) belong to whichever extension does
+      // publish them, and scoring them here would count an activation twice.
+      // An unscoped scorer runs for every operation and is not this check's
       // business; an extension with no scorer at all (a plain reference activity)
       // is not either.
-      const refTypes = registrations
-        .map((r) => r.category)
-        .filter((c) => c.startsWith("ref:"))
-        .map((c) => c.slice("ref:".length))
+      const refTypes = declaredHooks.filter(isRef).map((c) => c.slice("ref:".length))
       const scoring = registrations.find((r) => r.category === "scoring")
       // Spread first: the scope came out of the vm realm, and an array from
       // another realm is never deep-STRICT-equal to one built here.
