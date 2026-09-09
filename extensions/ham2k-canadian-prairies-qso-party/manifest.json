@@ -2,8 +2,8 @@
   "key": "ham2k-canadian-prairies-qso-party",
   "name": "Canadian Prairies QSO Party",
   "shortName": "CPQP",
-  "version": "0.1.0",
-  "description": "The Canadian Prairies QSO Party — Alberta, Saskatchewan and Manitoba districts, district lines and a submittable Cabrillo",
+  "version": "0.1.1",
+  "description": "Work stations in AB, MB and SK. Second weekend of May.",
   "category": "contest",
   "enabledByDefault": false,
   "icon": "leaf-maple",
@@ -48,7 +48,7 @@
   },
   "translations": {
     "es": {
-      "description": "El Canadian Prairies QSO Party — distritos de Alberta, Saskatchewan y Manitoba, líneas de distrito y Cabrillo",
+      "description": "Trabaja estaciones en AB, MB y SK. Segundo fin de semana de mayo.",
       "keywords": [
         "concurso",
         "distrito",

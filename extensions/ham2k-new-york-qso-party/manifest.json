@@ -2,8 +2,8 @@
   "key": "ham2k-new-york-qso-party",
   "name": "New York QSO Party",
   "shortName": "NYQP",
-  "version": "0.1.0",
-  "description": "The New York QSO Party — counties, county lines, CW and digital worth more, and a submittable Cabrillo",
+  "version": "0.1.1",
+  "description": "Work stations in New York. Third weekend of October.",
   "category": "contest",
   "enabledByDefault": false,
   "icon": "star-box",
@@ -47,7 +47,7 @@
   },
   "translations": {
     "es": {
-      "description": "El New York QSO Party — condados, líneas de condado, CW y digital valen más, y Cabrillo",
+      "description": "Trabaja estaciones en Nueva York. Tercer fin de semana de octubre.",
       "keywords": [
         "concurso",
         "condado",

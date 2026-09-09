@@ -2,8 +2,8 @@
   "key": "ham2k-7th-call-area-qso-party",
   "name": "7th Call Area QSO Party",
   "shortName": "7QP",
-  "version": "0.1.0",
-  "description": "The 7QP — the eight states of the 7th call area, county lines, DX multipliers and a submittable Cabrillo",
+  "version": "0.1.1",
+  "description": "Work stations in AZ, ID, MT, NV, OR, UT, WA and WY. First weekend of May.",
   "category": "contest",
   "enabledByDefault": false,
   "icon": "star-box",
@@ -53,7 +53,7 @@
   },
   "translations": {
     "es": {
-      "description": "El 7QP — condados de los ocho estados de la séptima área de llamada, líneas de condado, multiplicadores DX y Cabrillo",
+      "description": "Trabaja estaciones en AZ, ID, MT, NV, OR, UT, WA y WY. Primer fin de semana de mayo.",
       "keywords": [
         "concurso",
         "condado",

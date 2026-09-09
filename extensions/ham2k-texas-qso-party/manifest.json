@@ -2,8 +2,8 @@
   "key": "ham2k-texas-qso-party",
   "name": "Texas QSO Party",
   "shortName": "TXQP",
-  "version": "0.1.0",
-  "description": "The Texas QSO Party — counties, county lines and a submittable Cabrillo",
+  "version": "0.1.1",
+  "description": "Work stations in Texas. Third weekend of September.",
   "category": "contest",
   "enabledByDefault": false,
   "icon": "star-box",
@@ -47,7 +47,7 @@
   },
   "translations": {
     "es": {
-      "description": "El Texas QSO Party — condados, líneas de condado y Cabrillo",
+      "description": "Trabaja estaciones en Texas. Tercer fin de semana de septiembre.",
       "keywords": [
         "concurso",
         "condado",
