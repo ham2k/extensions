@@ -16,6 +16,54 @@ Party. And **catalog copies of the app's own built-ins**, so that each can ship
 and update without an app release — see **Porting a built-in**, and note that
 those stay unpublished while the app still ships them.
 
+## What is here
+
+89 extensions, grouped by the manifest's own `category`:
+
+| directory | manifest `category` | n | of which |
+|---|---|--:|---|
+| `extensions/activities/` | `activity` | 18 | 18 ported built-ins |
+| `extensions/contests/` | `contest` | 64 | 15 ported built-ins, 49 QSO party events |
+| `extensions/lookups/` | `lookup` | 5 | 5 ported built-ins |
+| `extensions/spots/` | `spots` | 1 | 1 ported built-in |
+| `extensions/dashboard/` | `dashboard` | 1 | 1 ported built-in |
+| **total** | | **89** | **40 ported, 49 new** |
+
+The 40 are the app's own extensions, ported one for one. The 49 are new: events
+the app has never shipped separately.
+
+## What is NOT here, and why
+
+- **The 12 core extensions.** `adif`, `annotation-commands`, `dev-commands`,
+  `lookups`, `operation-commands`, `radio-commands`, `scoring`,
+  `settings-commands`, `spot-commands`, `templates`, `test-ops-commands` (the
+  app's `extensions/core/`) and `ham2k-lofi` (its `extensions/sync/`). Each has
+  **no `category` in its manifest**, and that is the whole definition: a
+  category-less extension is core to the host — always enabled, invisible in the
+  Extensions panel, loaded by the app itself. That is a status the app grants its
+  own, and the packer refuses a bundle claiming it. These are infrastructure, not
+  something an operator installs.
+- **`qp`.** The app's single contest extension covering all fifty QSO parties.
+  The 49 per-event extensions in `contests/` are its replacement, so porting it
+  as well would offer the same fifty events twice.
+
+## Nothing ported is published
+
+**The 40 ported built-ins stay in this repository, unpublished, until the app
+stops shipping them.** Every one declares the SAME `ref:` types as the copy the
+app already carries — `ref:pota`, `ref:sotaActivation`, `ref:cqww` — because
+those types name what is written into an operator's log, and renaming one
+orphans every operation already holding it. The kernel routes a ref type to
+exactly one handler, so with both present the operator gets whichever the app
+picked: a coin toss over their own log. Build them, commit them, leave them
+unpublished; publish each one the release after the app drops its built-in copy.
+
+The 49 QSO party events are the ones that DO get published, to the `dev`
+channel. They are new events under their own refTypes (`texas-qso-party`), not
+copies of anything the app ships — `qp` stores `{ type: "qp", ref: "TX" }`, which
+nothing here answers for, so the two do not collide on ref routing. An operator
+can see both offerings until `qp` is retired.
+
 ## Layout
 
 - `packages/*` — shared libraries several extensions use.
@@ -56,6 +104,60 @@ those stay unpublished while the app still ships them.
   per party, from that party's own module. See **Adding an event**.
 - `scripts/sdk-node-resolve.mjs` — makes the published SDK's `dist/` loadable by
   Node, so unit tests can import what the bundles import. See **The SDK gap**.
+
+## Adding an extension
+
+Three routes in, and which one you are on decides almost everything:
+
+- a **QSO party event** — data only, generated. See **Adding an event**.
+- a **port of one of the app's built-ins** — a procedure with traps in it. See
+  **Porting a built-in**.
+- **something new**, which is this section.
+
+Every extension, whatever its category, is the same four files plus `src/`:
+
+```
+extensions/<category>/<key>/
+  manifest.json     key, name, version 0.1.0, api 1, category, hooks,
+                    sharedDependencies, and whatever the category needs
+  package.json      private workspace, @ham2k/ext-<key>, build/typecheck/pack
+                    (+ test, if it ships one)
+  build.mjs         buildExtension(build, { dir: import.meta.dirname })
+  tsconfig.json     extends ../../../tsconfig.base.json
+  src/index.ts      defineExtension({ …, onActivation }) and its registerHook calls
+```
+
+Copy them from the nearest sibling rather than typing them; only `manifest.json`
+and `src/` differ between two extensions in the same category. Three rules bind
+everywhere, and `bundles.test.ts` enforces each:
+
+- **The directory is the category and the key.** `activity` lives in
+  `activities/`, `contest` in `contests/`, `lookup` in `lookups/`, and `spots`
+  and `dashboard` name themselves; the directory's own name is the manifest
+  `key`. The tree IS the categorisation, so nothing else would say a misfiled
+  extension is misfiled.
+- **`manifest.hooks` is what the code registers.** The panel and the catalog read
+  that list without loading anything, so a hook promised and not registered is an
+  extension the operator is told does something it does not. Plain categories
+  match both ways; a `ref:` entry must be registered but need not be declared —
+  see step 7 of **Porting a built-in** for why.
+- **Every registration key is `manifest.key` or `` `${manifest.key}-…` ``**, and
+  written as `manifest.key` rather than a literal so it cannot drift.
+
+What each category actually is, with the worked example to read first:
+
+| category | what it registers | read |
+|---|---|---|
+| `activity` | `activity` (from `referenceActivity`), `ref:<type>` per reference it publishes a control for, `export`/`adifFields` (`activityExportHook`, `huntingExportHook`), usually `dataFile`, `spots`, `scoring`, `adifImport` | `activities/ham2k-pota` |
+| `contest` | `activity`, one `ref:<type>`, `scoring` (`contestScorer`), `export` + `adifFields` — Cabrillo through `@ham2k/lib-qson-cabrillo` | `contests/ham2k-cqww`, or `contests/ham2k-txqp` for a generated event |
+| `lookup` | `lookup`, or `recentContextLookup` for one that only reads what the app already has; plus `account` for a service with a login, `dataFile` for one with a downloadable list, `settingsPanel`, `command`, `callNotes` | `lookups/ham2k-call-history` (one hook), `lookups/ham2k-qrz` (an account and a network service) |
+| `spots` | `spots`, plus `account` where the service wants a login | `spots/ham2k-parksnpeaks` |
+| `dashboard` | `panel` — a pane the operator adds to a dock, with per-pane config the host persists | `dashboard/ham2k-custom-text` |
+
+Then: `npm install` (a new workspace has to reach the root lock), `npm test`,
+`npm run typecheck`, `npm run build`, `npm run pack`. `sharedDependencies` is
+determined by building — see step 11 of **Porting a built-in**, which is the same
+procedure whether the code is ported or new.
 
 ## Adding an event
 
@@ -134,22 +236,12 @@ stations work the US parties and the other way round.
 
 ## Porting a built-in
 
-The app ships around forty extensions of its own, and each becomes a catalog
-extension here so that it can ship and update without an app release.
+The app ships 53 extensions of its own. 40 of them are here, ported one for one,
+so that each can ship and update without an app release; the other 13 are the 12
+core ones and `qp`, and **What is NOT here** says why neither comes across.
 `extensions/activities/ham2k-pota` is the worked example; every step below is
-one it went through.
-
-**A ported extension is not published while the app still ships its built-in
-copy.** Both would answer for the same ref types, and the kernel routes a ref
-type to exactly one handler — so the operator would get whichever the app picked,
-which is a coin toss over their log. Build them, commit them, leave them
-unpublished.
-
-**The 12 core extensions do not come across.** A manifest with no `category` is
-core to the host: always enabled, invisible in the Extensions panel, loaded by
-the app itself. That is a status the app grants its own, and the packer refuses a
-bundle claiming it. `qp` does not come across either — the per-event QSO party
-extensions above are its replacement.
+one it went through. **None of the 40 is published while the app still ships its
+built-in copy** — see **Nothing ported is published**.
 
 1. **Copy.** `src/**` (tests included), `manifest.json`, and the `src/i18n/*.json`
    catalogs, into `extensions/<category>/ham2k-<key>/`. Nothing else: the app's
@@ -283,29 +375,41 @@ below.
 ## Bundle sizes, and why they are what they are
 
 Built as they are today, unminified, through the same preset the app's own
-extensions use:
+extensions use. The last column is what the app ships those same extensions as,
+in `app/assets/extensions/*.js`:
 
-| bundle | `index.js` | `.h2kext` |
-|---|---:|---:|
-| `ham2k-txqp` | 139,051 | 38,243 |
-| `ham2k-cpqp` | 137,881 | 37,475 |
-| `ham2k-7qp` | 145,260 | 39,937 |
-| `ham2k-nyqp` | 135,318 | 36,711 |
-| **four events** | **557,510** | **152,366** |
-| **the other 45, generated** | **6,121,172** | **1,658,121** |
-| **all 49 events** | **6,678,682** | **1,810,487** |
-| the app's own `qp.js`, all fifty parties | 318,890 | — |
+| category | n | `index.js` | `.h2kext` | the app's own |
+|---|--:|---:|---:|---:|
+| `activities/` | 18 | 1,441,156 | 406,947 | 1,453,460 |
+| `contests/` — the 15 ported | 15 | 1,450,815 | 405,193 | 1,465,716 |
+| `lookups/` | 5 | 131,102 | 40,358 | 122,474 |
+| `spots/` | 1 | 33,018 | 10,181 | 31,495 |
+| `dashboard/` | 1 | 24,345 | 7,613 | 23,064 |
+| **the 40 ported built-ins** | **40** | **3,080,436** | **870,292** | **3,096,209** |
+| `contests/` — the 49 events | 49 | 6,679,336 | 1,810,516 | `qp.js`: 318,412 |
+| **everything here** | **89** | **9,759,772** | **2,680,808** | **3,414,621** |
 
-Four events cost more than fifty do inside the app, and the reason is worth
-stating plainly rather than discovering later. Texas breaks down as:
+**A ported built-in costs what the app's own copy costs — 0.5% LESS in
+aggregate.** The app does not share one SDK across its extensions either: it
+bundles each into its own asset file, and every one of those already carries its
+own SDK slice. So the standalone form is not the expensive form, and the 40
+ported bundles land within a couple of kilobytes of their originals each way
+(the big activity and contest bundles run ~850 bytes smaller, the small lookup
+ones ~1.5 KB larger — the published SDK 0.2.0 against the app's SDK source).
+
+**All of the growth is the QSO parties: 6,679,336 bytes for 49 events against
+318,412 for the app's single `qp.js`, 21× for the same fifty events.** That is
+not the porting; it is one bundle per event where the app has one bundle for all
+of them. Texas breaks down as:
 
 | | bytes |
 |---|---:|
-| `@ham2k/extension-sdk` | 65,969 |
+| `@ham2k/extension-sdk` | 66,026 |
 | `@ham2k/lib-qso-party` — the engine | 59,097 |
 | the party itself — 254 counties, its options and its dates | 6,004 |
 | this extension's own code | 3,745 |
-| esbuild's runtime and its IIFE wrapper | 4,236 |
+| esbuild's runtime and its IIFE wrapper | 4,341 |
+| **`ham2k-txqp/build/index.js`** | **139,213** |
 
 **The event is 4% of its own bundle** — which is why New York, with 62 counties
 against Texas's 254, is only 3,733 bytes smaller. The other 96% is code every
@@ -318,6 +422,17 @@ makes fifty separate extensions cheaper than one extension holding fifty
 parties. Until then, an operator who installs four pays for four engines — and
 the catalog holding all 49 carries the engine and the SDK 49 times, which is
 what the 6.7 MB above almost entirely is.
+
+The same arithmetic reaches the ported 40, and is worth knowing before anyone
+reads their near-parity as "no problem here". They are not the same size as the
+app's copies because they share something; they are the same size because they
+duplicate exactly what the app's copies already duplicate. Each bundle carries
+its own tree-shaken slice of the SDK — 66 KB in an event, which pulls the
+scorers and the export machinery, down to a couple of kilobytes in
+`ham2k-spot-history`, whose whole bundle is 14,894 bytes. Nothing here makes
+that worse and nothing here makes it better. Publishing `@ham2k/extension-sdk`
+as a host shared module, the way `@ham2k/lib-qson-cabrillo` already is, is the
+one change that moves every number on this page.
 
 ## The `ham2k-` prefix, and what it means for testing
 
@@ -343,11 +458,13 @@ publishing it to the catalog, or building it under a key that is not `ham2k-`.
 
 **The host must carry `@ham2k/lib-qson-cabrillo` 1.2.0 or newer.** That release
 added the Cabrillo *writer* the engine calls; 1.1.0 and earlier read Cabrillo
-and cannot write it. Every manifest here declares `^1.2.0`, and the host checks
-a declared range against the copy it actually holds — so an app built against
-an older one refuses these bundles by name and version rather than failing at
-the moment someone exports a log. The app's own `extensions/package.json` is
-where that floor is raised.
+and cannot write it. 61 of the 64 contests and events declare `^1.2.0` — all but
+the two VHF families, which submit REG1TEST/EDI instead, and Winter Field Day,
+which has no Cabrillo submission. The host checks a declared
+range against the copy it actually holds, so an app built against an older one
+refuses those bundles by name and version rather than failing at the moment
+someone exports a log. The app's own `extensions/package.json` is where that
+floor is raised.
 
 ## License
 
