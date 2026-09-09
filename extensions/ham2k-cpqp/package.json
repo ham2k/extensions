@@ -1,5 +1,5 @@
 {
-  "name": "@ham2k/ext-canadian-prairies-qso-party",
+  "name": "@ham2k/ext-cpqp",
   "version": "0.1.0",
   "private": true,
   "description": "Ham2K Logger extension: the Canadian Prairies QSO Party",

@@ -1,9 +1,9 @@
 {
-  "key": "ham2k-texas-qso-party",
-  "name": "Texas QSO Party",
-  "shortName": "TXQP",
-  "version": "0.1.1",
-  "description": "Work stations in Texas. Third weekend of September.",
+  "key": "ham2k-nyqp",
+  "name": "NYQP: New York QSO Party",
+  "shortName": "NYQP",
+  "version": "0.1.0",
+  "description": "Work stations in New York.",
   "category": "contest",
   "enabledByDefault": false,
   "icon": "star-box",
@@ -16,16 +16,16 @@
     "county",
     "counties",
     "cabrillo",
-    "tx",
-    "txqp",
-    "texas",
-    "texas qso party"
+    "ny",
+    "nyqp",
+    "new york",
+    "new york qso party"
   ],
   "hooks": [
     "activity",
     "adifFields",
     "export",
-    "ref:texas-qso-party",
+    "ref:new-york-qso-party",
     "scoring"
   ],
   "geo": {
@@ -47,12 +47,12 @@
   },
   "translations": {
     "es": {
-      "description": "Trabaja estaciones en Texas. Tercer fin de semana de septiembre.",
+      "description": "Trabaja estaciones en Nueva York.",
       "keywords": [
         "concurso",
         "condado",
         "condados",
-        "texas"
+        "nueva york"
       ]
     }
   }

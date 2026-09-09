@@ -1,37 +1,38 @@
 {
-  "key": "ham2k-new-york-qso-party",
-  "name": "New York QSO Party",
-  "shortName": "NYQP",
-  "version": "0.1.1",
-  "description": "Work stations in New York. Third weekend of October.",
+  "key": "ham2k-cpqp",
+  "name": "CPQP: Canadian Prairies QSO Party",
+  "shortName": "CPQP",
+  "version": "0.1.0",
+  "description": "Work stations in AB, MB and SK.",
   "category": "contest",
   "enabledByDefault": false,
-  "icon": "star-box",
+  "icon": "leaf-maple",
   "accentColor": "#8E24AA",
   "api": 1,
   "keywords": [
     "contest",
     "qso party",
-    "state qso party",
-    "county",
-    "counties",
+    "provincial qso party",
+    "district",
+    "districts",
     "cabrillo",
-    "ny",
-    "nyqp",
-    "new york",
-    "new york qso party"
+    "cpqp",
+    "canadian prairies qso party",
+    "alberta",
+    "saskatchewan",
+    "manitoba"
   ],
   "hooks": [
     "activity",
     "adifFields",
     "export",
-    "ref:new-york-qso-party",
+    "ref:canadian-prairies-qso-party",
     "scoring"
   ],
   "geo": {
     "countries": [
-      "us",
-      "ca"
+      "ca",
+      "us"
     ]
   },
   "sharedDependencies": {
@@ -47,12 +48,12 @@
   },
   "translations": {
     "es": {
-      "description": "Trabaja estaciones en Nueva York. Tercer fin de semana de octubre.",
+      "description": "Trabaja estaciones en AB, MB y SK.",
       "keywords": [
         "concurso",
-        "condado",
-        "condados",
-        "nueva york"
+        "distrito",
+        "distritos",
+        "canadá"
       ]
     }
   }

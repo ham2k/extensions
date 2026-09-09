@@ -1,8 +1,8 @@
 {
-  "name": "@ham2k/ext-7th-call-area-qso-party",
+  "name": "@ham2k/ext-txqp",
   "version": "0.1.0",
   "private": true,
-  "description": "Ham2K Logger extension: the 7th Call Area QSO Party",
+  "description": "Ham2K Logger extension: the Texas QSO Party",
   "author": "Sebastian Delmont <sd@ham2k.com>",
   "license": "MIT",
   "type": "module",

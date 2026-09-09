@@ -26,9 +26,12 @@ defineExtension({
   ...manifest,
   onActivation({ registerHook }) {
     registerHook("activity", { hook: hooks.activity, key: manifest.key })
-    // The ref TYPE names the party — this extension is the only thing that
-    // answers for it, and `manifest.hooks` has to say the same, or the app is
-    // told about a hook nobody registered.
+    // The ref TYPE names the party and deliberately does NOT follow the
+    // compact key: the key identifies the package in the catalog, the refType
+    // identifies the activation stored in an operator's operation, which a
+    // renamed package still has to answer for. This extension is the only
+    // thing that answers for it, and `manifest.hooks` has to say the same, or
+    // the app is told about a hook nobody registered.
     registerHook(`ref:${hooks.refType}`, { hook: hooks.refHandler, key: manifest.key })
     registerHook("adifFields", { hook: hooks.adifFields, key: manifest.key })
     registerHook("export", { hook: hooks.export, key: manifest.key })

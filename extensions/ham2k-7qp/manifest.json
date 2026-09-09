@@ -1,38 +1,43 @@
 {
-  "key": "ham2k-canadian-prairies-qso-party",
-  "name": "Canadian Prairies QSO Party",
-  "shortName": "CPQP",
-  "version": "0.1.1",
-  "description": "Work stations in AB, MB and SK. Second weekend of May.",
+  "key": "ham2k-7qp",
+  "name": "7QP: 7th Call Area QSO Party",
+  "shortName": "7QP",
+  "version": "0.1.0",
+  "description": "Work stations in AZ, ID, MT, NV, OR, UT, WA and WY.",
   "category": "contest",
   "enabledByDefault": false,
-  "icon": "leaf-maple",
+  "icon": "star-box",
   "accentColor": "#8E24AA",
   "api": 1,
   "keywords": [
     "contest",
     "qso party",
-    "provincial qso party",
-    "district",
-    "districts",
+    "regional qso party",
+    "county",
+    "counties",
     "cabrillo",
-    "cpqp",
-    "canadian prairies qso party",
-    "alberta",
-    "saskatchewan",
-    "manitoba"
+    "7qp",
+    "7th call area qso party",
+    "arizona",
+    "idaho",
+    "montana",
+    "nevada",
+    "oregon",
+    "utah",
+    "washington",
+    "wyoming"
   ],
   "hooks": [
     "activity",
     "adifFields",
     "export",
-    "ref:canadian-prairies-qso-party",
+    "ref:7th-call-area-qso-party",
     "scoring"
   ],
   "geo": {
     "countries": [
-      "ca",
-      "us"
+      "us",
+      "ca"
     ]
   },
   "sharedDependencies": {
@@ -48,12 +53,12 @@
   },
   "translations": {
     "es": {
-      "description": "Trabaja estaciones en AB, MB y SK. Segundo fin de semana de mayo.",
+      "description": "Trabaja estaciones en AZ, ID, MT, NV, OR, UT, WA y WY.",
       "keywords": [
         "concurso",
-        "distrito",
-        "distritos",
-        "canadá"
+        "condado",
+        "condados",
+        "oeste"
       ]
     }
   }

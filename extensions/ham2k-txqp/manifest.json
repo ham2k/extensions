@@ -1,9 +1,9 @@
 {
-  "key": "ham2k-7th-call-area-qso-party",
-  "name": "7th Call Area QSO Party",
-  "shortName": "7QP",
-  "version": "0.1.1",
-  "description": "Work stations in AZ, ID, MT, NV, OR, UT, WA and WY. First weekend of May.",
+  "key": "ham2k-txqp",
+  "name": "TXQP: Texas QSO Party",
+  "shortName": "TXQP",
+  "version": "0.1.0",
+  "description": "Work stations in Texas.",
   "category": "contest",
   "enabledByDefault": false,
   "icon": "star-box",
@@ -12,26 +12,20 @@
   "keywords": [
     "contest",
     "qso party",
-    "regional qso party",
+    "state qso party",
     "county",
     "counties",
     "cabrillo",
-    "7qp",
-    "7th call area qso party",
-    "arizona",
-    "idaho",
-    "montana",
-    "nevada",
-    "oregon",
-    "utah",
-    "washington",
-    "wyoming"
+    "tx",
+    "txqp",
+    "texas",
+    "texas qso party"
   ],
   "hooks": [
     "activity",
     "adifFields",
     "export",
-    "ref:7th-call-area-qso-party",
+    "ref:texas-qso-party",
     "scoring"
   ],
   "geo": {
@@ -53,12 +47,12 @@
   },
   "translations": {
     "es": {
-      "description": "Trabaja estaciones en AZ, ID, MT, NV, OR, UT, WA y WY. Primer fin de semana de mayo.",
+      "description": "Trabaja estaciones en Texas.",
       "keywords": [
         "concurso",
         "condado",
         "condados",
-        "oeste"
+        "texas"
       ]
     }
   }

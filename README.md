@@ -42,19 +42,34 @@ Everything specific to one QSO party is data. Adding one is:
    from `fixtures/<code>.json`. If the sponsor has published a new season, drop
    the updated files in and run `node scripts/convert-parties.mjs <dir>`; the
    diff is reviewable and the differential test says what changed.
-2. `mkdir extensions/ham2k-<event-name>` with four files, copied from an
-   existing event — the four here differ only in identity and in which party
-   they import:
+2. `mkdir extensions/ham2k-<abbr>` — the event's own abbreviation, lowercased
+   (`ham2k-txqp`), which is also the manifest `key` and the directory name —
+   with four files, copied from an existing event; the four here differ only
+   in identity and in which party they import:
    - `manifest.json` — key, name, `shortName`, version, description,
      `category: "contest"`, `api: 1`, icon, accent, keywords, `hooks`, `geo`,
-     `sharedDependencies`, and any `translations`. **`hooks` must list exactly
-     what the code registers, `ref:<refType>` included** — the panel and the
-     catalog read that list without loading anything, and `bundles.test.ts`
-     holds the two to each other.
+     `sharedDependencies`, and any `translations`. `name` is
+     `ABBR: Full Name` (`TXQP: Texas QSO Party`); `shortName` is the
+     abbreviation alone. The app searches an extension by its `name`,
+     `description` and `keywords` and **never** by its `shortName`, so the
+     abbreviation belongs in the name for an operator to type; everywhere
+     narrow — the export sheet, the scoreboard heading, an import notice —
+     reads `shortName`, so the two never appear together.
+     **`hooks` must list exactly what the code registers, `ref:<refType>`
+     included** — the panel and the catalog read that list without loading
+     anything, and `bundles.test.ts` holds the two to each other.
    - `package.json` — a private workspace with `build`, `typecheck` and `pack`.
    - `build.mjs` — `buildExtension(build, { dir: import.meta.dirname })`.
    - `src/index.ts` — `defineQsoParty(PARTY)` and five `registerHook` calls.
 3. `npm install` (a new workspace has to reach the root lock), then `npm test`.
+
+**The key and the refType are two namespaces, and they do not match.** The key
+names the package — `ham2k-txqp`, short because it is a catalog identifier and
+a file name. The refType names the activation an operator's operation stores —
+`texas-qso-party`, descriptive because a log carries it and has to stay
+readable years after the package was named. Renaming one never renames the
+other: a key is free to change with a new catalog entry, a refType is not,
+because the operations already holding it would stop finding their extension.
 
 The `icon` is **per event**, and the two here are only defaults: `star-box` for
 a QSO party, `leaf-maple` for a Canadian one. They live in the manifest so that
@@ -102,11 +117,11 @@ extensions use:
 
 | bundle | `index.js` | `.h2kext` |
 |---|---:|---:|
-| `ham2k-texas-qso-party` | 139,148 | 38,298 |
-| `ham2k-canadian-prairies-qso-party` | 138,076 | 37,542 |
-| `ham2k-7th-call-area-qso-party` | 145,410 | 40,060 |
-| `ham2k-new-york-qso-party` | 135,472 | 36,824 |
-| **four events** | **558,106** | **152,724** |
+| `ham2k-txqp` | 139,051 | 38,243 |
+| `ham2k-cpqp` | 137,881 | 37,475 |
+| `ham2k-7qp` | 145,260 | 39,937 |
+| `ham2k-nyqp` | 135,318 | 36,711 |
+| **four events** | **557,510** | **152,366** |
 | the app's own `qp.js`, all fifty parties | 318,890 | — |
 
 Four events cost more than fifty do inside the app, and the reason is worth
@@ -117,11 +132,11 @@ stating plainly rather than discovering later. Texas breaks down as:
 | `@ham2k/extension-sdk` | 65,969 |
 | `@ham2k/lib-qso-party` — the engine | 59,097 |
 | the party itself — 254 counties, its options and its dates | 6,004 |
-| this extension's own code | 3,842 |
+| this extension's own code | 3,745 |
 | esbuild's runtime and its IIFE wrapper | 4,236 |
 
 **The event is 4% of its own bundle** — which is why New York, with 62 counties
-against Texas's 254, is only 3,676 bytes smaller. The other 96% is code every
+against Texas's 254, is only 3,733 bytes smaller. The other 96% is code every
 party's bundle carries an identical copy of, because the app is untouched by
 this work: the host offers a fixed list of shared libraries, the engine is not
 on that list, so each bundle brings its own. Making `@ham2k/lib-qso-party` a
