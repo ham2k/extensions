@@ -27,6 +27,38 @@ import { build } from "esbuild"
 import { buildExtension } from "@ham2k/extension-tools"
 // @ts-expect-error — as above.
 import { findSharedModuleReferences, pack, validateManifest } from "@ham2k/extension-tools/format"
+// A NAMESPACE import, so a missing export is a value to test rather than a
+// link error that takes the whole file down before any test runs.
+// @ts-expect-error — as above.
+import * as packerFormat from "@ham2k/extension-tools/format"
+
+/// Whether the installed packer knows the manifest fields these extensions
+/// actually use — asserted below, on its own, rather than inside the
+/// per-extension loop, so a packer that is merely OLD reads as one problem
+/// and not as ninety broken extensions.
+///
+/// `validateManifest` is the only thing in this repo that reads a manifest's
+/// CONTENT, and it comes from a published package rather than from halo's
+/// working copy. A packer older than a field does not look at that field at
+/// all: every manifest passes, and `"interests": ["CW"]`,
+/// `"dates": ["2026-02-31"]` or a misspelt `"relevence"` all ship green.
+///
+/// `validateRelevance`'s presence is the probe, because that export arrived
+/// with those fields.
+const packerKnowsRelevance = typeof (packerFormat as Record<string, unknown>).validateRelevance === "function"
+
+test("the installed packer is new enough to validate what these manifests say", () => {
+  // Not this repo's bug to fix — it is one `npm install` away from a
+  // published packer that has it — but it must not pass in silence, because
+  // what it hides is 89 manifests that nothing validated. Everything else
+  // here still runs: the older packer checks keys, api and shared
+  // dependencies, and only the manifest CONTENT goes unchecked.
+  assert.ok(
+    packerKnowsRelevance,
+    "@ham2k/extension-tools is older than `relevance` (no validateRelevance export), so every manifest's " +
+      "relevance, dates, interests and enabledByDefault go unchecked here. Publish the packer and update it.",
+  )
+})
 
 const extensionsDir = dirname(fileURLToPath(import.meta.url))
 

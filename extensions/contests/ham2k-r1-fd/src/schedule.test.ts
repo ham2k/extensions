@@ -10,6 +10,7 @@ import { strict as assert } from "node:assert"
 import { describe, it } from "node:test"
 
 import {
+  MODES,
   daysUntilFieldDay,
   endOfFieldDay,
   isFieldDayOn,
@@ -17,6 +18,7 @@ import {
   relevanceFor,
   startOfFieldDay,
 } from "./schedule.ts"
+import manifest from "../manifest.json" with { type: "json" }
 
 describe('startOfFieldDay', () => {
   it('CW runs the first full June weekend at 1500 UTC', () => {
@@ -59,5 +61,23 @@ describe('relevance', () => {
     // In early September the SSB running outranks a CW running nine months out.
     assert.ok(relevanceFor(during, 'SSB') > relevanceFor(during, 'CW'))
     assert.ok(daysUntilFieldDay(during, 'CW') > 200)
+  })
+})
+
+// The manifest's `relevance.dates` is a hand-typed copy of what this module
+// computes, and the catalog reads it without ever loading the bundle. Nothing
+// else compares the two, so a fix to the rule here would move the scorer and
+// leave the listing advertising the old weekend.
+//
+// Both runnings count: an operator who only reads the listing must see the
+// September SSB weekend as well as the June CW one.
+describe("the manifest's dates", () => {
+  it('are the ones this rule computes, for both modes', () => {
+    const listed = (manifest.relevance?.dates ?? []) as string[]
+    assert.ok(listed.length > 0, 'the manifest lists no dates')
+    const day = (ms: number) => new Date(ms).toISOString().slice(0, 10)
+    const years = [...new Set(listed.map((d) => Number(d.slice(0, 4))))]
+    const derived = years.flatMap((year) => MODES.map((mode) => day(startOfFieldDay(year, mode)))).sort()
+    assert.deepEqual([...listed].sort(), derived)
   })
 })

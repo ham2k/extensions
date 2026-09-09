@@ -28,7 +28,7 @@
 // hand-written and carry per-party prose in `src/index.ts`; `--force` replaces
 // that prose with this template's. Nothing else about them changes.
 
-import { existsSync, mkdirSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 
 import { PARTIES } from "@ham2k/qso-parties"
@@ -403,6 +403,20 @@ function writeJson(path, value) {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`)
 }
 
+/// Sets an existing package.json's `version` to VERSION, leaving every other
+/// field as it stands — the manifests-only pass must not revert a dependency
+/// or a script somebody added since the directory was generated.
+function bumpPackageVersion(path) {
+  try {
+    const pkg = JSON.parse(readFileSync(path, "utf8"))
+    if (pkg.version === VERSION) return
+    pkg.version = VERSION
+    writeJson(path, pkg)
+  } catch {
+    // No package.json to keep in step. The manifest is what this mode is for.
+  }
+}
+
 function main() {
   const force = process.argv.includes("--force")
   const manifestsOnly = process.argv.includes("--manifests")
@@ -410,6 +424,7 @@ function main() {
 
   const written = []
   const skipped = []
+  const absent = []
   const disabled = []
 
   for (const [code, party] of Object.entries(PARTIES)) {
@@ -424,11 +439,19 @@ function main() {
 
     if (manifestsOnly) {
       // Only what already exists: this mode re-derives, it does not create.
+      // Reported apart from `skipped`, which means the opposite thing — a
+      // party with no extension yet is not one that was "left alone", and
+      // telling its author to pass --force would be telling them to rewrite
+      // what is not there.
       if (!present) {
-        skipped.push(key)
+        absent.push(key)
         continue
       }
       writeJson(join(dir, "manifest.json"), manifestFor(code, key, party))
+      // The manifest carries VERSION, so leaving package.json behind splits
+      // the two silently. Only that field is touched: everything else in
+      // there may have been edited by hand since it was generated.
+      bumpPackageVersion(join(dir, "package.json"))
       written.push(key)
       continue
     }
@@ -453,6 +476,9 @@ function main() {
   for (const line of disabled) console.log(`not shipped: ${line}`)
   console.log(`wrote ${written.length}: ${written.join(" ") || "none"}`)
   if (skipped.length) console.log(`already present, left alone (--force to rewrite): ${skipped.join(" ")}`)
+  if (absent.length) {
+    console.log(`no extension to re-derive, so nothing written (run without --manifests to create): ${absent.join(" ")}`)
+  }
 }
 
 main()

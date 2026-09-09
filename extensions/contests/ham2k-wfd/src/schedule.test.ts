@@ -20,6 +20,7 @@ import {
   relevanceFor,
   startOfWinterFieldDay,
 } from "./schedule.ts"
+import manifest from "../manifest.json" with { type: "json" }
 
 /// The runnings as published, so the rule is checked against reality
 /// rather than against itself.
@@ -83,4 +84,16 @@ test("relevance peaks while it is on and decays afterwards", () => {
   // Half a year out ranks well below either.
   const distant = startOfWinterFieldDay(year) - 180 * 86400000
   assert.ok(relevanceFor(distant) < 0.5)
+})
+
+// The manifest's `relevance.dates` is a hand-typed copy of what this module
+// computes, and the catalog reads it without ever loading the bundle. Nothing
+// else compares the two, so a fix to the rule here would move the scorer and
+// leave the listing advertising the old weekend — the exact failure the QSO
+// parties avoid by deriving their dates from `periods`.
+test("the manifest's dates are the ones this rule computes", () => {
+  const listed = (manifest.relevance?.dates ?? []) as string[]
+  assert.ok(listed.length > 0, "the manifest lists no dates")
+  const day = (ms: number) => new Date(ms).toISOString().slice(0, 10)
+  assert.deepEqual(listed, listed.map((d) => startOfWinterFieldDay(Number(d.slice(0, 4)))).map(day))
 })

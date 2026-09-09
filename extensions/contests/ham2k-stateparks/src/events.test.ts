@@ -11,6 +11,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 
 import { bandCounts, daysUntil, EVENTS, eventFor, parseEventTime } from "./events.ts"
+import manifest from "../manifest.json" with { type: "json" }
 
 test('the four events are all present and identified by their key', () => {
   assert.deepEqual(EVENTS.map((e) => e.key), ['TXSP', 'FLSP', 'GASP', 'OHSP'])
@@ -183,4 +184,15 @@ test('power classes and entry categories are asked for only where the answer lan
     assert.deepEqual(eventFor(key)!.powerClasses, [], key)
     assert.deepEqual(eventFor(key)!.categories, [], key)
   }
+})
+
+// The manifest's `relevance.dates` is a hand-typed copy of the `start` in each
+// event file, and the catalog reads it without ever loading the bundle. Those
+// files carry a `lastUpdated` and get re-synced from sponsors, so without this
+// a re-sync moves the event and leaves the listing on last year's weekend.
+test("the manifest's dates are the days the event files start", () => {
+  const listed = (manifest.relevance?.dates ?? []) as string[]
+  assert.ok(listed.length > 0, "the manifest lists no dates")
+  const starts = EVENTS.filter((e) => e.startMillis).map((e) => new Date(e.startMillis).toISOString().slice(0, 10))
+  assert.deepEqual(listed, [...new Set(starts)].sort())
 })
