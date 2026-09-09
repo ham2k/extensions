@@ -2,10 +2,9 @@
   "key": "ham2k-paqp",
   "name": "PAQP: Pennsylvania QSO Party",
   "shortName": "PAQP",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Work stations in Pennsylvania.",
   "category": "contest",
-  "enabledByDefault": false,
   "icon": "star-box",
   "accentColor": "#8E24AA",
   "api": 1,
@@ -28,10 +27,14 @@
     "ref:pennsylvania-qso-party",
     "scoring"
   ],
-  "geo": {
+  "relevance": {
     "countries": [
       "us",
       "ca"
+    ],
+    "dates": [
+      "2026-10-10",
+      "2026-10-11"
     ]
   },
   "sharedDependencies": {

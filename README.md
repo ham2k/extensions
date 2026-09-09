@@ -174,8 +174,9 @@ Everything specific to one QSO party is data. Adding one is:
    and the directory name. Every event differs from every other only in identity
    and in which party it imports, so all four files are **derived from the
    party's own module** rather than typed: the key from its short name, the
-   description and the keywords from its states, the icon and the `geo` ranking
-   from its entity, and `hooks` from the refType it states. A sponsor's re-sync
+   description and the keywords from its states, the icon and the `relevance`
+   ranking from its entity, its `relevance.dates` from the same `periods` the
+   scorer runs on, and `hooks` from the refType it states. A sponsor's re-sync
    therefore reaches the extensions by re-running this, and an event edited by
    hand is one the next run reverts. Two rules worth knowing before reading a
    surprising key:
@@ -190,7 +191,8 @@ Everything specific to one QSO party is data. Adding one is:
 
    The four files it writes:
    - `manifest.json` — key, name, `shortName`, version, description,
-     `category: "contest"`, `api: 1`, icon, accent, keywords, `hooks`, `geo`,
+     `category: "contest"`, `api: 1`, icon, accent, keywords, `hooks`,
+     `relevance`,
      `sharedDependencies`, and any `translations`. `name` is
      `ABBR: Full Name` (`TXQP: Texas QSO Party`); `shortName` is the
      abbreviation alone. The app searches an extension by its `name`,
@@ -223,16 +225,22 @@ which is where a sponsor's own glyph would go. The engine falls back to
 what its codepoint table carries, so check a new one against
 `packages/halo_widgets/lib/src/icon_codepoints.g.dart` before using it.
 
-`geo` is worth a moment. It **ranks** an extension in the catalog and in the
-Extensions panel for the operator's own callsign; nothing is hidden by it.
-Every event declares both countries, its own first —
-`{"countries": ["us", "ca"]}` for a US party — rather than
-`{"entities": ["K", "VE"]}`, because the DXCC entity `K` is the lower 48:
-Alaska is `KL` and Hawaii is `KH6`, and an operator in either is a prime
-multiplier in every one of these events rather than someone to rank it away
-from. The ISO country the app derives for `KL` and `KH6` is `us`, so
+`relevance` is worth a moment. It **ranks** an extension in the catalog and in
+the Extensions panel; nothing is hidden by it. Every event declares both
+countries, its own first — `{"countries": ["us", "ca"]}` for a US party —
+rather than `{"entities": ["K", "VE"]}`, because the DXCC entity `K` is the
+lower 48: Alaska is `KL` and Hawaii is `KH6`, and an operator in either is a
+prime multiplier in every one of these events rather than someone to rank it
+away from. The ISO country the app derives for `KL` and `KH6` is `us`, so
 `countries` says what was meant. Canada is in the list because Canadian
 stations work the US parties and the other way round.
+
+Alongside the countries it carries `dates`: the UTC days the party's sessions
+begin, `YYYY-MM-DD`, taken from the same `periods` the scorer runs on. Reading
+them off the fixture rather than keeping a second copy is what stops the
+catalog advertising a weekend the extension does not score. Re-run
+`node scripts/generate-event-extensions.mjs --manifests` after a fixture
+re-sync and every date moves at once, touching nobody's hand-written prose.
 
 ## Porting a built-in
 
@@ -322,12 +330,18 @@ built-in copy** — see **Nothing ported is published**.
     POTA's eight are what the SDK barrel itself reaches; it declares no
     `@ham2k/lib-qson-cabrillo`, `-qson-adif`, `-qson-tools` or `-cqmag-data`
     because nothing on its path touches them.
-12. **`geo` only where it is truthfully narrow.** It ranks an extension for the
-    operator's own callsign and hides nothing, so a wrong one is merely useless
-    while a missing one costs nothing. Most built-ins have none and keep none:
-    POTA, SOTA and WWFF are worldwide programs. Declare it where the extension is
-    genuinely about one place — a national activity award, a regional QSO party —
-    and prefer `countries` to `entities`, for the reason above.
+12. **`relevance` only where it is truthfully narrow.** It ranks an extension
+    and hides nothing, so a wrong one is merely useless while a missing one
+    costs nothing. Most built-ins have none and keep none: POTA, SOTA and WWFF
+    are worldwide programs. Declare the geographic keys where the extension is
+    genuinely about one place — a national activity award, a regional QSO party
+    — and prefer `countries` to `entities`, for the reason above. `dates` where
+    the extension already knows when its events run, and nowhere else: a date
+    typed from memory goes stale in a way nothing here can catch.
+    `interests` only where the extension is DEDICATED to one — `cw` for the
+    CWTs, `vhf uhf microwave` for the VHF families, `satellite` for the
+    satellite tracker. A contest that merely permits CW is not a `cw`
+    extension, and tagging it makes every interest match everything.
 13. **`npm install`** (a new workspace has to reach the root lock), then
     `npm test`, `npm run typecheck`, `npm run build`, `npm run pack`.
 

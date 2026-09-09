@@ -2,10 +2,9 @@
   "key": "ham2k-7qp",
   "name": "7QP: 7th Call Area QSO Party",
   "shortName": "7QP",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Work stations in AZ, ID, MT, NV, OR, UT, WA and WY.",
   "category": "contest",
-  "enabledByDefault": false,
   "icon": "star-box",
   "accentColor": "#8E24AA",
   "api": 1,
@@ -34,10 +33,13 @@
     "ref:7th-call-area-qso-party",
     "scoring"
   ],
-  "geo": {
+  "relevance": {
     "countries": [
       "us",
       "ca"
+    ],
+    "dates": [
+      "2026-05-02"
     ]
   },
   "sharedDependencies": {

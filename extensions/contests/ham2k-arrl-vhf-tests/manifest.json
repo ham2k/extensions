@@ -2,10 +2,9 @@
   "key": "ham2k-arrl-vhf-tests",
   "name": "ARRL VHF Contests",
   "shortName": "ARRL VHF",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Great-circle distance and per-band points across ARRL's VHF/UHF/microwave contest family",
   "category": "contest",
-  "enabledByDefault": false,
   "icon": "radio-tower",
   "accentColor": "#1565C0",
   "api": 1,
@@ -17,9 +16,14 @@
     "distance",
     "cabrillo"
   ],
-  "geo": {
+  "relevance": {
     "continents": [
       "NA"
+    ],
+    "interests": [
+      "vhf",
+      "uhf",
+      "microwave"
     ]
   },
   "hooks": [

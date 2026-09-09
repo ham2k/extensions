@@ -2,11 +2,10 @@
   "key": "ham2k-parksnpeaks",
   "name": "PnP: ParksnPeaks Spots",
   "shortName": "PnP",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "api": 1,
   "description": "VK and ZL spotting service — brings in WWFF and SiOTA spots, and posts yours to them",
   "category": "spots",
-  "enabledByDefault": false,
   "icon": "forest-outline",
   "accentColor": "#2E7D32",
   "keywords": [
@@ -17,7 +16,7 @@
     "vk",
     "zl"
   ],
-  "geo": {
+  "relevance": {
     "entities": [
       "VK",
       "ZL"

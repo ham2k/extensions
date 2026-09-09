@@ -2,10 +2,9 @@
   "key": "ham2k-rsgb-vhf-tests",
   "name": "RSGB VHF Contests",
   "shortName": "RSGB VHF",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Great-circle distance, per-band points and grid/district/DXCC bonuses across RSGB's VHF/UHF/microwave contest family, submitted as REG1TEST/EDI",
   "category": "contest",
-  "enabledByDefault": false,
   "icon": "flag-checkered",
   "accentColor": "#00695C",
   "api": 1,
@@ -20,7 +19,7 @@
     "rsgb",
     "ukac"
   ],
-  "geo": {
+  "relevance": {
     "entities": [
       "G",
       "GM",
@@ -29,6 +28,11 @@
       "GD",
       "GU",
       "GJ"
+    ],
+    "interests": [
+      "vhf",
+      "uhf",
+      "microwave"
     ]
   },
   "hooks": [

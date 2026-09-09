@@ -2,10 +2,9 @@
   "key": "ham2k-wfd",
   "name": "WFD: Winter Field Day",
   "shortName": "WFD",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "The January field event — class and section exchange, with a multiplier earned from objectives",
   "category": "contest",
-  "enabledByDefault": false,
   "icon": "snowflake",
   "accentColor": "#0277BD",
   "api": 1,
@@ -14,9 +13,14 @@
     "wfd",
     "contest"
   ],
-  "geo": {
+  "relevance": {
     "continents": [
       "NA"
+    ],
+    "dates": [
+      "2026-01-24",
+      "2027-01-30",
+      "2028-01-29"
     ]
   },
   "hooks": [

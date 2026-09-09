@@ -2,10 +2,9 @@
   "key": "ham2k-r1-fd",
   "name": "R1 FD: IARU Region 1 Field Day",
   "shortName": "R1 FD",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Region 1's June CW and September SSB field days — serial exchange, portable points, country multipliers",
   "category": "contest",
-  "enabledByDefault": false,
   "icon": "tent",
   "accentColor": "#1565C0",
   "api": 1,
@@ -18,9 +17,17 @@
     "contest",
     "cabrillo"
   ],
-  "geo": {
+  "relevance": {
     "ituRegions": [
       1
+    ],
+    "dates": [
+      "2026-06-06",
+      "2026-09-05",
+      "2027-06-05",
+      "2027-09-04",
+      "2028-06-03",
+      "2028-09-02"
     ]
   },
   "hooks": [

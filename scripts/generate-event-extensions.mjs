@@ -6,14 +6,19 @@
 // `extensions/contests/ham2k-<abbr>/` out.
 //
 // Usage:
-//   node scripts/generate-event-extensions.mjs           write the missing ones
-//   node scripts/generate-event-extensions.mjs --force   rewrite every one
+//   node scripts/generate-event-extensions.mjs             write the missing ones
+//   node scripts/generate-event-extensions.mjs --force     rewrite every one
+//   node scripts/generate-event-extensions.mjs --manifests rewrite only the
+//       manifests of the extensions that already exist. The yearly re-sync:
+//       `relevance.dates` moves with every sponsor's calendar, and nothing
+//       else in an extension does — so this is the run that does not touch a
+//       line of anyone's hand-written prose.
 //
 // Fifty events differ from each other only in identity and in which party they
 // import, so every field that is not boilerplate is DERIVED here rather than
 // typed fifty times: the key from the party's short name, the description and
-// the keywords from its state list, the icon and the `geo` ranking from its
-// entity, and `hooks` from the refType the party states and the five
+// the keywords from its state list, the icon and the `relevance` ranking from
+// its entity, and `hooks` from the refType the party states and the five
 // registrations the template makes. A sponsor's re-sync therefore reaches the
 // extensions by re-running this, and an extension edited by hand is one the
 // next run silently reverts — which is why an existing directory is skipped
@@ -34,7 +39,7 @@ import { CANADIAN_PROVINCES, US_STATES } from "../packages/lib-qso-party/src/loc
 
 const EXTENSIONS_DIR = resolve(import.meta.dirname, "..", "extensions", "contests")
 
-const VERSION = "0.1.0"
+const VERSION = "0.2.0"
 
 /// The accent every event carries. One color for the whole family: what
 /// distinguishes two events in the panel is their name and their icon, and a
@@ -201,6 +206,19 @@ function keysByCode(parties) {
   return { keys, collisions }
 }
 
+/// The UTC days [party]'s sessions begin, `YYYY-MM-DD`, in order and without
+/// repeats — the manifest's `relevance.dates`.
+///
+/// A party that runs two sessions on one day contributes that day once; one
+/// that runs a session on each of two days contributes both, because both are
+/// days an operator would want to know about. A period running past midnight
+/// UTC still counts only as the day it STARTED: the manifest says when things
+/// begin, and the bundle is the only thing that knows when they end.
+function startDaysOf(party) {
+  const days = (party.periods ?? []).map((period) => new Date(period.startMillis).toISOString().slice(0, 10))
+  return [...new Set(days)].sort()
+}
+
 function manifestFor(code, key, party) {
   const isCanadian = party.entity === "VE"
   const states = party.state ? [party.state] : party.states
@@ -230,6 +248,8 @@ function manifestFor(code, key, party) {
     ...(party.state ? [] : states.map((state) => placeName(state).toLowerCase())),
   ]
 
+  const startDays = startDaysOf(party)
+
   const regionEs = party.state ? placeNameEs(party.state).toLowerCase() : REGIONS_ES[party.refType]
   if (!regionEs) throw new Error(`no Spanish region keyword for ${party.refType} — add it to REGIONS_ES`)
 
@@ -242,7 +262,6 @@ function manifestFor(code, key, party) {
       ? `Work stations in ${placeName(party.state)}.`
       : `Work stations in ${joinList(states, "and")}.`,
     category: "contest",
-    enabledByDefault: false,
     // `leaf-maple` for a Canadian party, `star-box` for the rest — the engine's
     // own fallback, stated here so an event can be given a sponsor's glyph
     // without touching the engine.
@@ -257,7 +276,17 @@ function manifestFor(code, key, party) {
     // the US parties and the other way round, and the party's own country goes
     // first. `countries`, not `entities`, because the DXCC entity `K` is the
     // lower 48 — Alaska is `KL` and Hawaii `KH6`, and both derive `us`.
-    geo: { countries: isCanadian ? ["ca", "us"] : ["us", "ca"] },
+    //
+    // `dates` comes off the same `periods` the scorer runs on, so a re-synced
+    // fixture moves the listing and the scoring together. A hand-kept copy
+    // would let the catalog advertise a weekend the extension does not score.
+    relevance: {
+      countries: isCanadian ? ["ca", "us"] : ["us", "ca"],
+      // Omitted rather than emptied for a fixture with no periods: an empty
+      // list and an absent one mean the same thing, and only one of them
+      // reads as an author who forgot.
+      ...(startDays.length ? { dates: startDays } : {}),
+    },
     sharedDependencies: SHARED_DEPENDENCIES,
     translations: {
       es: {
@@ -376,6 +405,7 @@ function writeJson(path, value) {
 
 function main() {
   const force = process.argv.includes("--force")
+  const manifestsOnly = process.argv.includes("--manifests")
   const { keys, collisions } = keysByCode(PARTIES)
 
   const written = []
@@ -390,7 +420,20 @@ function main() {
 
     const key = keys[code]
     const dir = join(EXTENSIONS_DIR, key)
-    if (existsSync(dir) && !force) {
+    const present = existsSync(dir)
+
+    if (manifestsOnly) {
+      // Only what already exists: this mode re-derives, it does not create.
+      if (!present) {
+        skipped.push(key)
+        continue
+      }
+      writeJson(join(dir, "manifest.json"), manifestFor(code, key, party))
+      written.push(key)
+      continue
+    }
+
+    if (present && !force) {
       skipped.push(key)
       continue
     }

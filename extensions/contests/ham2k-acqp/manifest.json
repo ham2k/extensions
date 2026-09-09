@@ -2,10 +2,9 @@
   "key": "ham2k-acqp",
   "name": "ACQP: Atlantic Canada QSO Party",
   "shortName": "ACQP",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Work stations in NB, NL, NS and PE.",
   "category": "contest",
-  "enabledByDefault": false,
   "icon": "leaf-maple",
   "accentColor": "#8E24AA",
   "api": 1,
@@ -30,10 +29,13 @@
     "ref:atlantic-canada-qso-party",
     "scoring"
   ],
-  "geo": {
+  "relevance": {
     "countries": [
       "ca",
       "us"
+    ],
+    "dates": [
+      "2026-06-07"
     ]
   },
   "sharedDependencies": {

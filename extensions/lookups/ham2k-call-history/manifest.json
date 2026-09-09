@@ -1,11 +1,10 @@
 {
   "key": "ham2k-call-history",
   "name": "Call History",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "api": 1,
   "description": "Uses the most recent past QSO with a station, from your own log, as a lookup source",
   "category": "lookup",
-  "enabledByDefault": true,
   "keywords": [
     "callsign",
     "lookup",

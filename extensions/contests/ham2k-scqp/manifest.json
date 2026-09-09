@@ -2,10 +2,9 @@
   "key": "ham2k-scqp",
   "name": "SCQP: South Carolina QSO Party",
   "shortName": "SCQP",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Work stations in South Carolina.",
   "category": "contest",
-  "enabledByDefault": false,
   "icon": "star-box",
   "accentColor": "#8E24AA",
   "api": 1,
@@ -28,10 +27,13 @@
     "ref:south-carolina-qso-party",
     "scoring"
   ],
-  "geo": {
+  "relevance": {
     "countries": [
       "us",
       "ca"
+    ],
+    "dates": [
+      "2026-02-28"
     ]
   },
   "sharedDependencies": {

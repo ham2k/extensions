@@ -2,10 +2,9 @@
   "key": "ham2k-onqp",
   "name": "ONQP: Ontario QSO Party",
   "shortName": "ONQP",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Work stations in Ontario.",
   "category": "contest",
-  "enabledByDefault": false,
   "icon": "leaf-maple",
   "accentColor": "#8E24AA",
   "api": 1,
@@ -28,10 +27,14 @@
     "ref:ontario-qso-party",
     "scoring"
   ],
-  "geo": {
+  "relevance": {
     "countries": [
       "ca",
       "us"
+    ],
+    "dates": [
+      "2026-04-18",
+      "2026-04-19"
     ]
   },
   "sharedDependencies": {

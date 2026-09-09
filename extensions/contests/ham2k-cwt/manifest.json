@@ -2,10 +2,9 @@
   "key": "ham2k-cwt",
   "name": "CWops CWT",
   "shortName": "CWT",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "The weekly CWops mini-tests: one hour of CW, name and member number, four sessions a week",
   "category": "contest",
-  "enabledByDefault": false,
   "icon": "clock-fast",
   "accentColor": "#4527A0",
   "api": 1,
@@ -24,6 +23,11 @@
     "ref:cwt",
     "scoring"
   ],
+  "relevance": {
+    "interests": [
+      "cw"
+    ]
+  },
   "sharedDependencies": {
     "@ham2k/lib-callsigns": "^1.0.0",
     "@ham2k/lib-country-files": "^1.0.0",

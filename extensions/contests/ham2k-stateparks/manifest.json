@@ -2,10 +2,9 @@
   "key": "ham2k-stateparks",
   "name": "State Parks Events (Beta)",
   "shortName": "State Parks",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "State park on-the-air events — Texas, Florida, Georgia and Ohio — scored alongside your POTA activation",
   "category": "contest",
-  "enabledByDefault": false,
   "icon": "flag-checkered",
   "accentColor": "#00695C",
   "api": 1,
@@ -21,9 +20,14 @@
     "ospota",
     "cabrillo"
   ],
-  "geo": {
+  "relevance": {
     "countries": [
       "us"
+    ],
+    "dates": [
+      "2026-04-17",
+      "2026-04-18",
+      "2026-09-12"
     ]
   },
   "hooks": [

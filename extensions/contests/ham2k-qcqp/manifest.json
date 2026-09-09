@@ -2,10 +2,9 @@
   "key": "ham2k-qcqp",
   "name": "QCQP: Quebec QSO Party",
   "shortName": "QCQP",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Work stations in Quebec.",
   "category": "contest",
-  "enabledByDefault": false,
   "icon": "leaf-maple",
   "accentColor": "#8E24AA",
   "api": 1,
@@ -28,10 +27,13 @@
     "ref:quebec-qso-party",
     "scoring"
   ],
-  "geo": {
+  "relevance": {
     "countries": [
       "ca",
       "us"
+    ],
+    "dates": [
+      "2026-04-19"
     ]
   },
   "sharedDependencies": {

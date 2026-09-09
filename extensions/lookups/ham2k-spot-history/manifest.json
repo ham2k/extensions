@@ -1,11 +1,10 @@
 {
   "key": "ham2k-spot-history",
   "name": "Spot History",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "api": 1,
   "description": "Brings park, summit and other activity references from recent spots into the QSO you are logging",
   "category": "lookup",
-  "enabledByDefault": true,
   "keywords": [
     "spots",
     "lookup",

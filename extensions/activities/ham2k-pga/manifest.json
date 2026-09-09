@@ -2,10 +2,9 @@
   "key": "ham2k-pga",
   "name": "PGA: Polish Gmina Award",
   "shortName": "PGA",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Polish gmina references and activation logging",
   "category": "activity",
-  "enabledByDefault": false,
   "icon": "map-outline",
   "accentColor": "#B03A48",
   "api": 1,
@@ -14,7 +13,7 @@
     "poland",
     "activation"
   ],
-  "geo": {
+  "relevance": {
     "entities": [
       "SP"
     ]

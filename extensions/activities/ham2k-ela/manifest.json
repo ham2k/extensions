@@ -2,10 +2,9 @@
   "key": "ham2k-ela",
   "name": "ELA: English Lighthouse Awards",
   "shortName": "ELA",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "English lighthouse references, activation logging, and self-spotting",
   "category": "activity",
-  "enabledByDefault": false,
   "icon": "lighthouse",
   "accentColor": "#2E6F9E",
   "api": 1,
@@ -14,7 +13,7 @@
     "england",
     "activation"
   ],
-  "geo": {
+  "relevance": {
     "entities": [
       "G"
     ]

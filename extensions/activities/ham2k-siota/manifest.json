@@ -2,10 +2,9 @@
   "key": "ham2k-siota",
   "name": "SiOTA: Silos on the Air",
   "shortName": "SiOTA",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Silo references, activation and chasing",
   "category": "activity",
-  "enabledByDefault": false,
   "icon": "silo",
   "accentColor": "#B08C4F",
   "api": 1,
@@ -15,7 +14,7 @@
     "activation",
     "chasing"
   ],
-  "geo": {
+  "relevance": {
     "entities": [
       "VK"
     ]

@@ -2,10 +2,9 @@
   "key": "ham2k-naqp",
   "name": "NAQP: North American QSO Party",
   "shortName": "NAQP",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Names and locations across North America: every state and province counts on every band",
   "category": "contest",
-  "enabledByDefault": false,
   "icon": "flag-checkered",
   "accentColor": "#2E7D32",
   "api": 1,
@@ -16,7 +15,7 @@
     "province",
     "cabrillo"
   ],
-  "geo": {
+  "relevance": {
     "continents": [
       "NA"
     ]

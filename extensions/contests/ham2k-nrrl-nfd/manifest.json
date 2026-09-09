@@ -2,10 +2,9 @@
   "key": "ham2k-nrrl-nfd",
   "name": "NFD: NRRL Nasjonal Field Day",
   "shortName": "NFD",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Norway's national field day — all three modes at once, country-per-band-and-mode multipliers, and large bonuses",
   "category": "contest",
-  "enabledByDefault": false,
   "icon": "pine-tree",
   "accentColor": "#BA0C2F",
   "api": 1,
@@ -20,9 +19,14 @@
     "contest",
     "cabrillo"
   ],
-  "geo": {
+  "relevance": {
     "entities": [
       "LA"
+    ],
+    "dates": [
+      "2026-09-05",
+      "2027-09-04",
+      "2028-09-02"
     ]
   },
   "hooks": [

@@ -2,10 +2,9 @@
   "key": "ham2k-nmqp",
   "name": "NMQP: New Mexico QSO Party",
   "shortName": "NMQP",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Work stations in New Mexico.",
   "category": "contest",
-  "enabledByDefault": false,
   "icon": "star-box",
   "accentColor": "#8E24AA",
   "api": 1,
@@ -28,10 +27,13 @@
     "ref:new-mexico-qso-party",
     "scoring"
   ],
-  "geo": {
+  "relevance": {
     "countries": [
       "us",
       "ca"
+    ],
+    "dates": [
+      "2026-04-11"
     ]
   },
   "sharedDependencies": {

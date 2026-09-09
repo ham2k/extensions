@@ -1,11 +1,10 @@
 {
   "key": "ham2k-call-notes",
   "name": "Callsign Notes",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "api": 1,
   "description": "Annotates calls from shared notes files",
   "category": "lookup",
-  "enabledByDefault": true,
   "keywords": [
     "callsign",
     "notes",

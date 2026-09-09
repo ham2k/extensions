@@ -2,10 +2,9 @@
   "key": "ham2k-hiqp",
   "name": "HIQP: Hawaii QSO Party",
   "shortName": "HIQP",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Work stations in Hawaii.",
   "category": "contest",
-  "enabledByDefault": false,
   "icon": "star-box",
   "accentColor": "#8E24AA",
   "api": 1,
@@ -28,10 +27,13 @@
     "ref:hawaii-qso-party",
     "scoring"
   ],
-  "geo": {
+  "relevance": {
     "countries": [
       "us",
       "ca"
+    ],
+    "dates": [
+      "2026-08-22"
     ]
   },
   "sharedDependencies": {

@@ -2,10 +2,9 @@
   "key": "ham2k-satellites",
   "name": "Satellite Operations",
   "shortName": "Sats",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Log contacts through amateur satellites, with the bird and its transponder",
   "category": "activity",
-  "enabledByDefault": false,
   "icon": "satellite-variant",
   "accentColor": "#3F51B5",
   "api": 1,
@@ -26,6 +25,11 @@
   "domains": [
     "polo.ham2k.com"
   ],
+  "relevance": {
+    "interests": [
+      "satellite"
+    ]
+  },
   "sharedDependencies": {
     "@ham2k/lib-callsigns": "^1.0.0",
     "@ham2k/lib-country-files": "^1.0.0",

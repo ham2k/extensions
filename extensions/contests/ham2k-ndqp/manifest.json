@@ -2,10 +2,9 @@
   "key": "ham2k-ndqp",
   "name": "NDQP: North Dakota QSO Party",
   "shortName": "NDQP",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Work stations in North Dakota.",
   "category": "contest",
-  "enabledByDefault": false,
   "icon": "star-box",
   "accentColor": "#8E24AA",
   "api": 1,
@@ -28,10 +27,13 @@
     "ref:north-dakota-qso-party",
     "scoring"
   ],
-  "geo": {
+  "relevance": {
     "countries": [
       "us",
       "ca"
+    ],
+    "dates": [
+      "2026-04-11"
     ]
   },
   "sharedDependencies": {

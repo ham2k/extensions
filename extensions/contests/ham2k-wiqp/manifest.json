@@ -2,10 +2,9 @@
   "key": "ham2k-wiqp",
   "name": "WIQP: Wisconsin QSO Party",
   "shortName": "WIQP",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Work stations in Wisconsin.",
   "category": "contest",
-  "enabledByDefault": false,
   "icon": "star-box",
   "accentColor": "#8E24AA",
   "api": 1,
@@ -28,10 +27,13 @@
     "ref:wisconsin-qso-party",
     "scoring"
   ],
-  "geo": {
+  "relevance": {
     "countries": [
       "us",
       "ca"
+    ],
+    "dates": [
+      "2026-03-15"
     ]
   },
   "sharedDependencies": {

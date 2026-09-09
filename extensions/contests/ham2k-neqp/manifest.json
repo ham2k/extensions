@@ -2,10 +2,9 @@
   "key": "ham2k-neqp",
   "name": "NEQP: New England QSO Party",
   "shortName": "NEQP",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Work stations in CT, MA, ME, NH, RI and VT.",
   "category": "contest",
-  "enabledByDefault": false,
   "icon": "star-box",
   "accentColor": "#8E24AA",
   "api": 1,
@@ -32,10 +31,14 @@
     "ref:new-england-qso-party",
     "scoring"
   ],
-  "geo": {
+  "relevance": {
     "countries": [
       "us",
       "ca"
+    ],
+    "dates": [
+      "2026-05-02",
+      "2026-05-03"
     ]
   },
   "sharedDependencies": {

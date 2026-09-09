@@ -2,10 +2,9 @@
   "key": "ham2k-fd",
   "name": "FD: ARRL Field Day",
   "shortName": "FD",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "The ARRL's June operating event — class and section exchange, power multiplier and bonuses",
   "category": "contest",
-  "enabledByDefault": false,
   "icon": "weather-sunny",
   "accentColor": "#E65100",
   "api": 1,
@@ -15,9 +14,14 @@
     "fd",
     "contest"
   ],
-  "geo": {
+  "relevance": {
     "continents": [
       "NA"
+    ],
+    "dates": [
+      "2026-06-27",
+      "2027-06-26",
+      "2028-06-24"
     ]
   },
   "hooks": [

@@ -2,10 +2,9 @@
   "key": "ham2k-eca",
   "name": "ECA: English Castles Awards",
   "shortName": "ECA",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "English castle references, activation logging, and self-spotting",
   "category": "activity",
-  "enabledByDefault": false,
   "icon": "castle",
   "accentColor": "#7B5E3B",
   "api": 1,
@@ -14,7 +13,7 @@
     "england",
     "activation"
   ],
-  "geo": {
+  "relevance": {
     "entities": [
       "G"
     ]

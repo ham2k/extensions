@@ -2,10 +2,9 @@
   "key": "ham2k-flqp",
   "name": "FLQP: Florida QSO Party",
   "shortName": "FLQP",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Work stations in Florida.",
   "category": "contest",
-  "enabledByDefault": false,
   "icon": "star-box",
   "accentColor": "#8E24AA",
   "api": 1,
@@ -28,10 +27,14 @@
     "ref:florida-qso-party",
     "scoring"
   ],
-  "geo": {
+  "relevance": {
     "countries": [
       "us",
       "ca"
+    ],
+    "dates": [
+      "2026-04-25",
+      "2026-04-26"
     ]
   },
   "sharedDependencies": {

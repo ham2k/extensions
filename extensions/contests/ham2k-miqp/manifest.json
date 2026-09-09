@@ -2,10 +2,9 @@
   "key": "ham2k-miqp",
   "name": "MIQP: Michigan QSO Party",
   "shortName": "MIQP",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Work stations in Michigan.",
   "category": "contest",
-  "enabledByDefault": false,
   "icon": "star-box",
   "accentColor": "#8E24AA",
   "api": 1,
@@ -28,10 +27,13 @@
     "ref:michigan-qso-party",
     "scoring"
   ],
-  "geo": {
+  "relevance": {
     "countries": [
       "us",
       "ca"
+    ],
+    "dates": [
+      "2026-04-18"
     ]
   },
   "sharedDependencies": {
