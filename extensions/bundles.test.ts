@@ -80,6 +80,13 @@ function loadBundle(source: string): { definition: Record<string, unknown>; regi
   sandbox.globalThis = sandbox
   sandbox.__polo = {
     sharedModules: stubSharedModules(),
+    /// Activation is allowed to talk to the host, and one extension does:
+    /// call-notes reads its own settings there to learn which note files the
+    /// operator added. An empty answer gives every such read its defaults.
+    /// Not answering at all is what breaks — the read rejects inside an async
+    /// onActivation, where nothing is waiting to catch it, and the rejection
+    /// takes the whole run down naming a line in a bundle.
+    hostCall: async () => ({}),
     defineExtension(def: Record<string, unknown>) {
       definition = def
       const onActivation = def.onActivation as (api: unknown) => void

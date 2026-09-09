@@ -1,0 +1,56 @@
+{
+  "key": "ham2k-parksnpeaks",
+  "name": "PnP: ParksnPeaks Spots",
+  "shortName": "PnP",
+  "version": "0.1.0",
+  "api": 1,
+  "description": "VK and ZL spotting service — brings in WWFF and SiOTA spots, and posts yours to them",
+  "category": "spots",
+  "enabledByDefault": false,
+  "icon": "forest-outline",
+  "accentColor": "#2E7D32",
+  "keywords": [
+    "spots",
+    "spotting",
+    "wwff",
+    "siota",
+    "vk",
+    "zl"
+  ],
+  "geo": {
+    "entities": [
+      "VK",
+      "ZL"
+    ]
+  },
+  "hooks": [
+    "account",
+    "spots"
+  ],
+  "domains": [
+    "www.parksnpeaks.org",
+    "parksnpeaks.org"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "name": "PnP: Spots de ParksnPeaks",
+      "description": "Servicio de spots para VK y ZL — trae spots de WWFF y SiOTA, y publica los tuyos",
+      "keywords": [
+        "spots",
+        "spotting",
+        "vk",
+        "zl"
+      ]
+    }
+  }
+}

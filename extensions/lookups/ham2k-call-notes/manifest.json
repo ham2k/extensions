@@ -1,0 +1,44 @@
+{
+  "key": "ham2k-call-notes",
+  "name": "Callsign Notes",
+  "version": "0.1.0",
+  "api": 1,
+  "description": "Annotates calls from shared notes files",
+  "category": "lookup",
+  "enabledByDefault": true,
+  "keywords": [
+    "callsign",
+    "notes",
+    "hams of note"
+  ],
+  "hooks": [
+    "callNotes",
+    "command",
+    "dataFile",
+    "lookup",
+    "settingsPanel"
+  ],
+  "domains": [
+    "ham2k.com"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "name": "Notas de indicativos",
+      "description": "Anota indicativos a partir de archivos de notas compartidos",
+      "keywords": [
+        "indicativo",
+        "notas"
+      ]
+    }
+  }
+}
