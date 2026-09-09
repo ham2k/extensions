@@ -7,7 +7,7 @@
   "type": "module",
   "workspaces": [
     "packages/*",
-    "extensions/*"
+    "extensions/*/*"
   ],
   "//test": [
     "`extensions/bundles.test.ts` builds and packs EVERY extension, so it sits",

@@ -9,10 +9,12 @@ whatever shared library it leans on. It is built into a single bundle against
 uploaded to the catalog, and installed by operators who want it — so it ships,
 and updates, without an app release.
 
-The first thing living here is the QSO parties. The app carries one `qp`
-extension holding all fifty; this repository publishes them **one event per
+Two kinds of thing live here. The **QSO parties**: the app carries one `qp`
+extension holding all fifty, and this repository publishes them **one event per
 extension**, so an operator installs the Texas QSO Party and gets the Texas QSO
-Party.
+Party. And **catalog copies of the app's own built-ins**, so that each can ship
+and update without an app release — see **Porting a built-in**, and note that
+those stay unpublished while the app still ships them.
 
 ## Layout
 
@@ -29,10 +31,18 @@ Party.
   - `@ham2k/qso-parties` — every party's rules, counties and dates as
     `QsoPartyParams`, one module per event, **generated** from the sponsors'
     own files. Edit a fixture and re-run the generator; never edit a module.
-- `extensions/*` — one directory per published extension.
+- `extensions/<category>/<key>` — one directory per published extension, grouped
+  by the manifest's own `category`. The directory names a group and the manifest
+  names one extension, so they differ by a plural: `activity` lives in
+  `activities/`, `contest` in `contests/`, `lookup` in `lookups/`, and `spots`
+  and `dashboard` name themselves. Those are the app's own source tree's
+  spellings, so a built-in ported here lands in the directory it came from.
+  `bundles.test.ts` holds each manifest to the directory it sits in.
 - `extensions/bundles.test.ts` — builds, packs and loads every extension. It
   belongs to no workspace, so the root `npm test` names it directly.
 - `scripts/convert-parties.mjs` — the party generator.
+- `scripts/sdk-node-resolve.mjs` — makes the published SDK's `dist/` loadable by
+  Node, so unit tests can import what the bundles import. See **The SDK gap**.
 
 ## Adding an event
 
@@ -42,8 +52,9 @@ Everything specific to one QSO party is data. Adding one is:
    from `fixtures/<code>.json`. If the sponsor has published a new season, drop
    the updated files in and run `node scripts/convert-parties.mjs <dir>`; the
    diff is reviewable and the differential test says what changed.
-2. `mkdir extensions/ham2k-<abbr>` — the event's own abbreviation, lowercased
-   (`ham2k-txqp`), which is also the manifest `key` and the directory name —
+2. `mkdir extensions/contests/ham2k-<abbr>` — the event's own abbreviation,
+   lowercased (`ham2k-txqp`), which is also the manifest `key` and the directory
+   name —
    with four files, copied from an existing event; the four here differ only
    in identity and in which party they import:
    - `manifest.json` — key, name, `shortName`, version, description,
@@ -89,6 +100,124 @@ multiplier in every one of these events rather than someone to rank it away
 from. The ISO country the app derives for `KL` and `KH6` is `us`, so
 `countries` says what was meant. Canada is in the list because Canadian
 stations work the US parties and the other way round.
+
+## Porting a built-in
+
+The app ships around forty extensions of its own, and each becomes a catalog
+extension here so that it can ship and update without an app release.
+`extensions/activities/ham2k-pota` is the worked example; every step below is
+one it went through.
+
+**A ported extension is not published while the app still ships its built-in
+copy.** Both would answer for the same ref types, and the kernel routes a ref
+type to exactly one handler — so the operator would get whichever the app picked,
+which is a coin toss over their log. Build them, commit them, leave them
+unpublished.
+
+**The 12 core extensions do not come across.** A manifest with no `category` is
+core to the host: always enabled, invisible in the Extensions panel, loaded by
+the app itself. That is a status the app grants its own, and the packer refuses a
+bundle claiming it. `qp` does not come across either — the per-event QSO party
+extensions above are its replacement.
+
+1. **Copy.** `src/**` (tests included), `manifest.json`, and the `src/i18n/*.json`
+   catalogs, into `extensions/<category>/ham2k-<key>/`. Nothing else: the app's
+   build lists its extensions in `build-config.mjs`, and here each one carries its
+   own `build.mjs`.
+2. **Relicense.** Every ported file's header becomes
+   `// SPDX-License-Identifier: MIT`. The app is MPL-2.0 and this repository is
+   deliberately the looser of the two; a file takes the licence of the tree it is
+   in, not the one it arrived with.
+3. **Add the three workspace files**, copied from an existing extension:
+   `package.json` (private, `build`/`test`/`typecheck`/`pack`), `build.mjs`
+   (`buildExtension(build, { dir: import.meta.dirname })`), and `tsconfig.json`
+   (`extends: "../../../tsconfig.base.json"`).
+4. **The key becomes `ham2k-<original key>`** — `pota` → `ham2k-pota` — and the
+   directory is named for it.
+5. **`name` gains the `ABBR: Full Name` form, but only where the abbreviation is
+   one an operator actually says.** POTA, SOTA and WWFF are how their operators
+   name those programs, so `POTA: Parks on the Air`. `custom`, `satellites` and
+   `simple-contest` have no such abbreviation, and inventing one to fill the
+   pattern would put a string in the search index that nobody will ever type. The
+   test is whether `shortName` already holds a word an operator uses on the air —
+   not whether the name can be abbreviated.
+6. **`api: 1` and `version: 0.1.0`** on every ported manifest. The app's own
+   manifests carry neither (`api` is the distribution format's, and a built-in
+   version means nothing), and the packer refuses a manifest with no `api`.
+7. **`refType`s and every `ref:` hook stay EXACTLY as they are.** `ref:pota`,
+   `ref:potaActivation`. They name what is written into an operator's log, and a
+   renamed one orphans every operation already holding it — silently, because the
+   operation still shows the reference and nothing answers for it any more. The
+   same goes for everything else the log or the local database already carries:
+   spot `source` values, `dbLookupSelect*` categories, logging-control keys like
+   `pota/hunter`. Rename the package; never rename the data.
+8. **Registration keys move into the new key's namespace.** Every
+   `registerHook(..., { key })` becomes `manifest.key`, written as `manifest.key`
+   rather than a literal so it cannot drift. A registration that deliberately used
+   a sub-key keeps the relationship: `pota-all-parks` → `` `${manifest.key}-all-parks` ``,
+   `pota-hunter` → `` `${manifest.key}-hunter` ``. The hook rules that take a
+   `key` of their own — `activityExportHook`, `huntingExportHook` — take
+   `manifest.key` too: that field is `mainHandler`, and the exporter looks up the
+   `adifFields` hook registered under it.
+9. **A key that names ANOTHER extension becomes that extension's ported key.**
+   POTA's `includeFieldsFrom: ['satellites']` becomes `['ham2k-satellites']`. The
+   ported set is self-consistent; an unmatched key contributes nothing and says
+   nothing.
+10. **Resolve the imports that reach out of the extension.** Three kinds:
+    - **A shared library the host carries** (`@ham2k/lib-dxcc-data`,
+      `@ham2k/lib-geo-tools`, `i18next`, …) — leave the import alone and declare
+      it in `sharedDependencies`; see below.
+    - **The SDK's own source**, which built-ins reach by relative path
+      (`../../../sdk/src/dxcc.ts`) — becomes the bare `@ham2k/extension-sdk`,
+      whose published barrel exports it. See **The SDK gap** for the symbols it
+      does not.
+    - **Another extension's source** (`rsgb-vhf-tests` reaching into
+      `r1-vhf-tests`; the contests that took `qsonToCabrillo` from
+      `simple-contest`) — never a relative path across two published packages.
+      If the app has since moved it to a real npm package
+      (`@ham2k/lib-qson-cabrillo`), import that. Otherwise it becomes a workspace
+      under `packages/`, imported by both — which is what `@ham2k/lib-qso-party`
+      already is. Copying it into each extension is the last resort and needs
+      saying out loud, because two copies of a scoring rule diverge.
+11. **Declare `sharedDependencies` for real.** The app injects all twelve at `*`
+    for its built-ins — correct there, because a built-in ships inside the very
+    app that holds them — and the catalog refuses `*`, because a range is the only
+    thing the host can check before it loads a bundle. Determine yours by
+    building: the preset ERRORS on any host library the bundle reaches and the
+    manifest does not declare, naming it. Start from the majors
+    (`^1.0.0`, `i18next: ^23.0.0`, `liquidjs: ^10.0.0`) and raise a floor only
+    where a specific release added something you call — `@ham2k/lib-qson-cabrillo`
+    is `^1.2.0` because 1.2.0 added the Cabrillo *writer*. Then confirm nothing
+    unused is left over:
+    `grep -o '__polo\.sharedModules\["[^"]*"\]' build/index.js | sort -u`.
+    POTA's eight are what the SDK barrel itself reaches; it declares no
+    `@ham2k/lib-qson-cabrillo`, `-qson-adif`, `-qson-tools` or `-cqmag-data`
+    because nothing on its path touches them.
+12. **`geo` only where it is truthfully narrow.** It ranks an extension for the
+    operator's own callsign and hides nothing, so a wrong one is merely useless
+    while a missing one costs nothing. Most built-ins have none and keep none:
+    POTA, SOTA and WWFF are worldwide programs. Declare it where the extension is
+    genuinely about one place — a national activity award, a regional QSO party —
+    and prefer `countries` to `entities`, for the reason above.
+13. **`npm install`** (a new workspace has to reach the root lock), then
+    `npm test`, `npm run typecheck`, `npm run build`, `npm run pack`.
+
+## The SDK gap
+
+The app's extensions build against the SDK's **source**; these build against the
+**published** `@ham2k/extension-sdk`, and the two are not the same surface.
+
+- **A symbol the published SDK does not export yet** goes into the extension's
+  own `src/sdkGap.ts`, copied verbatim from the SDK with a comment saying what it
+  is a copy of. `looksLikeReference` is POTA's one. Grep for `sdkGap.ts` to find
+  every such debt at once, and delete them when the SDK next publishes.
+- **The published `dist/` is bundler-only**: its barrel re-exports `./types` with
+  no file extension and its catalogs import `.json` with no import attribute.
+  esbuild resolves both, which is why every bundle builds; Node resolves neither,
+  and refuses the package at `ERR_MODULE_NOT_FOUND .../dist/types`. So a unit test
+  that reaches the SDK needs `--import ../../../scripts/sdk-node-resolve.mjs`,
+  which is what each extension's `test` script passes. Delete that file, and the
+  flag, the day the SDK publishes a Node-resolvable dist.
 
 ## Building and packing
 

@@ -97,21 +97,50 @@ function loadBundle(source: string): { definition: Record<string, unknown>; regi
   return { definition, registrations }
 }
 
+/// Which directory a manifest `category` belongs in. The manifest names one
+/// extension's category and the directory names a group of them, so the two
+/// differ by a plural — and the spellings are the app's own source tree's, so
+/// that a built-in ported here lands in the directory it came from.
+const DIRECTORY_FOR_CATEGORY: Record<string, string> = {
+  activity: "activities",
+  contest: "contests",
+  dashboard: "dashboard",
+  lookup: "lookups",
+  spots: "spots",
+}
+
+/// Every extension, as `<category>/<key>` relative to this directory.
+///
+/// Two levels deep, because the tree groups extensions under the manifest's own
+/// `category`. Walked rather than listed — an extension added and never named
+/// here would be one nobody builds, which is the state this test exists to end,
+/// and a whole CATEGORY added and never named would hide a dozen at once.
 async function extensionDirs(): Promise<string[]> {
-  const entries = await readdir(extensionsDir, { withFileTypes: true })
-  return entries.filter((e) => e.isDirectory()).map((e) => e.name).sort()
+  const found: string[] = []
+  for (const category of await readdir(extensionsDir, { withFileTypes: true })) {
+    if (!category.isDirectory()) continue
+    for (const entry of await readdir(join(extensionsDir, category.name), { withFileTypes: true })) {
+      if (entry.isDirectory()) found.push(`${category.name}/${entry.name}`)
+    }
+  }
+  return found.sort()
 }
 
 test("every extension builds, packs and loads", async (t) => {
   const dirs = await extensionDirs()
-  // Discovered, not restated: an extension added and never listed here would be
-  // one nobody builds, which is the state this test exists to end.
   assert.ok(dirs.length >= 3, `expected the extensions to be here, found ${dirs.join(", ") || "none"}`)
 
   for (const name of dirs) {
     await t.test(name, async () => {
       const dir = join(extensionsDir, name)
       const manifest = JSON.parse(await readFile(join(dir, "manifest.json"), "utf8"))
+
+      // The tree IS the categorisation, so a misfiled extension is one filed
+      // under a heading its manifest contradicts — and since the walk above
+      // discovers whatever it finds, nothing else would ever say so.
+      const [category, key] = name.split("/")
+      assert.equal(DIRECTORY_FOR_CATEGORY[manifest.category as string], category, `${name} sits under the wrong category`)
+      assert.equal(manifest.key, key, `${name}'s directory is not its key`)
 
       // `forceName` waives the callsign-prefix rule and NOTHING else — the same
       // waiver `h2kext-pack --force-name` applies, and the only reason a
@@ -149,30 +178,44 @@ test("every extension builds, packs and loads", async (t) => {
       // promise nobody keeps is an extension the operator is told does
       // something it does not — and a hook registered off the list is one the
       // app was never told to expect.
+      //
+      // Deduplicated, because a category is legitimately registered twice under
+      // two keys (POTA's activator and hunter exports) and `hooks` names each
+      // category once.
       assert.deepEqual(
-        registrations.map((r) => r.category).sort(),
-        [...(manifest.hooks as string[])].sort(),
+        [...new Set(registrations.map((r) => r.category))].sort(),
+        [...new Set(manifest.hooks as string[])].sort(),
         `${name}'s manifest.hooks and its registrations disagree`,
       )
 
-      // Every hook under the extension's own key, which is what the app shows
-      // when it says where a hook came from.
+      // Every hook inside the extension's own key namespace — its key, or a
+      // `<key>-…` under it, which is the shape the kernel's own `bundleMayDefine`
+      // reasons about. A hook registered outside it is one the app attributes to
+      // an extension that may not even be installed.
       for (const registration of registrations) {
-        assert.equal(registration.key, manifest.key, `${registration.category} registered under another key`)
+        assert.ok(
+          registration.key === manifest.key || registration.key.startsWith(`${manifest.key}-`),
+          `${registration.category} registered under '${registration.key}', outside '${manifest.key}'`,
+        )
       }
 
-      // The ref handler's category names a ref TYPE, and the scorer is scoped to
-      // that same type. The two disagreeing is a scoreboard that stays at zero
-      // for an operation whose ref is right there — and each half looks correct
-      // on its own.
-      const refCategories = registrations.map((r) => r.category).filter((c) => c.startsWith("ref:"))
-      assert.equal(refCategories.length, 1, `${name} registers ${refCategories.length} ref handlers`)
-      const refType = refCategories[0]!.slice("ref:".length)
+      // A `ref:` category names a ref TYPE, and a scoped scorer names the types
+      // it scores. The two disagreeing is a scoreboard that stays at zero for an
+      // operation whose ref is right there — and each half looks correct on its
+      // own. An unscoped scorer runs for every operation and is not this check's
+      // business; an extension with no scorer at all (a plain reference activity)
+      // is not either.
+      const refTypes = registrations
+        .map((r) => r.category)
+        .filter((c) => c.startsWith("ref:"))
+        .map((c) => c.slice("ref:".length))
       const scoring = registrations.find((r) => r.category === "scoring")
-      assert.ok(scoring, `${name} registers no scorer`)
       // Spread first: the scope came out of the vm realm, and an array from
       // another realm is never deep-STRICT-equal to one built here.
-      assert.deepEqual([...(scoring.hook.scope as { refTypes: string[] }).refTypes], [refType])
+      const scoped = (scoring?.hook.scope as { refTypes?: string[] } | undefined)?.refTypes
+      if (scoped) {
+        assert.deepEqual([...scoped].sort(), refTypes.sort(), `${name}'s scorer is scoped to other ref types`)
+      }
     })
   }
 })
