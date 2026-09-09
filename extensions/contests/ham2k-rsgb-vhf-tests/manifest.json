@@ -1,0 +1,63 @@
+{
+  "key": "ham2k-rsgb-vhf-tests",
+  "name": "RSGB VHF Contests",
+  "shortName": "RSGB VHF",
+  "version": "0.1.0",
+  "description": "Great-circle distance, per-band points and grid/district/DXCC bonuses across RSGB's VHF/UHF/microwave contest family, submitted as REG1TEST/EDI",
+  "category": "contest",
+  "enabledByDefault": false,
+  "icon": "flag-checkered",
+  "accentColor": "#00695C",
+  "api": 1,
+  "keywords": [
+    "contest",
+    "vhf",
+    "uhf",
+    "grid",
+    "distance",
+    "reg1test",
+    "edi",
+    "rsgb",
+    "ukac"
+  ],
+  "geo": {
+    "entities": [
+      "G",
+      "GM",
+      "GW",
+      "GI",
+      "GD",
+      "GU",
+      "GJ"
+    ]
+  },
+  "hooks": [
+    "activity",
+    "adifFields",
+    "export",
+    "ref:rsgb-vhf-tests",
+    "scoring"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "name": "Concursos VHF de RSGB",
+      "description": "Distancia de gran círculo, puntos por banda y bonos de grid/distrito/DXCC en la familia de concursos VHF/UHF/microondas de RSGB, enviado como REG1TEST/EDI",
+      "keywords": [
+        "concurso",
+        "vhf",
+        "distancia",
+        "rsgb"
+      ]
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "name": "@ham2k/lib-vhf-contests",
+  "version": "0.1.0",
+  "description": "What the IARU R1 and RSGB VHF+ contest extensions share: the REG1TEST/EDI writer, the grid exchange, the ref readers and the band multipliers",
+  "author": "Sebastian Delmont <sd@ham2k.com>",
+  "license": "MIT",
+  "type": "module",
+  "//exports": [
+    "Consumed as TypeScript source: the only consumers are extensions, which",
+    "esbuild bundles, so there is no build step and no dist/ to point at."
+  ],
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "//dependencies": [
+    "The writer formats its own timestamps through the host's copy of",
+    "lib-format-tools, which the consuming extension declares in its manifest",
+    "and the build rewrites to a host lookup."
+  ],
+  "dependencies": {
+    "@ham2k/lib-format-tools": "^1.0.0"
+  },
+  "//peerDependencies": [
+    "The SDK is provided by the extension that consumes this package: its own",
+    "bundle carries one copy, rewritten to the host's instance at build time."
+  ],
+  "peerDependencies": {
+    "@ham2k/extension-sdk": "^0.2.0"
+  },
+  "devDependencies": {
+    "@ham2k/extension-sdk": "^0.2.0"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

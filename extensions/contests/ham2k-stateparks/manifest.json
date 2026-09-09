@@ -1,0 +1,59 @@
+{
+  "key": "ham2k-stateparks",
+  "name": "State Parks Events (Beta)",
+  "shortName": "State Parks",
+  "version": "0.1.0",
+  "description": "State park on-the-air events — Texas, Florida, Georgia and Ohio — scored alongside your POTA activation",
+  "category": "contest",
+  "enabledByDefault": false,
+  "icon": "flag-checkered",
+  "accentColor": "#00695C",
+  "api": 1,
+  "keywords": [
+    "contest",
+    "stateparks",
+    "park",
+    "pota",
+    "txsp",
+    "flsp",
+    "gasp",
+    "ohsp",
+    "ospota",
+    "cabrillo"
+  ],
+  "geo": {
+    "countries": [
+      "us"
+    ]
+  },
+  "hooks": [
+    "activity",
+    "adifFields",
+    "export",
+    "ref:stateparks",
+    "scoring"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "@ham2k/lib-qson-cabrillo": "^1.2.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "name": "Eventos de Parques Estatales (Beta)",
+      "description": "Eventos de parques estatales — Texas, Florida, Georgia y Ohio — puntuados junto con tu activación POTA",
+      "keywords": [
+        "concurso",
+        "parques",
+        "parque",
+        "estatal"
+      ]
+    }
+  }
+}

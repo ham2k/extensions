@@ -1,0 +1,56 @@
+{
+  "key": "ham2k-r1-fd",
+  "name": "R1 FD: IARU Region 1 Field Day",
+  "shortName": "R1 FD",
+  "version": "0.1.0",
+  "description": "Region 1's June CW and September SSB field days — serial exchange, portable points, country multipliers",
+  "category": "contest",
+  "enabledByDefault": false,
+  "icon": "tent",
+  "accentColor": "#1565C0",
+  "api": 1,
+  "keywords": [
+    "field day",
+    "fieldday",
+    "region 1",
+    "iaru",
+    "darc",
+    "contest",
+    "cabrillo"
+  ],
+  "geo": {
+    "ituRegions": [
+      1
+    ]
+  },
+  "hooks": [
+    "activity",
+    "adifFields",
+    "export",
+    "ref:r1-fd",
+    "scoring"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.202605301",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "@ham2k/lib-qson-cabrillo": "^1.2.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "description": "Los field days de la Región 1, CW en junio y SSB en septiembre — intercambio de series, puntos por portables, multiplicadores por país",
+      "keywords": [
+        "field day",
+        "región 1",
+        "iaru",
+        "darc",
+        "concurso"
+      ]
+    }
+  }
+}

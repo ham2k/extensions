@@ -35,6 +35,13 @@ those stay unpublished while the app still ships them.
   - `@ham2k/qso-parties` — every party's rules, counties and dates as
     `QsoPartyParams`, one module per event, **generated** from the sponsors'
     own files. Edit a fixture and re-run the generator; never edit a module.
+  - `@ham2k/lib-vhf-contests` — what the IARU R1 and RSGB VHF+ contest
+    extensions both need: the REG1TEST/EDI writer they submit, the grid half of
+    the exchange they send, the ref readers they store it with, and the band
+    multiplier they score by. Here because a published extension may not reach
+    into another one's source and two copies of a scoring table diverge. The
+    writer is contest-agnostic, the shape `@ham2k/lib-qson-cabrillo`'s is, so
+    if the host ever carries it only the manifests change.
 - `extensions/<category>/<key>` — one directory per published extension, grouped
   by the manifest's own `category`. The directory names a group and the manifest
   names one extension, so they differ by a plural: `activity` lives in

@@ -1,0 +1,52 @@
+{
+  "key": "ham2k-naqp",
+  "name": "NAQP: North American QSO Party",
+  "shortName": "NAQP",
+  "version": "0.1.0",
+  "description": "Names and locations across North America: every state and province counts on every band",
+  "category": "contest",
+  "enabledByDefault": false,
+  "icon": "flag-checkered",
+  "accentColor": "#2E7D32",
+  "api": 1,
+  "keywords": [
+    "contest",
+    "naqp",
+    "state",
+    "province",
+    "cabrillo"
+  ],
+  "geo": {
+    "continents": [
+      "NA"
+    ]
+  },
+  "hooks": [
+    "activity",
+    "adifFields",
+    "export",
+    "ref:naqp",
+    "scoring"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "@ham2k/lib-qson-cabrillo": "^1.2.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "name": "NAQP: Fiesta de QSO de Norteamérica",
+      "description": "Nombres y ubicaciones de Norteamérica: cada estado y provincia cuenta en cada banda",
+      "keywords": [
+        "concurso",
+        "estado"
+      ]
+    }
+  }
+}

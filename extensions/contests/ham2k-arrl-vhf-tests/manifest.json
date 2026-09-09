@@ -1,0 +1,54 @@
+{
+  "key": "ham2k-arrl-vhf-tests",
+  "name": "ARRL VHF Contests",
+  "shortName": "ARRL VHF",
+  "version": "0.1.0",
+  "description": "Great-circle distance and per-band points across ARRL's VHF/UHF/microwave contest family",
+  "category": "contest",
+  "enabledByDefault": false,
+  "icon": "radio-tower",
+  "accentColor": "#1565C0",
+  "api": 1,
+  "keywords": [
+    "contest",
+    "vhf",
+    "uhf",
+    "grid",
+    "distance",
+    "cabrillo"
+  ],
+  "geo": {
+    "continents": [
+      "NA"
+    ]
+  },
+  "hooks": [
+    "activity",
+    "adifFields",
+    "export",
+    "ref:arrl-vhf-tests",
+    "scoring"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "@ham2k/lib-qson-cabrillo": "^1.2.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "name": "Concursos VHF de ARRL",
+      "description": "Distancia de gran círculo y puntos por banda en la familia de concursos VHF/UHF/microondas de ARRL",
+      "keywords": [
+        "concurso",
+        "vhf",
+        "distancia"
+      ]
+    }
+  }
+}

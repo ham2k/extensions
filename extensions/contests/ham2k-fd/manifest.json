@@ -1,0 +1,52 @@
+{
+  "key": "ham2k-fd",
+  "name": "FD: ARRL Field Day",
+  "shortName": "FD",
+  "version": "0.1.0",
+  "description": "The ARRL's June operating event — class and section exchange, power multiplier and bonuses",
+  "category": "contest",
+  "enabledByDefault": false,
+  "icon": "weather-sunny",
+  "accentColor": "#E65100",
+  "api": 1,
+  "keywords": [
+    "field day",
+    "arrl",
+    "fd",
+    "contest"
+  ],
+  "geo": {
+    "continents": [
+      "NA"
+    ]
+  },
+  "hooks": [
+    "activity",
+    "adifFields",
+    "export",
+    "ref:fd",
+    "scoring"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "@ham2k/lib-qson-cabrillo": "^1.2.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "description": "El evento de junio de la ARRL — intercambio de clase y sección, multiplicador de potencia y bonificaciones",
+      "keywords": [
+        "field day",
+        "arrl",
+        "fd",
+        "concurso"
+      ]
+    }
+  }
+}

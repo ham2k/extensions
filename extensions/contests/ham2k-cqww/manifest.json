@@ -1,0 +1,46 @@
+{
+  "key": "ham2k-cqww",
+  "name": "CQ WW: CQ World Wide DX Contest",
+  "shortName": "CQ WW",
+  "version": "0.1.0",
+  "description": "Work the world: zone and country multipliers on every band",
+  "category": "contest",
+  "enabledByDefault": false,
+  "icon": "earth",
+  "accentColor": "#C8102E",
+  "api": 1,
+  "keywords": [
+    "contest",
+    "dx",
+    "zone",
+    "cabrillo"
+  ],
+  "hooks": [
+    "activity",
+    "adifFields",
+    "export",
+    "ref:cqww",
+    "scoring"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "@ham2k/lib-qson-cabrillo": "^1.2.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "name": "CQ WW: Concurso CQ World Wide DX",
+      "description": "Trabaja el mundo: multiplicadores de zona y país en cada banda",
+      "keywords": [
+        "concurso",
+        "zona"
+      ]
+    }
+  }
+}
