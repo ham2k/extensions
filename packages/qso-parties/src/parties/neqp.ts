@@ -11,7 +11,7 @@ import counties from "./neqp.counties.json" with { type: "json" }
 import otherCounties from "./neqp.other-counties.json" with { type: "json" }
 
 export const PARTY: QsoPartyParams = {
-  refType: "new-england-qso-party",
+  refType: "neqp",
   name: "New England QSO Party",
   short: "NEQP",
   // Several states, no one of them this party's own. Every county below names

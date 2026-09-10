@@ -2,7 +2,7 @@
   "key": "ham2k-cpqp",
   "name": "CPQP: Canadian Prairies QSO Party",
   "shortName": "CPQP",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Work stations in AB, MB and SK.",
   "category": "contest",
   "icon": "leaf-maple",
@@ -25,7 +25,7 @@
     "activity",
     "adifFields",
     "export",
-    "ref:canadian-prairies-qso-party",
+    "ref:cp-qso-party",
     "scoring"
   ],
   "relevance": {

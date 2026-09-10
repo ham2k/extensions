@@ -39,7 +39,7 @@ import { CANADIAN_PROVINCES, US_STATES } from "../packages/lib-qso-party/src/loc
 
 const EXTENSIONS_DIR = resolve(import.meta.dirname, "..", "extensions", "contests")
 
-const VERSION = "0.2.2"
+const VERSION = "0.2.3"
 
 /// The accent an event carries, by the flag of the country whose party it is.
 /// Two colors for the family rather than fifty — what tells two events apart
@@ -59,7 +59,7 @@ const ACCENT_COLORS = { us: "#1F4FA0", ca: "#D80621" }
 /// files' flag, carried through the fixtures, and it means nobody has verified
 /// the rules against a sponsor — an extension built from one would score an
 /// operator's log by guesses.
-const DISABLED_REFTYPES = new Set(["nsara-contest-qso-party"])
+const DISABLED_REFTYPES = new Set(["nsara"])
 
 /// The libraries the built bundle reaches on the host. Identical for every
 /// event, because every event's code is this script's one template; the build
@@ -153,10 +153,10 @@ const PLACES_ES = {
 /// what an operator would type instead, and there is nothing in the party data
 /// to derive it from. A multi-state party missing here stops the run.
 const REGIONS_ES = {
-  "7th-call-area-qso-party": "oeste",
-  "atlantic-canada-qso-party": "canadá",
-  "canadian-prairies-qso-party": "canadá",
-  "new-england-qso-party": "nueva inglaterra",
+  "7qp": "oeste",
+  "ac-qso-party": "canadá",
+  "cp-qso-party": "canadá",
+  "neqp": "nueva inglaterra",
 }
 
 /// The Spanish for a sponsor's own word for a county. The engine's default is

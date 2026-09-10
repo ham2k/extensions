@@ -2,7 +2,7 @@
   "key": "ham2k-bcqp",
   "name": "BCQP: British Columbia QSO Party",
   "shortName": "BCQP",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Work stations in British Columbia.",
   "category": "contest",
   "icon": "leaf-maple",
@@ -24,7 +24,7 @@
     "activity",
     "adifFields",
     "export",
-    "ref:british-columbia-qso-party",
+    "ref:bc-qso-party",
     "scoring"
   ],
   "relevance": {

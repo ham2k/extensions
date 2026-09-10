@@ -2,7 +2,7 @@
   "key": "ham2k-neqp",
   "name": "NEQP: New England QSO Party",
   "shortName": "NEQP",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Work stations in CT, MA, ME, NH, RI and VT.",
   "category": "contest",
   "icon": "star-box",
@@ -28,7 +28,7 @@
     "activity",
     "adifFields",
     "export",
-    "ref:new-england-qso-party",
+    "ref:neqp",
     "scoring"
   ],
   "relevance": {

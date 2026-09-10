@@ -10,7 +10,7 @@ import type { QsoPartyParams } from "@ham2k/lib-qso-party"
 import counties from "./on.counties.json" with { type: "json" }
 
 export const PARTY: QsoPartyParams = {
-  refType: "ontario-qso-party",
+  refType: "on-qso-party",
   name: "Ontario QSO Party",
   short: "ONQP",
   state: "ON",

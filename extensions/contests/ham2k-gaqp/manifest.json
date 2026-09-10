@@ -2,7 +2,7 @@
   "key": "ham2k-gaqp",
   "name": "GAQP: Georgia QSO Party",
   "shortName": "GAQP",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Work stations in Georgia.",
   "category": "contest",
   "icon": "star-box",
@@ -24,7 +24,7 @@
     "activity",
     "adifFields",
     "export",
-    "ref:georgia-qso-party",
+    "ref:ga-qso-party",
     "scoring"
   ],
   "relevance": {

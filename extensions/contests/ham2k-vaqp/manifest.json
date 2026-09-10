@@ -2,7 +2,7 @@
   "key": "ham2k-vaqp",
   "name": "VAQP: Virginia QSO Party",
   "shortName": "VAQP",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Work stations in Virginia.",
   "category": "contest",
   "icon": "star-box",
@@ -24,7 +24,7 @@
     "activity",
     "adifFields",
     "export",
-    "ref:virginia-qso-party",
+    "ref:va-qso-party",
     "scoring"
   ],
   "relevance": {

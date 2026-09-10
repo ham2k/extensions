@@ -2,7 +2,7 @@
   "key": "ham2k-ndqp",
   "name": "NDQP: North Dakota QSO Party",
   "shortName": "NDQP",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Work stations in North Dakota.",
   "category": "contest",
   "icon": "star-box",
@@ -24,7 +24,7 @@
     "activity",
     "adifFields",
     "export",
-    "ref:north-dakota-qso-party",
+    "ref:nd-qso-party",
     "scoring"
   ],
   "relevance": {

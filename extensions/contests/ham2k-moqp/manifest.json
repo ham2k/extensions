@@ -2,7 +2,7 @@
   "key": "ham2k-moqp",
   "name": "MOQP: Missouri QSO Party",
   "shortName": "MOQP",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Work stations in Missouri.",
   "category": "contest",
   "icon": "star-box",
@@ -24,7 +24,7 @@
     "activity",
     "adifFields",
     "export",
-    "ref:missouri-qso-party",
+    "ref:mo-qso-party",
     "scoring"
   ],
   "relevance": {

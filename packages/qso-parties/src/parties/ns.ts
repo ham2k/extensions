@@ -16,7 +16,7 @@ import type { QsoPartyParams } from "@ham2k/lib-qso-party"
 import counties from "./ns.counties.json" with { type: "json" }
 
 export const PARTY: QsoPartyParams = {
-  refType: "nsara-contest-qso-party",
+  refType: "nsara",
   name: "NSARA Contest (QSO Party)",
   short: "NSARA",
   state: "NS",

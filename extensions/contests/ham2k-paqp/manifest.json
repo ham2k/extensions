@@ -2,7 +2,7 @@
   "key": "ham2k-paqp",
   "name": "PAQP: Pennsylvania QSO Party",
   "shortName": "PAQP",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Work stations in Pennsylvania.",
   "category": "contest",
   "icon": "star-box",
@@ -24,7 +24,7 @@
     "activity",
     "adifFields",
     "export",
-    "ref:pennsylvania-qso-party",
+    "ref:pa-qso-party",
     "scoring"
   ],
   "relevance": {

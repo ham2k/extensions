@@ -2,7 +2,7 @@
   "key": "ham2k-nhqp",
   "name": "NHQP: New Hampshire QSO Party",
   "shortName": "NHQP",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Work stations in New Hampshire.",
   "category": "contest",
   "icon": "star-box",
@@ -24,7 +24,7 @@
     "activity",
     "adifFields",
     "export",
-    "ref:new-hampshire-qso-party",
+    "ref:nh-qso-party",
     "scoring"
   ],
   "relevance": {

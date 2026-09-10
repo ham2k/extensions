@@ -11,7 +11,7 @@ import counties from "./7qp.counties.json" with { type: "json" }
 import otherCounties from "./7qp.other-counties.json" with { type: "json" }
 
 export const PARTY: QsoPartyParams = {
-  refType: "7th-call-area-qso-party",
+  refType: "7qp",
   name: "7th Call Area QSO Party",
   short: "7QP",
   // Several states, no one of them this party's own. Every county below names

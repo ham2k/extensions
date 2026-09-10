@@ -2,7 +2,7 @@
   "key": "ham2k-ilqp",
   "name": "ILQP: Illinois QSO Party",
   "shortName": "ILQP",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Work stations in Illinois.",
   "category": "contest",
   "icon": "star-box",
@@ -24,7 +24,7 @@
     "activity",
     "adifFields",
     "export",
-    "ref:illinois-qso-party",
+    "ref:il-qso-party",
     "scoring"
   ],
   "relevance": {

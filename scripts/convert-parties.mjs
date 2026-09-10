@@ -187,12 +187,23 @@ function statesOf(counties, countyStates, key) {
   return [...states].sort()
 }
 
-/// The ref type an extension owns, from the party's own name: `Texas QSO Party`
-/// is `texas-qso-party`. Derived rather than stated so two parties cannot be
-/// given the same one by hand — and the fifty names are distinct, which the
-/// test holds them to.
-function refTypeFor(name) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")
+/// The ref type an extension owns: the sponsor's own Cabrillo contest name,
+/// lower-cased. `NY-QSO-PARTY` is `ny-qso-party`, `MRRC-OHQP` is `mrrc-ohqp`.
+///
+/// The Cabrillo name rather than the party's own, because it is the identifier
+/// the sponsors publish and the log itself already carries — the same string
+/// this party's submitted file names in its `CONTEST:` line — where a slug of
+/// the display name is a name this project invented. Lower-cased because every
+/// other ref type in the app is (`pota`, `cqww`), and a reference type is read
+/// far more often than a Cabrillo header is written.
+///
+/// A party the sponsors never registered falls back to its short name, which
+/// is what `exports.ts` already writes into `CONTEST_ID` for it — so nothing
+/// here invents an identifier that a submitted log would then contradict.
+/// `parties.test.ts` holds the result distinct across all fifty.
+function refTypeFor(raw, short) {
+  const source = str(raw.cabrilloName) || short
+  return source.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")
 }
 
 /// The power table, from whichever of the three keys a file uses, on whichever
@@ -427,7 +438,7 @@ function emitParty(raw, key) {
   lines.push(`export const PARTY: QsoPartyParams = {`)
 
   lines.push(...objectLines([
-    ["refType", quote(refTypeFor(name))],
+    ["refType", quote(refTypeFor(raw, short))],
     ["name", quote(name)],
     ["short", quote(short)],
   ], 2))
@@ -552,7 +563,7 @@ function emitParty(raw, key) {
   lines.push("")
 
   writeFileSync(join(PARTIES_DIR, `${slug}.ts`), lines.join("\n"))
-  return { key, slug, name, short, refType: refTypeFor(name) }
+  return { key, slug, name, short, refType: refTypeFor(raw, short) }
 }
 
 function inlineNumbers(table) {

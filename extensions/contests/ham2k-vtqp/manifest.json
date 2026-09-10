@@ -2,7 +2,7 @@
   "key": "ham2k-vtqp",
   "name": "VTQP: Vermont QSO Party",
   "shortName": "VTQP",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Work stations in Vermont.",
   "category": "contest",
   "icon": "star-box",
@@ -24,7 +24,7 @@
     "activity",
     "adifFields",
     "export",
-    "ref:vermont-qso-party",
+    "ref:vt-qso-party",
     "scoring"
   ],
   "relevance": {

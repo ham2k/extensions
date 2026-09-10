@@ -9,9 +9,10 @@
 // two identity fields the app-wide version derives from a party KEY are stated
 // outright instead:
 //
-//   * `refType` is the ref's own `type` (`{type: 'texas-qso-party'}`), where the
-//     bundled version carried `{type: 'qp', ref: 'TX'}`. A ref with no `ref`
-//     field cannot name a party by key.
+//   * `refType` is the ref's own `type` (`{type: 'txqp'}` — the sponsor's own
+//     Cabrillo contest name, lower-cased), where the bundled version carried
+//     `{type: 'qp', ref: 'TX'}`. A ref with no `ref` field cannot name a party
+//     by key.
 //   * `state` is the state or province a county belongs to when nothing else
 //     says — the answer the bundled version took from the party key, which no
 //     longer exists. A single-state party needs it, because its own county
@@ -240,7 +241,8 @@ export interface QsoPartyParams {
   // ---------------------------------------------------------------- identity
 
   /// The ref type this extension owns, and the `type` of every ref it writes —
-  /// `texas-qso-party`. Also the key the scoring hook is scoped to.
+  /// `txqp`, the sponsor's own Cabrillo contest name lower-cased. Also the key
+  /// the scoring hook is scoped to.
   refType: string
   /// The party's full name, as the sponsor writes it: `Texas QSO Party`.
   name: string

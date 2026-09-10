@@ -2,7 +2,7 @@
   "key": "ham2k-inqp",
   "name": "INQP: Indiana QSO Party",
   "shortName": "INQP",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Work stations in Indiana.",
   "category": "contest",
   "icon": "star-box",
@@ -24,7 +24,7 @@
     "activity",
     "adifFields",
     "export",
-    "ref:indiana-qso-party",
+    "ref:in-qso-party",
     "scoring"
   ],
   "relevance": {

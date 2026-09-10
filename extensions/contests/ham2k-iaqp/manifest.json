@@ -2,7 +2,7 @@
   "key": "ham2k-iaqp",
   "name": "IAQP: Iowa QSO Party",
   "shortName": "IAQP",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Work stations in Iowa.",
   "category": "contest",
   "icon": "star-box",
@@ -24,7 +24,7 @@
     "activity",
     "adifFields",
     "export",
-    "ref:iowa-qso-party",
+    "ref:iaqp",
     "scoring"
   ],
   "relevance": {

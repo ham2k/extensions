@@ -2,7 +2,7 @@
   "key": "ham2k-coqp",
   "name": "COQP: Colorado QSO Party",
   "shortName": "COQP",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Work stations in Colorado.",
   "category": "contest",
   "icon": "star-box",
@@ -24,7 +24,7 @@
     "activity",
     "adifFields",
     "export",
-    "ref:colorado-qso-party",
+    "ref:coqp",
     "scoring"
   ],
   "relevance": {

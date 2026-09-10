@@ -15,7 +15,7 @@ import type { QsoPartyParams } from "@ham2k/lib-qso-party"
 import counties from "./nj.counties.json" with { type: "json" }
 
 export const PARTY: QsoPartyParams = {
-  refType: "new-jersey-qso-party",
+  refType: "njqp",
   name: "New Jersey QSO Party",
   short: "NJQP",
   state: "NJ",

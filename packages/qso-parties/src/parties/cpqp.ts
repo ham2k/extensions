@@ -15,7 +15,7 @@ import countyStates from "./cpqp.county-states.json" with { type: "json" }
 const COUNTY_STATES: Record<string, string> = countyStates
 
 export const PARTY: QsoPartyParams = {
-  refType: "canadian-prairies-qso-party",
+  refType: "cp-qso-party",
   name: "Canadian Prairies QSO Party",
   short: "CPQP",
   // Several states, no one of them this party's own. Every county below names

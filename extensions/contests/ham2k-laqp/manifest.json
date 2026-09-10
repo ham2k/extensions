@@ -2,7 +2,7 @@
   "key": "ham2k-laqp",
   "name": "LAQP: Louisiana QSO Party",
   "shortName": "LAQP",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Work stations in Louisiana.",
   "category": "contest",
   "icon": "star-box",
@@ -24,7 +24,7 @@
     "activity",
     "adifFields",
     "export",
-    "ref:louisiana-qso-party",
+    "ref:la-qso-party",
     "scoring"
   ],
   "relevance": {

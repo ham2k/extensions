@@ -492,11 +492,15 @@ test('every party has dates that parse, in the order the sponsor runs them', () 
   }
 })
 
-test('every party is findable by its name, and its ref type is that name', () => {
-  // An extension is reached by searching for what an operator calls the party.
-  // Names have to be distinct for that to land on one extension, and the ref
-  // type — the identity a logged ref carries — is derived from the name so the
-  // two cannot drift apart.
+test('every party is findable by its name, and its ref type is its Cabrillo name', () => {
+  // An extension is reached by searching for what an operator calls the party,
+  // so names have to be distinct for that to land on one extension. The ref
+  // type — the identity a logged ref carries — is the sponsor's own Cabrillo
+  // contest name lower-cased, which is the identifier the submitted log already
+  // names in its `CONTEST:` line rather than one this project invented.
+  //
+  // Distinctness is the load-bearing half: two parties owning one ref type
+  // would have each answering for the other's logged references.
   const byName = new Map<string, string>()
   const byRefType = new Map<string, string>()
   for (const [key, params] of Object.entries(PARTIES)) {
@@ -506,14 +510,22 @@ test('every party is findable by its name, and its ref type is that name', () =>
     byName.set(params.name.toLowerCase(), key)
     assert.equal(byRefType.get(params.refType), undefined, `two parties own ${params.refType}`)
     byRefType.set(params.refType, key)
+    // A party the sponsors never registered a Cabrillo name for falls back to
+    // its short name, which is what the export already writes for it.
+    const source = params.cabrilloName ?? params.short
     assert.equal(
       params.refType,
-      params.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''),
-      `${key}'s ref type is not its name`,
+      source.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''),
+      `${key}'s ref type is not its Cabrillo name`,
     )
   }
   assert.equal(byName.get('texas qso party'), 'TX')
-  assert.equal(byRefType.get('washington-salmon-run'), 'WA')
+  // Ohio's sponsor calls it MRRC-OHQP, which no slug of "Ohio QSO Party"
+  // would ever produce — the case the derivation exists for.
+  assert.equal(byRefType.get('mrrc-ohqp'), 'OH')
+  assert.equal(byRefType.get('wa-salmon-run'), 'WA')
+  // Nevada is on no Cabrillo list, so it is the fallback's own case.
+  assert.equal(byRefType.get('nvqp'), 'NV')
 })
 
 test('a short name finds a party, but two parties publish NEQP', () => {

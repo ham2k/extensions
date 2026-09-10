@@ -2,7 +2,7 @@
   "key": "ham2k-kyqp",
   "name": "KYQP: Kentucky QSO Party",
   "shortName": "KYQP",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Work stations in Kentucky.",
   "category": "contest",
   "icon": "star-box",
@@ -24,7 +24,7 @@
     "activity",
     "adifFields",
     "export",
-    "ref:kentucky-qso-party",
+    "ref:kyqp",
     "scoring"
   ],
   "relevance": {

@@ -11,7 +11,7 @@ import counties from "./in.counties.json" with { type: "json" }
 import otherCounties from "./in.other-counties.json" with { type: "json" }
 
 export const PARTY: QsoPartyParams = {
-  refType: "indiana-qso-party",
+  refType: "in-qso-party",
   name: "Indiana QSO Party",
   short: "INQP",
   state: "IN",

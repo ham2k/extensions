@@ -2,7 +2,7 @@
   "key": "ham2k-wvqp",
   "name": "WVQP: West Virginia QSO Party",
   "shortName": "WVQP",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Work stations in West Virginia.",
   "category": "contest",
   "icon": "star-box",
@@ -24,7 +24,7 @@
     "activity",
     "adifFields",
     "export",
-    "ref:west-virginia-qso-party",
+    "ref:wvqp",
     "scoring"
   ],
   "relevance": {

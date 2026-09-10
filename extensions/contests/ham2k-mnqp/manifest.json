@@ -2,7 +2,7 @@
   "key": "ham2k-mnqp",
   "name": "MNQP: Minnesota QSO Party",
   "shortName": "MNQP",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Work stations in Minnesota.",
   "category": "contest",
   "icon": "star-box",
@@ -24,7 +24,7 @@
     "activity",
     "adifFields",
     "export",
-    "ref:minnesota-qso-party",
+    "ref:mn-qso-party",
     "scoring"
   ],
   "relevance": {

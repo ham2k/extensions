@@ -2,7 +2,7 @@
   "key": "ham2k-azqp",
   "name": "AZQP: Arizona QSO Party",
   "shortName": "AZQP",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Work stations in Arizona.",
   "category": "contest",
   "icon": "star-box",
@@ -24,7 +24,7 @@
     "activity",
     "adifFields",
     "export",
-    "ref:arizona-qso-party",
+    "ref:az-qso-party",
     "scoring"
   ],
   "relevance": {
