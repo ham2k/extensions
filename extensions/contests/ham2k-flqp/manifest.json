@@ -2,11 +2,11 @@
   "key": "ham2k-flqp",
   "name": "FLQP: Florida QSO Party",
   "shortName": "FLQP",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Work stations in Florida.",
   "category": "contest",
   "icon": "star-box",
-  "accentColor": "#3C3B6E",
+  "accentColor": "#1F4FA0",
   "api": 1,
   "keywords": [
     "contest",

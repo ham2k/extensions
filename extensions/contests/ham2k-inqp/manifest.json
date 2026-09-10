@@ -2,11 +2,11 @@
   "key": "ham2k-inqp",
   "name": "INQP: Indiana QSO Party",
   "shortName": "INQP",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Work stations in Indiana.",
   "category": "contest",
   "icon": "star-box",
-  "accentColor": "#3C3B6E",
+  "accentColor": "#1F4FA0",
   "api": 1,
   "keywords": [
     "contest",

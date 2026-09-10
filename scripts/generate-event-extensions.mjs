@@ -39,17 +39,21 @@ import { CANADIAN_PROVINCES, US_STATES } from "../packages/lib-qso-party/src/loc
 
 const EXTENSIONS_DIR = resolve(import.meta.dirname, "..", "extensions", "contests")
 
-const VERSION = "0.2.1"
+const VERSION = "0.2.2"
 
-/// The accent an event carries, by the flag of the country whose party it is:
-/// Old Glory Blue for the US, and the Canadian flag's red for the provincial
-/// ones. Two colors for the family rather than fifty — what tells two events
-/// apart in the panel is their name and their icon — and which of the two is
-/// the one thing an operator scanning the list already knows about a party.
+/// The accent an event carries, by the flag of the country whose party it is.
+/// Two colors for the family rather than fifty — what tells two events apart
+/// in the panel is their name and their icon — and which of the two is the one
+/// thing an operator scanning the list already knows about a party.
+///
+/// The blue people picture on the flag rather than the one on the cloth: the
+/// official Old Glory Blue is a near-black navy, and at the size of an icon
+/// tile it reads as an absence of color rather than as blue. The red is
+/// matched to it in weight so neither country's rows shout over the other's.
 ///
 /// Both are dark enough for the white glyph the app and the catalog site draw
 /// on them; a lighter flag color would need a second foreground.
-const ACCENT_COLORS = { us: "#3C3B6E", ca: "#D80621" }
+const ACCENT_COLORS = { us: "#1F4FA0", ca: "#D80621" }
 
 /// A party whose data says do not ship it. `disabled` is the sponsors' own
 /// files' flag, carried through the fixtures, and it means nobody has verified

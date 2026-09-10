@@ -2,11 +2,11 @@
   "key": "ham2k-ncqp",
   "name": "NCQP: North Carolina QSO Party",
   "shortName": "NCQP",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Work stations in North Carolina.",
   "category": "contest",
   "icon": "star-box",
-  "accentColor": "#3C3B6E",
+  "accentColor": "#1F4FA0",
   "api": 1,
   "keywords": [
     "contest",
