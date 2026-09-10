@@ -2,7 +2,7 @@
   "key": "ham2k-arqp",
   "name": "ARQP: Arkansas QSO Party",
   "shortName": "ARQP",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Work stations in Arkansas.",
   "category": "contest",
   "icon": "star-box",
@@ -25,6 +25,7 @@
     "adifFields",
     "export",
     "ref:ar-qso-party",
+    "ref:qp/ar",
     "scoring"
   ],
   "relevance": {

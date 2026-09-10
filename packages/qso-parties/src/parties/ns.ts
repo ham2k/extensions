@@ -19,6 +19,8 @@ export const PARTY: QsoPartyParams = {
   refType: "nsara",
   name: "NSARA Contest (QSO Party)",
   short: "NSARA",
+  // The bundled extension's own pair for this party, which nothing rewrites.
+  legacyRefs: [{ type: "qp", prefix: "ns" }],
   state: "NS",
   url: "http://nsara.ca/",
   status: "Not supported",

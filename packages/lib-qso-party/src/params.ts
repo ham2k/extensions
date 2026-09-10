@@ -244,6 +244,18 @@ export interface QsoPartyParams {
   /// `txqp`, the sponsor's own Cabrillo contest name lower-cased. Also the key
   /// the scoring hook is scoped to.
   refType: string
+  /// References filed under a type this party does not publish, which it
+  /// answers for anyway: `[{ type: 'qp', prefix: 'tx' }]` for the operations
+  /// logged when fifty parties were one extension.
+  ///
+  /// The code is matched as a lower-cased PREFIX, and nothing is rewritten —
+  /// a claim here is a promise to READ the old shape and to write back into
+  /// it, not a licence to change an operator's log. The same claims appear in
+  /// the extension's manifest as `ref:qp/tx` (which decides what the app
+  /// offers) and on its control as `alsoHandles` (which decides what answers
+  /// once it is on); all three are the same list, stated where each layer can
+  /// read it.
+  legacyRefs?: readonly { type: string; prefix: string }[]
   /// The party's full name, as the sponsor writes it: `Texas QSO Party`.
   name: string
   /// The sponsor's short name — `TXQP`, `7QP`, `Salmon Run` — used in labels,

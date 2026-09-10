@@ -13,6 +13,8 @@ export const PARTY: QsoPartyParams = {
   refType: "mo-qso-party",
   name: "Missouri QSO Party",
   short: "MOQP",
+  // The bundled extension's own pair for this party, which nothing rewrites.
+  legacyRefs: [{ type: "qp", prefix: "mo" }],
   state: "MO",
   cabrilloName: "MO-QSO-PARTY",
   url: "https://w0ma.org/index.php/missouri-qso-party",

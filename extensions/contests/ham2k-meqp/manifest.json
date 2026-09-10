@@ -2,7 +2,7 @@
   "key": "ham2k-meqp",
   "name": "MEQP: Maine QSO Party",
   "shortName": "MEQP",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Work stations in Maine.",
   "category": "contest",
   "icon": "star-box",
@@ -25,6 +25,7 @@
     "adifFields",
     "export",
     "ref:me-qso-party",
+    "ref:qp/me",
     "scoring"
   ],
   "relevance": {

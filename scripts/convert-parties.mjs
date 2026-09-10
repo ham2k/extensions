@@ -443,6 +443,17 @@ function emitParty(raw, key) {
     ["short", quote(short)],
   ], 2))
 
+  // What this party answers for besides its own type. The bundled extension
+  // filed every party under one `qp` type and told them apart by this party's
+  // own KEY — `{type: 'qp', ref: 'NY'}` — and the operations logged then are
+  // not migrated, so the party reaches back for them instead.
+  //
+  // The key is the code, lower-cased and matched as a prefix: Nebraska is `NE`
+  // and New England `NEQP`, so `NEQP` matches both claims and the longer one
+  // decides. Getting that backwards hands every New England log to Nebraska.
+  lines.push(`  // The bundled extension's own pair for this party, which nothing rewrites.`)
+  lines.push(`  legacyRefs: [{ type: "qp", prefix: ${quote(key.toLowerCase())} }],`)
+
   // `state` answers what the bundled version's party KEY answered: the state a
   // county belongs to when its own abbreviation does not say. A party whose key
   // IS a state carries it; the four spanning several do NOT — none of their

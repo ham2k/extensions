@@ -18,6 +18,8 @@ export const PARTY: QsoPartyParams = {
   refType: "bc-qso-party",
   name: "British Columbia QSO Party",
   short: "BCQP",
+  // The bundled extension's own pair for this party, which nothing rewrites.
+  legacyRefs: [{ type: "qp", prefix: "bc" }],
   state: "BC",
   cabrilloName: "BC-QSO-PARTY",
   url: "https://www.orcadxcc.org/bcqp_rules.html",

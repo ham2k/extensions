@@ -2,7 +2,7 @@
   "key": "ham2k-okqp",
   "name": "OKQP: Oklahoma QSO Party",
   "shortName": "OKQP",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Work stations in Oklahoma.",
   "category": "contest",
   "icon": "star-box",
@@ -25,6 +25,7 @@
     "adifFields",
     "export",
     "ref:ok-qso-party",
+    "ref:qp/ok",
     "scoring"
   ],
   "relevance": {

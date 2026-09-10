@@ -33,13 +33,48 @@ export function str(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
 
-/// This party's ref on an operation (or on a QSO), if it has one.
+/// A ref of exactly [type] on an operation (or on a QSO), if it has one.
 export function refOfType(
   record: Record<string, unknown> | undefined,
   type: string,
 ): Record<string, unknown> | undefined {
   const refs = (record?.refs as Record<string, unknown>[] | undefined) ?? []
   return refs.find((ref) => ref?.type === type)
+}
+
+/// The ref on an operation (or on a QSO) that THIS PARTY answers for — its own
+/// type, or a legacy pair it reaches back for.
+///
+/// A per-event party publishes `ny-qso-party`, and the operations logged when
+/// fifty parties were one extension carry `{type: 'qp', ref: 'NY'}`. Those are
+/// not migrated: the operation stays as the operator logged it, so every read
+/// here has to find either shape and every write lands back on the one it
+/// found. A log that edits itself years later because an extension arrived is
+/// the outcome this whole arrangement exists to avoid.
+///
+/// The party's own type wins where both are present. An operation carrying
+/// both is one the operator has since set up under the current name, and that
+/// is the reference their entry class and exchange belong to.
+///
+/// The legacy code is matched as a PREFIX and case-folded, the same rule the
+/// app's manifest claims use (`ref:qp/ny`) — one rule, so what the app offers
+/// and what the extension then answers for cannot disagree.
+export function partyRefIn(
+  party: Party,
+  record: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  const own = refOfType(record, party.refType)
+  if (own) return own
+  const legacy = party.legacyRefs ?? []
+  if (legacy.length === 0) return undefined
+  const refs = (record?.refs as Record<string, unknown>[] | undefined) ?? []
+  for (const claim of legacy) {
+    const found = refs.find(
+      (ref) => ref?.type === claim.type && str(ref?.ref).toLowerCase().startsWith(claim.prefix),
+    )
+    if (found) return found
+  }
+  return undefined
 }
 
 /// Where we are operating from, as typed — one county, or a county line's two
@@ -50,7 +85,7 @@ export function ourLocationText(
   operation: Record<string, unknown> | undefined,
   ref?: Record<string, unknown>,
 ): string {
-  return str((ref ?? refOfType(operation, party.refType))?.location).trim()
+  return str((ref ?? partyRefIn(party, operation))?.location).trim()
 }
 
 /// One declared class, or undefined for a question the operator has not
@@ -74,7 +109,7 @@ export function ourOperatorClass(
   operation: Record<string, unknown> | undefined,
   ref?: Record<string, unknown>,
 ): OperatorClass | undefined {
-  return declared(ref ?? refOfType(operation, party.refType), 'operator', OPERATOR_CLASSES, party.entryClasses.operator)
+  return declared(ref ?? partyRefIn(party, operation), 'operator', OPERATOR_CLASSES, party.entryClasses.operator)
 }
 
 export function ourStationClass(
@@ -82,7 +117,7 @@ export function ourStationClass(
   operation: Record<string, unknown> | undefined,
   ref?: Record<string, unknown>,
 ): StationClass | undefined {
-  return declared(ref ?? refOfType(operation, party.refType), 'station', STATION_CLASSES, party.entryClasses.station)
+  return declared(ref ?? partyRefIn(party, operation), 'station', STATION_CLASSES, party.entryClasses.station)
 }
 
 export function ourModeClass(
@@ -90,7 +125,7 @@ export function ourModeClass(
   operation: Record<string, unknown> | undefined,
   ref?: Record<string, unknown>,
 ): ModeClass | undefined {
-  return declared(ref ?? refOfType(operation, party.refType), 'mode', MODE_CLASSES, party.entryClasses.mode)
+  return declared(ref ?? partyRefIn(party, operation), 'mode', MODE_CLASSES, party.entryClasses.mode)
 }
 
 export function ourOverlayClass(
@@ -98,7 +133,7 @@ export function ourOverlayClass(
   operation: Record<string, unknown> | undefined,
   ref?: Record<string, unknown>,
 ): OverlayClass | undefined {
-  return declared(ref ?? refOfType(operation, party.refType), 'overlay', OVERLAY_CLASSES, party.entryClasses.overlay)
+  return declared(ref ?? partyRefIn(party, operation), 'overlay', OVERLAY_CLASSES, party.entryClasses.overlay)
 }
 
 export function ourPowerClass(
@@ -106,7 +141,7 @@ export function ourPowerClass(
   operation: Record<string, unknown> | undefined,
   ref?: Record<string, unknown>,
 ): PowerClass | undefined {
-  return declared(ref ?? refOfType(operation, party.refType), 'power', POWER_CLASSES, party.entryClasses.power)
+  return declared(ref ?? partyRefIn(party, operation), 'power', POWER_CLASSES, party.entryClasses.power)
 }
 
 /// What the declared power class multiplies the score by, or 1 — for the six
@@ -133,7 +168,7 @@ export function isMobile(
   operation: Record<string, unknown> | undefined,
   ref?: Record<string, unknown>,
 ): boolean {
-  const own = ref ?? refOfType(operation, party.refType)
+  const own = ref ?? partyRefIn(party, operation)
   if (own?.mobile === true) return true
   const station = str(own?.station).toUpperCase() as StationClass
   return ROVING_STATION_CLASSES.includes(station) && party.entryClasses.station.includes(station)
@@ -146,7 +181,7 @@ export function ourEmail(
   operation: Record<string, unknown> | undefined,
   ref?: Record<string, unknown>,
 ): string {
-  return str((ref ?? refOfType(operation, party.refType))?.email).trim()
+  return str((ref ?? partyRefIn(party, operation))?.email).trim()
 }
 
 /// The name we send, for the parties whose exchange includes one.
@@ -155,5 +190,5 @@ export function ourName(
   operation: Record<string, unknown> | undefined,
   ref?: Record<string, unknown>,
 ): string {
-  return str((ref ?? refOfType(operation, party.refType))?.ourName).trim().toUpperCase()
+  return str((ref ?? partyRefIn(party, operation))?.ourName).trim().toUpperCase()
 }

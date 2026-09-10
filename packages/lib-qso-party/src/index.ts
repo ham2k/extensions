@@ -136,7 +136,14 @@ export function defineQsoParty(params: QsoPartyParams): QsoPartyHooks {
     refHandler: qsoPartyRefHandler(params),
     adifFields: qsoPartyAdifFields(params),
     export: qsoPartyExport(params),
-    scoring: contestScorer(qsoPartyScorer(params), { scope: { refTypes: [params.refType] } }),
+    // The legacy types too, or an operation logged when fifty parties were one
+    // extension scores zero while its row sits there answered. The scope is a
+    // filter on which operations reach a scorer, not a claim of ownership:
+    // every party's scorer is offered a `qp` operation and `partyRefIn` hands
+    // back nothing for the forty-eight it does not belong to.
+    scoring: contestScorer(qsoPartyScorer(params), {
+      scope: { refTypes: [...new Set([params.refType, ...(params.legacyRefs ?? []).map((c) => c.type)])] },
+    }),
   }
 }
 

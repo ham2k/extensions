@@ -2,7 +2,7 @@
   "key": "ham2k-waqp",
   "name": "WAQP: Washington Salmon Run",
   "shortName": "WAQP",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Work stations in Washington.",
   "category": "contest",
   "icon": "star-box",
@@ -24,6 +24,7 @@
     "activity",
     "adifFields",
     "export",
+    "ref:qp/wa",
     "ref:wa-salmon-run",
     "scoring"
   ],

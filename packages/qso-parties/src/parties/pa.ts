@@ -13,6 +13,8 @@ export const PARTY: QsoPartyParams = {
   refType: "pa-qso-party",
   name: "Pennsylvania QSO Party",
   short: "PAQP",
+  // The bundled extension's own pair for this party, which nothing rewrites.
+  legacyRefs: [{ type: "qp", prefix: "pa" }],
   state: "PA",
   cabrilloName: "PA-QSO-PARTY",
   url: "https://paqso.org/index.html",

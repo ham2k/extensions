@@ -2,7 +2,7 @@
   "key": "ham2k-onqp",
   "name": "ONQP: Ontario QSO Party",
   "shortName": "ONQP",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Work stations in Ontario.",
   "category": "contest",
   "icon": "leaf-maple",
@@ -25,6 +25,7 @@
     "adifFields",
     "export",
     "ref:on-qso-party",
+    "ref:qp/on",
     "scoring"
   ],
   "relevance": {

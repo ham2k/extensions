@@ -2,7 +2,7 @@
   "key": "ham2k-ohqp",
   "name": "OHQP: Ohio QSO Party",
   "shortName": "OHQP",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Work stations in Ohio.",
   "category": "contest",
   "icon": "star-box",
@@ -25,6 +25,7 @@
     "adifFields",
     "export",
     "ref:mrrc-ohqp",
+    "ref:qp/oh",
     "scoring"
   ],
   "relevance": {

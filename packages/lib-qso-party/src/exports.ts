@@ -21,7 +21,7 @@ import type {
   JSONValue,
 } from "@ham2k/extension-sdk"
 
-import { ourName, refOfType, str } from "./entry.ts"
+import { ourName, partyRefIn, str } from "./entry.ts"
 import {
   cabrilloFor,
   hasSegments,
@@ -59,13 +59,13 @@ export function qsoPartyAdifFields(params: QsoPartyParams): AdifFieldsHook {
       { qso, operation }: { qso: Record<string, JSONValue>; operation: Record<string, JSONValue> },
       _ctx: HookContext,
     ): Promise<{ name: string; value: string }[]> {
-      const qsoRef = refOfType(qso as Record<string, unknown>, party.refType)
+      const qsoRef = partyRefIn(party, qso as Record<string, unknown>)
       // This hook is asked one QSO at a time and never sees the log, so it cannot
       // tell a segmented operation from an unsegmented one — the Cabrillo can,
       // and does. Our OWN export tells it, so the two files agree; the core's
       // whole-log ADIF has no such marker and takes the stamp, which is right for
       // a rover and stale for a county corrected mid-log on an unsegmented one.
-      const segmented = refOfType(operation as Record<string, unknown>, party.refType)?.[SEGMENTED_MARKER] !== false
+      const segmented = partyRefIn(party, operation as Record<string, unknown>)?.[SEGMENTED_MARKER] !== false
       const ours = ourLocationForQso(party, qso, operation, { segmented })
       const weAreInParty = allInParty(parseLocations(party, ours))
       const ourSerial = str(qsoRef?.ourSerial)
@@ -85,7 +85,7 @@ export function qsoPartyAdifFields(params: QsoPartyParams): AdifFieldsHook {
       // prefix would otherwise write the prefix here and `DX` there. Our own
       // export also hands over what it resolved for the whole log, which is the
       // only way this hook can know what a station sent on an earlier band.
-      const resolved = refOfType(operation as Record<string, unknown>, party.refType)?.[RESOLVED_MARKER] as
+      const resolved = partyRefIn(party, operation as Record<string, unknown>)?.[RESOLVED_MARKER] as
         | Record<string, string>
         | undefined
       const theirsForFile = resolved?.[str(qso.uuid)]
@@ -108,7 +108,7 @@ export function qsoPartyExport(params: QsoPartyParams): ExportHook {
 
   return {
     async suggestExportOptions(args: ExportOptionsRequest, ctx: HookContext): Promise<ExportOption[]> {
-      if (!refOfType(args.operation as Record<string, unknown>, party.refType)) return []
+      if (!partyRefIn(party, args.operation as Record<string, unknown>)) return []
       const named = (extension: string) =>
         filenameFor(party, args.operation, args.qsos ?? [], extension, args.compactFilenames)
 

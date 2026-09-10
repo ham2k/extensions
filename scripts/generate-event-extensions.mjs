@@ -39,7 +39,7 @@ import { CANADIAN_PROVINCES, US_STATES } from "../packages/lib-qso-party/src/loc
 
 const EXTENSIONS_DIR = resolve(import.meta.dirname, "..", "extensions", "contests")
 
-const VERSION = "0.2.3"
+const VERSION = "0.2.4"
 
 /// The accent an event carries, by the flag of the country whose party it is.
 /// Two colors for the family rather than fifty — what tells two events apart
@@ -54,6 +54,16 @@ const VERSION = "0.2.3"
 /// Both are dark enough for the white glyph the app and the catalog site draw
 /// on them; a lighter flag color would need a second foreground.
 const ACCENT_COLORS = { us: "#1F4FA0", ca: "#D80621" }
+
+/// The party's own `legacyRefs` as manifest `hooks` entries.
+///
+/// Read from the party data rather than re-derived here: the engine matches on
+/// that list and the control publishes it, so a second derivation would be a
+/// third answer to the question of which references this party handles — and
+/// the one that decides what is OFFERED, which is the one that must not drift.
+function legacyRefHooks(party) {
+  return (party.legacyRefs ?? []).map((claim) => `ref:${claim.type}/${claim.prefix}`)
+}
 
 /// A party whose data says do not ship it. `disabled` is the sponsors' own
 /// files' flag, carried through the fixtures, and it means nobody has verified
@@ -280,7 +290,15 @@ function manifestFor(code, key, party) {
     keywords: [...new Set(keywords)],
     // Exactly what `src/index.ts` registers, `ref:` included: the panel and the
     // catalog read this list without loading the bundle.
-    hooks: ["activity", "adifFields", "export", `ref:${party.refType}`, "scoring"].sort(),
+    //
+    // The qualified entry is how an operation logged when fifty parties were
+    // one extension reaches this one. `ref:qp/tx` claims the `qp` references
+    // whose code begins `tx`, which is the pair the bundled extension wrote —
+    // and claims it more precisely than the bundled extension's own `ref:qp`,
+    // so this party wins the offer without either knowing the other exists.
+    // Nothing is rewritten: the claim is a promise to answer for the old
+    // shape, not to change it.
+    hooks: ["activity", "adifFields", "export", `ref:${party.refType}`, ...legacyRefHooks(party), "scoring"].sort(),
     // A ranking, not a filter. Both countries either way: Canadian stations work
     // the US parties and the other way round, and the party's own country goes
     // first. `countries`, not `entities`, because the DXCC entity `K` is the
@@ -400,6 +418,13 @@ defineExtension({
     // thing that answers for it, and \`manifest.hooks\` has to say the same, or
     // the app is told about a hook nobody registered.
     registerHook(\`ref:\${hooks.refType}\`, { hook: hooks.refHandler, key: manifest.key })
+    // The same handler under the legacy pairs this party answers for. The
+    // kernel resolves a \`ref:qp\` call against these by the reference's own
+    // code, longest prefix first, so the party that named the reference
+    // answers it and the one that claimed the family does not.
+    for (const claim of PARTY.legacyRefs ?? []) {
+      registerHook(\`ref:\${claim.type}/\${claim.prefix}\`, { hook: hooks.refHandler, key: manifest.key })
+    }
     registerHook("adifFields", { hook: hooks.adifFields, key: manifest.key })
     registerHook("export", { hook: hooks.export, key: manifest.key })
     registerHook("scoring", { hook: hooks.scoring, key: manifest.key })

@@ -18,6 +18,8 @@ export const PARTY: QsoPartyParams = {
   refType: "nvqp",
   name: "Nevada QSO Party",
   short: "NVQP",
+  // The bundled extension's own pair for this party, which nothing rewrites.
+  legacyRefs: [{ type: "qp", prefix: "nv" }],
   state: "NV",
   url: "http://nvqso.com/contest-rules/",
   status: "Dates DERIVED from the sponsor’s standing rule (second weekend in October); their site still shows 2025",

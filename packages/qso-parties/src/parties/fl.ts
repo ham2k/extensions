@@ -13,6 +13,8 @@ export const PARTY: QsoPartyParams = {
   refType: "fcg-fqp",
   name: "Florida QSO Party",
   short: "FLQP",
+  // The bundled extension's own pair for this party, which nothing rewrites.
+  legacyRefs: [{ type: "qp", prefix: "fl" }],
   state: "FL",
   cabrilloName: "FCG-FQP",
   url: "https://www.floridaqsoparty.org/",

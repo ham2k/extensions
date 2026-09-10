@@ -24,6 +24,7 @@ import type {
 } from "@ham2k/extension-sdk"
 
 import {
+  ROVING_STATION_CLASSES,
   ourEmail,
   ourLocationText,
   ourModeClass,
@@ -32,8 +33,7 @@ import {
   ourOverlayClass,
   ourPowerClass,
   ourStationClass,
-  refOfType,
-  ROVING_STATION_CLASSES,
+  partyRefIn,
   str,
 } from "./entry.ts"
 import {
@@ -344,7 +344,7 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
       { operation }: { operation: Record<string, JSONValue> },
       ctx: HookContext,
     ): Promise<LoggingControlDescriptor[]> {
-      const ref = refOfType(operation as Record<string, unknown>, party.refType)
+      const ref = partyRefIn(party, operation as Record<string, unknown>)
       const t = labelsFor(party, ctx)
 
       const elements: FormElement[] = [
@@ -401,6 +401,15 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
           input: {
             kind: 'form',
             refType: party.refType,
+            // The legacy pairs this party answers for, in the app's own claim
+            // vocabulary (`qp/ny`, the manifest's `ref:qp/ny` without the
+            // prefix). The manifest decides who is OFFERED for a reference
+            // nothing handles; this decides who answers once they are on, and
+            // a control that published only its own type would leave the row
+            // red for the operator who just installed the fix.
+            ...(party.legacyRefs?.length
+              ? { alsoHandles: party.legacyRefs.map((claim) => `${claim.type}/${claim.prefix}`) }
+              : {}),
             form: { title: party.short, elements },
           },
         },
@@ -495,7 +504,7 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
       { qso, operation }: { qso: Record<string, JSONValue>; operation: Record<string, JSONValue> },
       _ctx: HookContext,
     ): Promise<Record<string, JSONValue> | null> {
-      const qsoRef = refOfType(qso as Record<string, unknown>, party.refType)
+      const qsoRef = partyRefIn(party, qso as Record<string, unknown>)
       const location = str(qsoRef?.location).trim().toUpperCase()
       const serial = str(qsoRef?.theirSerial).trim()
       const name = str(qsoRef?.theirName).trim().toUpperCase()

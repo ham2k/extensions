@@ -27,7 +27,7 @@
 
 import type { ContestScorer, JSONValue, QsoScoreVerdict, ScoreTally } from "@ham2k/extension-sdk"
 
-import { isMobile, ourLocationText, powerMultiplier, refOfType, str } from "./entry.ts"
+import { isMobile, ourLocationText, partyRefIn, powerMultiplier, str } from "./entry.ts"
 import type { QsoPartyLocation, QsoPartyParams } from "./params.ts"
 import { allInParty, entityPrefixOf, parseLocations, theirLocations } from "./location.ts"
 import { CANADIAN_PROVINCES, US_STATES } from "./locations.ts"
@@ -253,7 +253,7 @@ export function qsoPartyScorer(params: QsoPartyParams): ContestScorer<QsoPartySc
       // us earlier, then to what their callsign says — a DX station's exchange
       // is its entity, and no party asks them to type it.
       const entityPrefix = entityPrefixOf(qso)
-      const qsoRef = refOfType(qso as Record<string, unknown>, party.refType)
+      const qsoRef = partyRefIn(party, qso as Record<string, unknown>)
       const typed = str(qsoRef?.location).trim()
       const fallback = sheet.lastLocation[call] ?? defaultLocationFor(party, entityPrefix)
       const { locations: theirs, standing } = theirLocations(party, typed || fallback, {

@@ -2,7 +2,7 @@
   "key": "ham2k-ksqp",
   "name": "KSQP: Kansas QSO Party",
   "shortName": "KSQP",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Work stations in Kansas.",
   "category": "contest",
   "icon": "star-box",
@@ -25,6 +25,7 @@
     "adifFields",
     "export",
     "ref:ks-qso-party",
+    "ref:qp/ks",
     "scoring"
   ],
   "relevance": {

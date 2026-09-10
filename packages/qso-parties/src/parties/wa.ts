@@ -18,6 +18,8 @@ export const PARTY: QsoPartyParams = {
   refType: "wa-salmon-run",
   name: "Washington Salmon Run",
   short: "WAQP",
+  // The bundled extension's own pair for this party, which nothing rewrites.
+  legacyRefs: [{ type: "qp", prefix: "wa" }],
   state: "WA",
   cabrilloName: "WA-SALMON-RUN",
   url: "https://salmonrun.wwdxc.org/",

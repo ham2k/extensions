@@ -10,14 +10,14 @@ import { qsonToCabrillo } from "@ham2k/lib-qson-cabrillo"
 
 import {
   ourEmail,
+  ourLocationText,
   ourModeClass,
   ourName,
   ourOperatorClass,
   ourOverlayClass,
   ourPowerClass,
   ourStationClass,
-  ourLocationText,
-  refOfType,
+  partyRefIn,
   str,
 } from "./entry.ts"
 import {
@@ -41,7 +41,7 @@ export function theirLocationForFile(
   qso: Record<string, JSONValue>,
   { weAreInParty, lastLocation }: { weAreInParty: boolean; lastLocation?: Record<string, string> },
 ): string {
-  const qsoRef = refOfType(qso as Record<string, unknown>, party.refType)
+  const qsoRef = partyRefIn(party, qso as Record<string, unknown>)
   const entityPrefix = entityPrefixOf(qso as Record<string, unknown>)
   const their = (qso.their as Record<string, JSONValue>) ?? {}
   const call = str(their.call).toUpperCase()
@@ -161,7 +161,7 @@ export function ourLocationForQso(
 ): string {
   const current = ourLocationText(party, operation as Record<string, unknown>)
   if (!segmented) return current
-  const stamped = str(refOfType(qso as Record<string, unknown>, party.refType)?.ourLocation).trim()
+  const stamped = str(partyRefIn(party, qso as Record<string, unknown>)?.ourLocation).trim()
   // A contact logged before this extension existed, or synced from app-polo,
   // has no stamp — the operation's own location is the only answer there is.
   return stamped || current
@@ -178,7 +178,7 @@ export function cabrilloRowsFor(
   ourCall: string,
   { segmented = false, lastLocation }: { segmented?: boolean; lastLocation?: Record<string, string> } = {},
 ): string[][] {
-  const qsoRef = refOfType(qso as Record<string, unknown>, party.refType)
+  const qsoRef = partyRefIn(party, qso as Record<string, unknown>)
   const their = (qso.their as Record<string, JSONValue>) ?? {}
   const call = str(their.call).toUpperCase()
   const theirCall = cabrilloCall(party, str(their.call))

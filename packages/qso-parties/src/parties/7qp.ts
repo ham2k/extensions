@@ -14,6 +14,8 @@ export const PARTY: QsoPartyParams = {
   refType: "7qp",
   name: "7th Call Area QSO Party",
   short: "7QP",
+  // The bundled extension's own pair for this party, which nothing rewrites.
+  legacyRefs: [{ type: "qp", prefix: "7qp" }],
   // Several states, no one of them this party's own. Every county below names
   // its state, in its abbreviation or in the table, and `states` is the list
   // each of those has to fall in — a check on the county data, and nothing a

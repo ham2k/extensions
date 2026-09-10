@@ -13,6 +13,8 @@ export const PARTY: QsoPartyParams = {
   refType: "txqp",
   name: "Texas QSO Party",
   short: "TXQP",
+  // The bundled extension's own pair for this party, which nothing rewrites.
+  legacyRefs: [{ type: "qp", prefix: "tx" }],
   state: "TX",
   cabrilloName: "TXQP",
   status: "Pending",

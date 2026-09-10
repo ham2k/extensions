@@ -18,6 +18,8 @@ export const PARTY: QsoPartyParams = {
   refType: "cp-qso-party",
   name: "Canadian Prairies QSO Party",
   short: "CPQP",
+  // The bundled extension's own pair for this party, which nothing rewrites.
+  legacyRefs: [{ type: "qp", prefix: "cpqp" }],
   // Several states, no one of them this party's own. Every county below names
   // its state, in its abbreviation or in the table, and `states` is the list
   // each of those has to fall in — a check on the county data, and nothing a

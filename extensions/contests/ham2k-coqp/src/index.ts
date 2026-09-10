@@ -36,6 +36,13 @@ defineExtension({
     // thing that answers for it, and `manifest.hooks` has to say the same, or
     // the app is told about a hook nobody registered.
     registerHook(`ref:${hooks.refType}`, { hook: hooks.refHandler, key: manifest.key })
+    // The same handler under the legacy pairs this party answers for. The
+    // kernel resolves a `ref:qp` call against these by the reference's own
+    // code, longest prefix first, so the party that named the reference
+    // answers it and the one that claimed the family does not.
+    for (const claim of PARTY.legacyRefs ?? []) {
+      registerHook(`ref:${claim.type}/${claim.prefix}`, { hook: hooks.refHandler, key: manifest.key })
+    }
     registerHook("adifFields", { hook: hooks.adifFields, key: manifest.key })
     registerHook("export", { hook: hooks.export, key: manifest.key })
     registerHook("scoring", { hook: hooks.scoring, key: manifest.key })

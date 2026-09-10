@@ -13,6 +13,8 @@ export const PARTY: QsoPartyParams = {
   refType: "de-qso-party",
   name: "Delaware QSO Party",
   short: "DEQP",
+  // The bundled extension's own pair for this party, which nothing rewrites.
+  legacyRefs: [{ type: "qp", prefix: "de" }],
   state: "DE",
   cabrilloName: "DE-QSO-PARTY",
   url: "https://www.fsarc.org/qsoparty/qsohome.htm",

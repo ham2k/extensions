@@ -272,7 +272,13 @@ test("every extension builds, packs and loads", async (t) => {
       // An unscoped scorer runs for every operation and is not this check's
       // business; an extension with no scorer at all (a plain reference activity)
       // is not either.
-      const refTypes = declaredHooks.filter(isRef).map((c) => c.slice("ref:".length))
+      // A qualified claim (`ref:qp/ny`) contributes its TYPE: the scorer is
+      // filtered by type, and an operation carrying the legacy pair has to
+      // reach the scorer that answers for it or it scores zero while its row
+      // sits there answered.
+      const refTypes = [
+        ...new Set(declaredHooks.filter(isRef).map((c) => c.slice("ref:".length).split("/")[0])),
+      ]
       const scoring = registrations.find((r) => r.category === "scoring")
       // Spread first: the scope came out of the vm realm, and an array from
       // another realm is never deep-STRICT-equal to one built here.

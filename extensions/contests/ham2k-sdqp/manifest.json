@@ -2,7 +2,7 @@
   "key": "ham2k-sdqp",
   "name": "SDQP: South Dakota QSO Party",
   "shortName": "SDQP",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Work stations in South Dakota.",
   "category": "contest",
   "icon": "star-box",
@@ -24,6 +24,7 @@
     "activity",
     "adifFields",
     "export",
+    "ref:qp/sd",
     "ref:sdqsop",
     "scoring"
   ],

@@ -2,7 +2,7 @@
   "key": "ham2k-alqp",
   "name": "ALQP: Alabama QSO Party",
   "shortName": "ALQP",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Work stations in Alabama.",
   "category": "contest",
   "icon": "star-box",
@@ -25,6 +25,7 @@
     "adifFields",
     "export",
     "ref:al-qso-party",
+    "ref:qp/al",
     "scoring"
   ],
   "relevance": {
