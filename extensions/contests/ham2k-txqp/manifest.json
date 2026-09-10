@@ -2,7 +2,7 @@
   "key": "ham2k-txqp",
   "name": "TXQP: Texas QSO Party",
   "shortName": "TXQP",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Work stations in Texas.",
   "category": "contest",
   "icon": "star-box",
