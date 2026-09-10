@@ -2,11 +2,11 @@
   "key": "ham2k-cpqp",
   "name": "CPQP: Canadian Prairies QSO Party",
   "shortName": "CPQP",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Work stations in AB, MB and SK.",
   "category": "contest",
   "icon": "leaf-maple",
-  "accentColor": "#8E24AA",
+  "accentColor": "#D80621",
   "api": 1,
   "keywords": [
     "contest",

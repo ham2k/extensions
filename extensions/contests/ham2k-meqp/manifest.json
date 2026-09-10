@@ -2,11 +2,11 @@
   "key": "ham2k-meqp",
   "name": "MEQP: Maine QSO Party",
   "shortName": "MEQP",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Work stations in Maine.",
   "category": "contest",
   "icon": "star-box",
-  "accentColor": "#8E24AA",
+  "accentColor": "#3C3B6E",
   "api": 1,
   "keywords": [
     "contest",

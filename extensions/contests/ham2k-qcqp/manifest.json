@@ -2,11 +2,11 @@
   "key": "ham2k-qcqp",
   "name": "QCQP: Quebec QSO Party",
   "shortName": "QCQP",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Work stations in Quebec.",
   "category": "contest",
   "icon": "leaf-maple",
-  "accentColor": "#8E24AA",
+  "accentColor": "#D80621",
   "api": 1,
   "keywords": [
     "contest",

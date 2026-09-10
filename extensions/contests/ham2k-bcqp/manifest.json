@@ -2,11 +2,11 @@
   "key": "ham2k-bcqp",
   "name": "BCQP: British Columbia QSO Party",
   "shortName": "BCQP",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Work stations in British Columbia.",
   "category": "contest",
   "icon": "leaf-maple",
-  "accentColor": "#8E24AA",
+  "accentColor": "#D80621",
   "api": 1,
   "keywords": [
     "contest",
