@@ -1,0 +1,62 @@
+{
+  "key": "ki2d-njqp",
+  "name": "NJQP: New Jersey QSO Party (KI2D)",
+  "shortName": "NJQP",
+  "version": "0.2.6",
+  "description": "Work stations in New Jersey.",
+  "category": "contest",
+  "icon": "star-box",
+  "accentColor": "#1F4FA0",
+  "api": 1,
+  "keywords": [
+    "contest",
+    "qso party",
+    "state qso party",
+    "county",
+    "counties",
+    "cabrillo",
+    "nj",
+    "njqp",
+    "new jersey",
+    "new jersey qso party"
+  ],
+  "hooks": [
+    "activity",
+    "adifFields",
+    "export",
+    "ref:njqp",
+    "ref:qp/nj",
+    "scoring"
+  ],
+  "relevance": {
+    "countries": [
+      "us",
+      "ca"
+    ],
+    "dates": [
+      "2026-09-12"
+    ]
+  },
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "@ham2k/lib-qson-cabrillo": "^1.2.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "description": "Trabaja estaciones en Nueva Jersey.",
+      "keywords": [
+        "concurso",
+        "condado",
+        "condados",
+        "nueva jersey"
+      ]
+    }
+  }
+}
