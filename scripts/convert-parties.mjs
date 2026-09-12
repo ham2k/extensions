@@ -53,10 +53,10 @@ const DIVERGENCE_NOTES = {
     "polo's file back over this one without re-reading the sponsor.",
   ],
   NJ: [
-    "DIVERGES from app-polo, deliberately. polo's copy still carries 2025 dates",
-    "and no rules URL at all; both were re-read from the sponsor in September",
-    "2026. The scoring rules are still unverified — the dates are not. Never",
-    "take polo's file back over this one without re-reading the sponsor.",
+    "DIVERGES from app-polo, deliberately. polo's copy still carries 2025 dates,",
+    "no rules URL and no scoring table; dates, points and power multipliers",
+    "were all re-read from the sponsor in September 2026. Never take polo's",
+    "file back over this one without re-reading the sponsor.",
   ],
   NV: [
     "DIVERGES from app-polo, deliberately. polo's copy still carries 2025 dates",
