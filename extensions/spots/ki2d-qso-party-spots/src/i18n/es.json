@@ -1,0 +1,7 @@
+{
+  "noParty": "Esta operación no está en un QSO party",
+  "noCall": "Esta operación no tiene indicativo de estación para el spot",
+  "noCounty": "Configura tu condado en los ajustes de {{party}} antes de publicar un spot",
+  "hubRejected": "El QSO Party Hub respondió HTTP {{status}}",
+  "hubUnreachable": "No se pudo contactar al QSO Party Hub: {{error}}"
+}

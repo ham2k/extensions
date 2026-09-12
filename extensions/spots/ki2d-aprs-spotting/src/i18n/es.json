@@ -1,0 +1,6 @@
+{
+  "noCall": "Esta operación no tiene indicativo de estación para la baliza",
+  "noPosition": "Configura el grid o la ubicación de la operación antes de publicar en APRS",
+  "rejected": "La pasarela APRS-IS respondió HTTP {{status}}",
+  "unreachable": "No se pudo contactar a la pasarela APRS-IS: {{error}}"
+}

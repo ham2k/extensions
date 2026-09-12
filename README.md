@@ -9,28 +9,45 @@ whatever shared library it leans on. It is built into a single bundle against
 uploaded to the catalog, and installed by operators who want it — so it ships,
 and updates, without an app release.
 
-Two kinds of thing live here. The **QSO parties**: the app carries one `qp`
+Three kinds of thing live here. The **QSO parties**: the app carries one `qp`
 extension holding all fifty, and this repository publishes them **one event per
 extension**, so an operator installs the Texas QSO Party and gets the Texas QSO
-Party. And **catalog copies of the app's own built-ins**, so that each can ship
+Party. **Catalog copies of the app's own built-ins**, so that each can ship
 and update without an app release — see **Porting a built-in**, and note that
-those stay unpublished while the app still ships them.
+those stay unpublished while the app still ships them. And **two spotting
+sources the app never shipped**, under the `ki2d-` callsign prefix a third
+party's extension takes: the QSO Party Hub and APRS Tracker feeds that
+app-polo's `qp` extension carried inside it, and an APRS position beacon.
 
 ## What is here
 
-89 extensions, grouped by the manifest's own `category`:
+91 extensions, grouped by the manifest's own `category`:
 
 | directory | manifest `category` | n | of which |
 |---|---|--:|---|
 | `extensions/activities/` | `activity` | 18 | 18 ported built-ins |
 | `extensions/contests/` | `contest` | 64 | 15 ported built-ins, 49 QSO party events |
 | `extensions/lookups/` | `lookup` | 5 | 5 ported built-ins |
-| `extensions/spots/` | `spots` | 1 | 1 ported built-in |
+| `extensions/spots/` | `spots` | 3 | 1 ported built-in, 2 new spotting sources |
 | `extensions/dashboard/` | `dashboard` | 1 | 1 ported built-in |
-| **total** | | **89** | **40 ported, 49 new** |
+| **total** | | **91** | **40 ported, 51 new** |
 
-The 40 are the app's own extensions, ported one for one. The 49 are new: events
-the app has never shipped separately.
+The 40 are the app's own extensions, ported one for one. The 51 are new: events
+the app has never shipped separately, and two spotting sources:
+
+- **`ki2d-qso-party-spots`** reads the [QSO Party Hub](http://qsopartyhub.com)
+  and the [QSO Party APRS Tracker](https://mobiletracker.stateqso.com) for
+  every party running that weekend, and posts self-spots to the Hub. app-polo
+  does both inside its `qp` extension; here neither can live in a per-event
+  extension, because `fetchSpots` is handed no operation and fifty events each
+  polling the feeds would be a hundred requests a cycle. It knows every party
+  through `@ham2k/qso-parties/identities` — see **Layout**.
+- **`ki2d-aprs-spotting`** turns a self-spot into an APRS-IS position beacon
+  naming the frequency and what is being activated. During a QSO party the
+  beacon carries the party's own token (`NEWE 14.250 MAWOR`), which is what
+  the tracker parses and what app-polo sends; from a park it names the
+  reference. One beacon source, deliberately: the QP source reads the tracker
+  and never beacons, so the two installed together beacon once.
 
 ## What is NOT here, and why
 
@@ -83,6 +100,11 @@ can see both offerings until `qp` is retired.
   - `@ham2k/qso-parties` — every party's rules, counties and dates as
     `QsoPartyParams`, one module per event, **generated** from the sponsors'
     own files. Edit a fixture and re-run the generator; never edit a module.
+    Its `./identities` export is the slim view of all fifty — name, ref type,
+    states, the APRS token and the tracker and hub pages, no counties — for
+    the two spotting extensions that need every party at once, plus the two
+    readers they share: which party an operation is in (its own ref type, or
+    the bundled `qp` pair by longest prefix) and which counties its ref names.
   - `@ham2k/lib-vhf-contests` — what the IARU R1 and RSGB VHF+ contest
     extensions both need: the REG1TEST/EDI writer they submit, the grid half of
     the exchange they send, the ref readers they store it with, and the band

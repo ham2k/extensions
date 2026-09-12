@@ -1,0 +1,7 @@
+{
+  "noParty": "This operation is not in a QSO party",
+  "noCall": "This operation has no station callsign to spot",
+  "noCounty": "Set your county in the {{party}} setup before spotting",
+  "hubRejected": "The QSO Party Hub answered HTTP {{status}}",
+  "hubUnreachable": "The QSO Party Hub could not be reached: {{error}}"
+}

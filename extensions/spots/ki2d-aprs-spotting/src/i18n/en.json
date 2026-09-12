@@ -1,0 +1,6 @@
+{
+  "noCall": "This operation has no station callsign to beacon as",
+  "noPosition": "Set the operation's grid or location before spotting to APRS",
+  "rejected": "The APRS-IS gateway answered HTTP {{status}}",
+  "unreachable": "The APRS-IS gateway could not be reached: {{error}}"
+}

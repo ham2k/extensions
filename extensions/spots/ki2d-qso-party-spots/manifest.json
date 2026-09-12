@@ -1,0 +1,57 @@
+{
+  "key": "ki2d-qso-party-spots",
+  "name": "QSO Party Spots",
+  "shortName": "QP Spots",
+  "version": "0.1.0",
+  "api": 1,
+  "description": "Spots from the QSO Party Hub and the QSO Party APRS Tracker during a state QSO party, and self-spots to the Hub",
+  "category": "spots",
+  "icon": "star-box",
+  "accentColor": "#1F4FA0",
+  "keywords": [
+    "spots",
+    "spotting",
+    "qso party",
+    "state qso party",
+    "qsopartyhub",
+    "mobile tracker",
+    "county",
+    "counties"
+  ],
+  "relevance": {
+    "countries": [
+      "us",
+      "ca"
+    ]
+  },
+  "hooks": [
+    "spots"
+  ],
+  "domains": [
+    "lofi.ham2k.net",
+    "mobiletracker.stateqso.com"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "name": "Spots de QSO Parties",
+      "description": "Spots del QSO Party Hub y del QSO Party APRS Tracker durante un QSO party estatal, y auto-spots al Hub",
+      "keywords": [
+        "spots",
+        "spotting",
+        "qso party",
+        "condado",
+        "condados"
+      ]
+    }
+  }
+}

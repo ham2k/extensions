@@ -10,6 +10,9 @@
     "pulls in that party's county table and nothing else. The root export is the",
     "map of all fifty, for tools and tests; importing it carries every county",
     "list into the bundle.",
+    "`./identities` is the slim view — every party's name, ref type and the",
+    "feeds that carry it, no counties — for an extension that reads all fifty",
+    "at once (the spotting sources).",
     "Consumed as TypeScript source, like the engine: esbuild bundles the",
     "extension that reads it, so there is no build step and no dist/."
   ],
@@ -17,6 +20,8 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
+    "./identities": "./src/identities.ts",
+    "./identity": "./src/identity.ts",
     "./package.json": "./package.json",
     "./*": "./src/parties/*.ts"
   },

@@ -461,6 +461,7 @@ function emitParty(raw, key) {
   // reached the fallback in a state the sponsor never claimed. They name what
   // they span instead, derived from their own counties.
   const identity = []
+  const states = /^[A-Z]{2}$/.test(key) ? [key] : statesOf(counties, countyStates, key)
   if (/^[A-Z]{2}$/.test(key)) {
     identity.push(["state", quote(key)])
   } else {
@@ -468,7 +469,7 @@ function emitParty(raw, key) {
     lines.push(`  // its state, in its abbreviation or in the table, and \`states\` is the list`)
     lines.push(`  // each of those has to fall in — a check on the county data, and nothing a`)
     lines.push(`  // score reads.`)
-    identity.push(["states", `[${statesOf(counties, countyStates, key).map(quote).join(", ")}]`])
+    identity.push(["states", `[${states.map(quote).join(", ")}]`])
   }
   const cabrilloName = str(raw.cabrilloName)
   if (cabrilloName) identity.push(["cabrilloName", quote(cabrilloName)])
@@ -574,7 +575,32 @@ function emitParty(raw, key) {
   lines.push("")
 
   writeFileSync(join(PARTIES_DIR, `${slug}.ts`), lines.join("\n"))
-  return { key, slug, name, short, refType: refTypeFor(raw, short) }
+  return {
+    key, slug, name, short, refType: refTypeFor(raw, short),
+    identity: identityOf(raw, key, short, states, options, periods),
+  }
+}
+
+/// What the spotting services know a party by — see `src/identity.ts`. The
+/// APRS token is the sponsor's own where one is stated (`aprsShort`), because
+/// two parties can share a short and the tracker files by this token; the
+/// tracker's path is that same token for a party spanning states and the
+/// state itself otherwise, and the tracker carries no Canadian party at all.
+/// The hub page is the party's, lower-cased, unless several parties share one
+/// weekend and one page (`qsoPartyHubName`).
+function identityOf(raw, key, short, states, options, periods) {
+  const aprsShort = str(raw.aprsShort) ?? short
+  return {
+    refType: refTypeFor(raw, short),
+    legacyPrefix: key.toLowerCase(),
+    name: str(raw.name) ?? key,
+    short,
+    states,
+    aprsShort,
+    trackerCode: str(raw.aprsShort) ?? (options.entity === "K" ? key : undefined),
+    hubPage: str(raw.qsoPartyHubName) ?? short.toLowerCase(),
+    periods: periods.map(({ startMillis, endMillis }) => ({ startMillis, endMillis })),
+  }
 }
 
 function inlineNumbers(table) {
@@ -611,6 +637,40 @@ function emitIndex(parties) {
   lines.push(`}`)
   lines.push("")
   writeFileSync(join(PACKAGE_DIR, "src", "index.ts"), lines.join("\n"))
+}
+
+function emitIdentities(parties) {
+  const lines = [...HEADER]
+  lines.push("//")
+  lines.push("// Every party as the spotting services know it — see `identity.ts`. A few")
+  lines.push("// kilobytes for all fifty, where `index.ts` carries every county table.")
+  lines.push("//")
+  lines.push("// GENERATED — `node scripts/convert-parties.mjs` writes this file.")
+  lines.push("")
+  lines.push(`import type { QsoPartyIdentity } from "./identity.ts"`)
+  lines.push("")
+  lines.push(`export const PARTY_IDENTITIES: QsoPartyIdentity[] = [`)
+  for (const party of parties) {
+    const { identity } = party
+    const fields = [
+      ["refType", quote(identity.refType)],
+      ["legacyPrefix", quote(identity.legacyPrefix)],
+      ["name", quote(identity.name)],
+      ["short", quote(identity.short)],
+      ["states", `[${identity.states.map(quote).join(", ")}]`],
+      ["aprsShort", quote(identity.aprsShort)],
+    ]
+    if (identity.trackerCode) fields.push(["trackerCode", quote(identity.trackerCode)])
+    fields.push(["hubPage", quote(identity.hubPage)])
+    const periods = identity.periods.map((p) => `{ startMillis: ${p.startMillis}, endMillis: ${p.endMillis} }`)
+    fields.push(["periods", `[${periods.join(", ")}]`])
+    lines.push(`  {`)
+    lines.push(...objectLines(fields, 4))
+    lines.push(`  },`)
+  }
+  lines.push(`]`)
+  lines.push("")
+  writeFileSync(join(PACKAGE_DIR, "src", "identities.ts"), lines.join("\n"))
 }
 
 /// A local name for a party's module. Prefixed, because `7QP` cannot start a
@@ -662,4 +722,5 @@ for (const file of readdirSync(PARTIES_DIR)) {
 }
 
 emitIndex(parties)
+emitIdentities(parties)
 console.log(`wrote ${parties.length} parties to ${PARTIES_DIR}`)
