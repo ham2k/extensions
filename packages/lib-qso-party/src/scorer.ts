@@ -398,13 +398,6 @@ export function qsoPartyScorer(params: QsoPartyParams): ContestScorer<QsoPartySc
     },
 
     summarizeScore({ scoresheet: sheet, scope }): Record<string, ScoreTally> {
-      // A QSO party is ONE period, however many UTC days it straddles — the
-      // sponsors publish one total, and the multipliers and bonuses are won
-      // across the whole log. A "day's score" against the running multiplier
-      // is a figure nobody recognizes, so the day sections and the log's day
-      // headers get nothing from this scorer.
-      if (scope === 'day') return {}
-
       const mult = Object.keys(sheet.mults).length || 1
       const points = sheet.points
       const bonusPoints = oneTimeBonuses(party, sheet)
@@ -415,6 +408,15 @@ export function qsoPartyScorer(params: QsoPartyParams): ContestScorer<QsoPartySc
       const total = Math.round(party.bonusPostMultiplier
         ? points * mult * power + bonusPoints
         : (points + bonusPoints) * mult * power)
+
+      // A QSO party is ONE period, however many UTC days it straddles — the
+      // sponsors publish one total, and the multipliers and bonuses are won
+      // across the whole log. So a day is never scored on its own: its tally
+      // is the party's running total as of that day's close (the harness
+      // hands over the sheet as it stood then), which on the last day IS the
+      // final score. The detail stays with the operation tally; a day shows
+      // the number alone.
+      const isDay = scope === 'day'
 
       return {
         [party.refType]: {
@@ -433,10 +435,12 @@ export function qsoPartyScorer(params: QsoPartyParams): ContestScorer<QsoPartySc
           // arithmetic behind the total opens the detail.
           label: `${party.short}: ${fmtInteger(total)}`,
           summary: `${fmtInteger(total)}`,
-          longSummary: [
-            arithmeticFor({ points, mult, bonusPoints, power }),
-            longSummaryFor(party, sheet, bonusPoints),
-          ].join('\n\n'),
+          longSummary: isDay
+            ? ''
+            : [
+              arithmeticFor({ points, mult, bonusPoints, power }),
+              longSummaryFor(party, sheet, bonusPoints),
+            ].join('\n\n'),
           grid: true,
         },
       }

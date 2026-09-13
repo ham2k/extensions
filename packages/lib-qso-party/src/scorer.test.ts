@@ -498,12 +498,19 @@ test('a party may price a contact for itself, one pairing at a time', () => {
   assert.equal(run([qso({ location: 'CHA' })], { params }).scores[0].value, 2)
 })
 
-test('a party is one period: nothing is tallied per day', () => {
+test('a party is one period: a day shows the running total, never a score of its own', () => {
   const result = run([qso({ location: 'ERI' }), qso({ call: 'K2DEF', location: 'CHA' })])
-  // An empty record, not a zeroed tally — a tally at all would put a per-day
-  // score on the log's day headers for an event that publishes one total.
-  assert.equal(result.summary('day'), undefined)
-  assert.equal(result.summary('operation').total, result.sheet.points * multsOf(result))
+  const day = result.summary('day')
+  const whole = result.summary('operation')
+  // The same figure under both scopes — a "day's points against the running
+  // multiplier" is a number no sponsor publishes. Summarized from the same
+  // sheet, so this is what the last day header carries.
+  assert.equal(day.total, whole.total)
+  assert.equal(day.summary, whole.summary)
+  assert.equal(whole.total, result.sheet.points * multsOf(result))
+  // The checklist is the operation's; a day carries the number alone, so the
+  // panel shows its short summary instead of repeating the grid per day.
+  assert.equal(day.longSummary, '')
 })
 
 test('the summary is titled with the event and its total, and opens on the arithmetic', () => {
