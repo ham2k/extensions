@@ -509,8 +509,11 @@ test('a party is one period: a day shows the running total, never a score of its
   assert.equal(day.summary, whole.summary)
   assert.equal(whole.total, result.sheet.points * multsOf(result))
   // The checklist is the operation's; a day carries the number alone, so the
-  // panel shows its short summary instead of repeating the grid per day.
+  // panel shows its short summary instead of repeating the grid per day —
+  // and its title is the event's name alone, or the total would read twice.
   assert.equal(day.longSummary, '')
+  assert.equal(day.label, whole.label!.split(':')[0])
+  assert.ok(!day.label!.includes(day.summary!))
 })
 
 test('the summary is titled with the event and its total, and opens on the arithmetic', () => {

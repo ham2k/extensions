@@ -437,7 +437,9 @@ export function qsoPartyScorer(params: QsoPartyParams): ContestScorer<QsoPartySc
           // short `summary` is not shown beside a tally that has a
           // `longSummary` — so the event's name and its total go here, and the
           // arithmetic behind the total opens the detail.
-          label: `${party.short}: ${fmtInteger(total)}`,
+          // A day carries the number alone in the score column, so its title is
+          // the event's name alone — the total would otherwise read twice.
+          label: isDay ? party.short : `${party.short}: ${fmtInteger(total)}`,
           summary: `${fmtInteger(total)}`,
           longSummary: isDay
             ? ''
