@@ -103,6 +103,11 @@ export type QsoPartyScoresheet = {
   lastLocation: Record<string, string>
   bands: Record<string, number>
   modes: Record<string, number>
+  /// Band → super-mode (`CW`, `PHONE`, `DATA`) → contacts, for the summary's
+  /// band table. The super-mode, not the party's scoring mode: a party that
+  /// folds digital into CW for its rules still reports them apart. Optional
+  /// because a scoresheet cached by an earlier build has none.
+  bandModes?: Record<string, Record<string, number>>
   qsos: number
   points: number
   dupes: number

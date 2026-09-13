@@ -194,7 +194,7 @@ export function qsoPartyScorer(params: QsoPartyParams): ContestScorer<QsoPartySc
       return {
         mults: {}, counties: {}, states: {}, provinces: {}, entities: {}, creditedEntities: {},
         rareCounties: {}, bonuses: {}, bonusStations: {}, activatedCounties: {},
-        worked: {}, lastLocation: {}, bands: {}, modes: {},
+        worked: {}, lastLocation: {}, bands: {}, modes: {}, bandModes: {},
         qsos: 0, points: 0, dupes: 0,
       }
     },
@@ -388,6 +388,10 @@ export function qsoPartyScorer(params: QsoPartyParams): ContestScorer<QsoPartySc
       }
       sheet.bands[band] = (sheet.bands[band] ?? 0) + 1
       if (mode) sheet.modes[mode] = (sheet.modes[mode] ?? 0) + 1
+      if (superMode) {
+        const byMode = (sheet.bandModes ??= {})[band] ??= {}
+        byMode[superMode] = (byMode[superMode] ?? 0) + 1
+      }
       sheet.qsos += 1
       sheet.points += value
 
@@ -446,6 +450,27 @@ export function qsoPartyScorer(params: QsoPartyParams): ContestScorer<QsoPartySc
       }
     },
   }
+}
+
+/// One band's line of the summary table: every mode the party can be worked
+/// in, zeros included — an unworked mode is what an operator scanning the
+/// table is looking for — then the band's contacts.
+function modeBreakdown(byMode: Record<string, number>, total: number): string {
+  const cells = [['CW', 'CW'], ['PHONE', 'SSB'], ['DATA', 'Digital']]
+    .map(([superMode, name]) => `${fmtInteger(byMode[superMode] ?? 0)} ${name}`)
+  return `${cells.join(', ')}, **${fmtInteger(total)} total**`
+}
+
+/// Longest wavelength first — the order a band table reads in — rather than
+/// the alphabetical one `sort()` gives, which puts 160m between 15m and 20m.
+function byWavelength(a: string, b: string): number {
+  const meters = (band: string) => {
+    const match = /^([\d.]+)(m|cm|mm)$/.exec(band)
+    if (!match) return -1
+    const n = Number(match[1])
+    return match[2] === 'm' ? n : match[2] === 'cm' ? n / 100 : n / 1000
+  }
+  return meters(b) - meters(a) || a.localeCompare(b)
 }
 
 /// The bonuses that are won once for the whole log rather than per QSO: the
@@ -558,9 +583,18 @@ function longSummaryFor(party: Party, sheet: QsoPartyScoresheet, bonusPoints: nu
     parts.push(bonusCalls.map((code) => worked(sheet.bonusStations, code)).join(' '))
   }
 
-  const bands = Object.keys(sheet.bands).sort()
+  const bands = Object.keys(sheet.bands).sort(byWavelength)
   if (bands.length > 0) {
-    parts.push(bands.map((band) => `**${band}**: ${fmtInteger(sheet.bands[band])} QSOs`).join('\n'))
+    parts.push(`### ${fmtInteger(sheet.qsos)} QSOs`)
+    const byMode = sheet.bandModes ?? {}
+    const all: Record<string, number> = {}
+    for (const band of bands) {
+      for (const [superMode, count] of Object.entries(byMode[band] ?? {})) all[superMode] = (all[superMode] ?? 0) + count
+    }
+    parts.push([
+      ...bands.map((band) => `**${band}**: ${modeBreakdown(byMode[band] ?? {}, sheet.bands[band])}`),
+      ...(bands.length > 1 ? [`**All bands**: ${modeBreakdown(all, sheet.qsos)}`] : []),
+    ].join('\n'))
   }
   if (sheet.dupes > 0) parts.push(`${fmtInteger(sheet.dupes)} duplicate${sheet.dupes === 1 ? '' : 's'}`)
 

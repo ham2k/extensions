@@ -592,3 +592,29 @@ test('a DX station is resolved from the callsign when nothing else knows', () =>
     registerEntityLookup(() => undefined)
   }
 })
+
+test('the band table counts CW, phone and digital apart, per band and in total', () => {
+  const { summary } = run([
+    qso({ band: '40m', mode: 'CW', location: 'ERI' }),
+    qso({ call: 'K2DEF', band: '40m', mode: 'SSB', location: 'CHA' }),
+    qso({ call: 'K3GHI', band: '20m', mode: 'FT8', location: 'ALB' }),
+    qso({ call: 'K4JKL', band: '160m', mode: 'CW', location: 'ALB' }),
+  ])
+  const lines = (summary().longSummary as string).split('\n')
+  // Longest wavelength first, not alphabetical — which would file 160m
+  // between 15m and 20m — and every mode named on every line, zeros included,
+  // so an unworked mode reads as "0", not as an absence.
+  assert.deepEqual(lines.filter((line) => /^\*\*(\d+m|All bands)\*\*/.test(line)), [
+    '**160m**: 1 CW, 0 SSB, 0 Digital, **1 total**',
+    '**40m**: 1 CW, 1 SSB, 0 Digital, **2 total**',
+    '**20m**: 0 CW, 0 SSB, 1 Digital, **1 total**',
+    '**All bands**: 2 CW, 1 SSB, 1 Digital, **4 total**',
+  ])
+})
+
+test('the band table separates digital from CW even where the party scores them as one mode', () => {
+  // DE folds data into CW for multipliers and dupes; the table still tells the
+  // operator which of the two they worked.
+  const { summary } = run([qso({ mode: 'FT8', location: 'NJ', refType: DE.refType })], { params: DE, ourLocation: 'NDE' })
+  assert.match(summary().longSummary as string, /\*\*20m\*\*: 0 CW, 0 SSB, 1 Digital, \*\*1 total\*\*/)
+})
