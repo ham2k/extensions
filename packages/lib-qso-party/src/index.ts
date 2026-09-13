@@ -106,8 +106,6 @@ export type QsoPartyScoresheet = {
   qsos: number
   points: number
   dupes: number
-  dayQsos: number
-  dayPoints: number
 }
 
 /// Everything one party's extension registers, built from its params.

@@ -1,6 +1,6 @@
 {
   "name": "@ki2d/ext-njqp",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "private": true,
   "description": "Ham2K Logger extension: the New Jersey QSO Party, a copy of ham2k-njqp under the ki2d- prefix",
   "author": "Sebastian Delmont <sd@ham2k.com>",

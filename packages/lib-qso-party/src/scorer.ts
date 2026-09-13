@@ -195,17 +195,14 @@ export function qsoPartyScorer(params: QsoPartyParams): ContestScorer<QsoPartySc
         mults: {}, counties: {}, states: {}, provinces: {}, entities: {}, creditedEntities: {},
         rareCounties: {}, bonuses: {}, bonusStations: {}, activatedCounties: {},
         worked: {}, lastLocation: {}, bands: {}, modes: {},
-        qsos: 0, points: 0, dupes: 0, dayQsos: 0, dayPoints: 0,
+        qsos: 0, points: 0, dupes: 0,
       }
     },
 
     // Mutates and returns the given scoresheet — see ContestScorer.scoreQso.
-    scoreQso({ scoresheet: sheet, qso, operation, ref, isNewDay }) {
-      if (isNewDay) {
-        sheet.dayQsos = 0
-        sheet.dayPoints = 0
-      }
-
+    // `isNewDay` is deliberately not read: a party is one period, and nothing
+    // in its score resets at midnight (see `summarizeScore`).
+    scoreQso({ scoresheet: sheet, qso, operation, ref }) {
       const their = (qso.their as Record<string, JSONValue>) ?? {}
       const call = str(their.call).toUpperCase()
       if (!call) return { scoresheet: sheet, score: { value: 0 } }
@@ -393,8 +390,6 @@ export function qsoPartyScorer(params: QsoPartyParams): ContestScorer<QsoPartySc
       if (mode) sheet.modes[mode] = (sheet.modes[mode] ?? 0) + 1
       sheet.qsos += 1
       sheet.points += value
-      sheet.dayQsos += 1
-      sheet.dayPoints += value
 
       const score: QsoScoreVerdict = { value, band }
       if (notices.length > 0) score.notices = notices
@@ -403,21 +398,23 @@ export function qsoPartyScorer(params: QsoPartyParams): ContestScorer<QsoPartySc
     },
 
     summarizeScore({ scoresheet: sheet, scope }): Record<string, ScoreTally> {
-      const isDay = scope === 'day'
+      // A QSO party is ONE period, however many UTC days it straddles — the
+      // sponsors publish one total, and the multipliers and bonuses are won
+      // across the whole log. A "day's score" against the running multiplier
+      // is a figure nobody recognizes, so the day sections and the log's day
+      // headers get nothing from this scorer.
+      if (scope === 'day') return {}
 
       const mult = Object.keys(sheet.mults).length || 1
-      const points = isDay ? sheet.dayPoints : sheet.points
+      const points = sheet.points
       const bonusPoints = oneTimeBonuses(party, sheet)
       const power = sheet.powerMult ?? 1
 
-      // Multipliers and bonuses are won across the whole party, so a day's figure
-      // is its own points against the running multiplier. A party that adds its
-      // bonus after the multiplier says so; the rest fold it in before.
-      const total = isDay
-        ? Math.round(points * mult * power)
-        : Math.round(party.bonusPostMultiplier
-          ? points * mult * power + bonusPoints
-          : (points + bonusPoints) * mult * power)
+      // A party that adds its bonus after the multiplier says so; the rest fold
+      // it in before.
+      const total = Math.round(party.bonusPostMultiplier
+        ? points * mult * power + bonusPoints
+        : (points + bonusPoints) * mult * power)
 
       return {
         [party.refType]: {
@@ -429,10 +426,17 @@ export function qsoPartyScorer(params: QsoPartyParams): ContestScorer<QsoPartySc
           total,
           points,
           mults: mult,
-          qsos: isDay ? sheet.dayQsos : sheet.qsos,
-          label: labelFor({ points, mult, bonusPoints: isDay ? 0 : bonusPoints, power }),
+          qsos: sheet.qsos,
+          // The label is the section's TITLE in the information panel, and the
+          // short `summary` is not shown beside a tally that has a
+          // `longSummary` — so the event's name and its total go here, and the
+          // arithmetic behind the total opens the detail.
+          label: `${party.short}: ${fmtInteger(total)}`,
           summary: `${fmtInteger(total)}`,
-          longSummary: isDay ? '' : longSummaryFor(party, sheet, bonusPoints),
+          longSummary: [
+            arithmeticFor({ points, mult, bonusPoints, power }),
+            longSummaryFor(party, sheet, bonusPoints),
+          ].join('\n\n'),
           grid: true,
         },
       }
@@ -480,7 +484,8 @@ function activatedCounties(party: Party, sheet: QsoPartyScoresheet): string[] {
     .map(([county]) => county)
 }
 
-function labelFor(
+/// How the total came about — `points × mults`, the bonus, the power factor.
+function arithmeticFor(
   { points, mult, bonusPoints, power }: { points: number; mult: number; bonusPoints: number; power: number },
 ): string {
   const parts = [`${fmtInteger(points)} × ${fmtInteger(mult)}`]

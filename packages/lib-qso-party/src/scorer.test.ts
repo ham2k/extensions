@@ -498,10 +498,22 @@ test('a party may price a contact for itself, one pairing at a time', () => {
   assert.equal(run([qso({ location: 'CHA' })], { params }).scores[0].value, 2)
 })
 
-test("a day's total is that day's points against the running multiplier", () => {
+test('a party is one period: nothing is tallied per day', () => {
   const result = run([qso({ location: 'ERI' }), qso({ call: 'K2DEF', location: 'CHA' })])
-  assert.equal(result.summary('day').total, result.sheet.dayPoints * multsOf(result))
+  // An empty record, not a zeroed tally — a tally at all would put a per-day
+  // score on the log's day headers for an event that publishes one total.
+  assert.equal(result.summary('day'), undefined)
   assert.equal(result.summary('operation').total, result.sheet.points * multsOf(result))
+})
+
+test('the summary is titled with the event and its total, and opens on the arithmetic', () => {
+  const result = run([qso({ mode: 'CW', location: 'ERI' }), qso({ call: 'K2DEF', mode: 'CW', location: 'CHA' })])
+  const tally = result.summary()
+  // The label is what the information panel shows as the section title — and
+  // the only place the total is visible, since a tally with a `longSummary`
+  // does not show its short `summary`.
+  assert.equal(tally.label, `${NY.short}: ${tally.total}`)
+  assert.equal((tally.longSummary as string).split('\n\n')[0], `${tally.points} × ${tally.mults}`)
 })
 
 test('the summary lists what is still out there, not just what is done', () => {
