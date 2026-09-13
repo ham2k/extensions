@@ -409,7 +409,9 @@ test('the operation is titled for the party, and subtitled with where we are', a
     ref: { type: NY.refType, location: 'ALB/REN' },
     operation: operation({ location: 'ALB/REN' }),
   }, ctx)
-  assert.equal(title!.for, 'NYQP')
+  // The codes ride in the title: a rover's segment rows are composed from it,
+  // and "for NYQP" twice over would not tell two counties apart.
+  assert.equal(title!.for, 'NYQP: ALB/REN')
   // The county's NAME, which is what an operator recognizes.
   assert.equal(title!.subtitle, 'Albany / Rensselaer')
 

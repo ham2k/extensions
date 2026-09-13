@@ -13,7 +13,7 @@ import type {
 } from "@ham2k/extension-sdk"
 
 import { ourLocationText, str } from "./entry.ts"
-import { nameForLocation, splitLocations } from "./location.ts"
+import { COUNTY_LINE_SEPARATOR, nameForLocation, splitLocations } from "./location.ts"
 import type { QsoPartyParams } from "./params.ts"
 import { type Party, resolveParty } from "./party.ts"
 import { partyLabel, partySubtitle } from "./activity.ts"
@@ -55,8 +55,12 @@ export function qsoPartyRefHandler(params: QsoPartyParams): RefHandlerHook {
         operation as Record<string, unknown>,
         ref as Record<string, unknown>,
       )
+      // The county rides in the title — `NJQP: MORR` — because that is what a
+      // rover's segment rows have to tell apart, and the title is what they
+      // are composed from. The subtitle spells the names out.
+      const codes = location ? splitLocations(location).join(COUNTY_LINE_SEPARATOR) : ''
       return {
-        for: party.short,
+        for: codes ? `${party.short}: ${codes}` : party.short,
         subtitle: location
           ? splitLocations(location).map((code) => nameForLocation(party, code)).join(' / ')
           : undefined,
