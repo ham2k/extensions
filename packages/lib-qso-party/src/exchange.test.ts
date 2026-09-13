@@ -21,7 +21,6 @@ import {
   exchangeOptionsFor,
   exchangeTransforms,
   fallbackTheirLocation,
-  hasSegments,
   ourLocationForQso,
   preferredCodesFor,
   resolvedExchanges,
@@ -38,26 +37,39 @@ function operation(location: string, params: QsoPartyParams = NY): Record<string
 }
 
 function qso(
-  { call = 'K1ABC', location, ourLocation, entityPrefix = 'K', state, mode = 'CW', params = NY }: {
+  { call = 'K1ABC', location, ourLocation, entityPrefix = 'K', state, mode = 'CW', params = NY, startAtMillis }: {
     call?: string
     location?: string
+    /// A stamp an earlier build left on the ref. In the fixtures only to prove
+    /// it is IGNORED.
     ourLocation?: string
     entityPrefix?: string
     state?: string
     mode?: string
     params?: QsoPartyParams
+    startAtMillis?: number
   } = {},
 ): Record<string, JSONValue> {
   return {
     their: { call, ...(entityPrefix ? { entityPrefix } : {}), ...(state ? { state } : {}) },
     band: '20m',
     mode,
+    ...(startAtMillis !== undefined ? { startAtMillis } : {}),
     refs: [{
       type: params.refType,
       ...(location !== undefined ? { location } : {}),
       ...(ourLocation ? { ourLocation } : {}),
     }],
   }
+}
+
+/// A log that changed county at 1000: [base] before, [later] from then on — the
+/// payload the host sends as `ExportRequest.segments`.
+function segmentsTo(later: string, base = 'ALB') {
+  return [
+    { fromMillis: -1, operation: operation(base) },
+    { fromMillis: 1000, operation: operation(later) },
+  ]
 }
 
 test('a county line submits one row per pairing', () => {
@@ -69,60 +81,38 @@ test('a county line submits one row per pairing', () => {
   assert.deepEqual(pairs, [['ALB', 'ERI'], ['ALB', 'CHA'], ['REN', 'ERI'], ['REN', 'CHA']])
 })
 
-test('on a segmented log, the county WE were in comes from the contact', () => {
-  // A rover's county changes mid-log and the export sees only the base
-  // operation, so the stamp on the contact is the only record of where it was
-  // actually made.
-  const roving = qso({ location: 'ERI', ourLocation: 'REN' })
-  assert.equal(ourLocationForQso(ny, roving, operation('ALB'), { segmented: true }), 'REN')
-  const rows = cabrilloRowsFor(ny, roving, operation('ALB'), 'N0DEV', { segmented: true })
+test('on a segmented log, the county WE were in is the segment′s, not anything on the contact', () => {
+  // A rover's county changes mid-log; the host hands the export the same
+  // resolved segments the scorer folds, so a contact made after the break is
+  // filed under the county the break established — whatever an earlier build
+  // stamped onto it when it was saved.
+  const before = qso({ location: 'ERI', startAtMillis: 500, ourLocation: 'REN' })
+  const after = qso({ location: 'ERI', startAtMillis: 1500, ourLocation: 'ALB' })
+  assert.equal(ourLocationForQso(ny, before, operation('ALB'), segmentsTo('REN')), 'ALB')
+  assert.equal(ourLocationForQso(ny, after, operation('ALB'), segmentsTo('REN')), 'REN')
+  const rows = cabrilloRowsFor(ny, after, operation('ALB'), 'N0DEV', { segments: segmentsTo('REN') })
   assert.equal(rows[0][2].trim(), 'REN')
-  // A contact with no stamp — synced, or logged before this shipped — falls back
-  // to the operation's own county rather than exporting a blank column.
-  assert.equal(ourLocationForQso(ny, qso({ location: 'ERI' }), operation('ALB'), { segmented: true }), 'ALB')
 })
 
-test('without segments, a corrected county reaches the file', () => {
-  // The stamp is written once and never revised. An operator who logs 30
-  // contacts, notices the county is a typo and fixes it in setup rescores the
-  // whole log — and on an unsegmented log the operation's location is true of
-  // every contact in it, so the file has to follow rather than submit the county
-  // that was typed by mistake.
+test('a county corrected in a segment reaches every contact of that stretch', () => {
+  // The whole point of reading the segment rather than a stamp: six contacts
+  // logged under a mistyped county and then corrected at the break are filed
+  // under the correction, in the file as on the scoreboard. A stamp would have
+  // kept the typo on all six.
+  const stamped = qso({ location: 'ERI', startAtMillis: 1500, ourLocation: 'ALB' })
+  assert.equal(ourLocationForQso(ny, stamped, operation('ALB'), segmentsTo('REN')), 'REN')
+})
+
+test('without segments, the operation′s county is true of the whole log', () => {
+  // An operator who logs 30 contacts, notices the county is a typo and fixes it
+  // in setup rescores the whole log — and the file has to follow rather than
+  // submit the county that was typed by mistake.
   const stamped = qso({ location: 'ERI', ourLocation: 'ALB' })
-  assert.equal(ourLocationForQso(ny, stamped, operation('ALL'), { segmented: false }), 'ALL')
+  assert.equal(ourLocationForQso(ny, stamped, operation('ALL')), 'ALL')
+  assert.equal(ourLocationForQso(ny, stamped, operation('ALL'), []), 'ALL')
   assert.equal(cabrilloRowsFor(ny, stamped, operation('ALL'), 'N0DEV')[0][2].trim(), 'ALL')
 })
 
-test('the stamp is written once, so an edit cannot move an old contact', () => {
-  // A rover who fixes a callsign typo an hour later would otherwise have that
-  // contact re-stamped with wherever they are now — the Cabrillo claiming a
-  // county they were not in when they made it, against a scoreboard still
-  // counting the one they were.
-  const stamped = qso({ location: 'ERI', ourLocation: 'ALB' })
-  assert.equal(ourLocationForQso(ny, stamped, operation('REN'), { segmented: true }), 'ALB')
-})
-
-test('a log knows whether it has segments, from the rows it carries', () => {
-  const contact = qso({ location: 'ERI' })
-  assert.equal(hasSegments([contact]), false)
-  // An event row that restates the operation is a segment; a note or a plain
-  // break carrying no override is not.
-  assert.equal(hasSegments([contact, { band: 'event', event: { event: 'note' } }]), false)
-  assert.equal(hasSegments([contact, { band: 'event', event: { event: 'break' } }]), false)
-  assert.equal(
-    hasSegments([contact, { band: 'event', event: { event: 'break', operation: { refs: [] } } }]),
-    true,
-  )
-})
-
-test('a log whose only break was deleted is not a segmented log', () => {
-  // The core's segment resolution skips deleted rows, so this has to as well —
-  // otherwise the export keeps preferring a stamp that nothing will revise, on a
-  // log that is not segmented at all.
-  const segment = { band: 'event', event: { event: 'break', operation: { refs: [] } } }
-  assert.equal(hasSegments([qso({ location: 'ERI' }), segment]), true)
-  assert.equal(hasSegments([qso({ location: 'ERI' }), { ...segment, deleted: true }]), false)
-})
 
 test('a serial and a name are columns only for the parties that exchange them', () => {
   // Every column shifts when one is added, so a party that does not trade serials
@@ -354,12 +344,12 @@ test('the ADIF and the Cabrillo agree about a remembered exchange', () => {
   // answers over.
   const first = { ...qso({ location: 'ERI' }), uuid: 'q1' }
   const second = { ...qso({}), uuid: 'q2', band: '40m' }
-  const resolved = resolvedExchanges(ny, operation('ALB'), [first, second], { segmented: false })
+  const resolved = resolvedExchanges(ny, operation('ALB'), [first, second])
   assert.equal(resolved.q1, 'ERI')
   assert.equal(resolved.q2, 'ERI', 'the second contact carries the county from the first')
   // Event rows and deleted contacts are not contacts.
   const withNoise = resolvedExchanges(ny, operation('ALB'),
-    [first, { band: 'event', uuid: 'e1' }, { ...second, deleted: true }], { segmented: false })
+    [first, { band: 'event', uuid: 'e1' }, { ...second, deleted: true }])
   assert.deepEqual(Object.keys(withNoise), ['q1'])
 })
 
@@ -392,7 +382,7 @@ test('the whole file: a header a checker can read, and one line per contact', ()
     { ...qso({ location: 'ERI' }), startAtMillis: Date.UTC(2026, 9, 17, 14, 30) },
     // A contact the scorer refuses is not in the file either.
     { ...qso({ location: 'ERI' }), band: '30m', startAtMillis: Date.UTC(2026, 9, 17, 14, 31) },
-  ], { segmented: false })
+  ])
 
   const lines = file.split('\n')
   assert.ok(lines.includes('CONTEST: NY-QSO-PARTY'))

@@ -497,9 +497,10 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
     },
 
     /// Mirrors the exchange into `their.exchange` (the column the QSO list shows,
-    /// and the only generic field anything outside this extension reads), and
-    /// stamps the county WE were in onto the contact — see the note about exports
-    /// and segments in `exchange.ts`.
+    /// and the only generic field anything outside this extension reads) and
+    /// what WE sent into `our.exchange`. `operation` is the segment-effective
+    /// one for this contact, so an edit of an old contact re-projects what was
+    /// true then — see the note about exports and segments in `exports.ts`.
     async processQsoBeforeSave(
       { qso, operation }: { qso: Record<string, JSONValue>; operation: Record<string, JSONValue> },
       _ctx: HookContext,
@@ -520,26 +521,18 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
       const decided = qsoRef !== undefined
         && ['location', 'theirSerial', 'theirName'].some((field) => field in qsoRef)
 
-      // Written ONCE, and never revised — this hook runs on every edit as well as
-      // on the first save, so stamping unconditionally would move an old
-      // contact's county to wherever the operator happens to be now. A rover who
-      // fixes a callsign typo an hour later would have that contact's Cabrillo
-      // line claim the county they had driven to, against a scoreboard still
-      // counting the one they made it from.
-      const alreadyStamped = str(qsoRef?.ourLocation).trim()
-
+      // Re-projected on every save, edits included: the host hands this hook
+      // the operation that was true when the contact was made, so a rover who
+      // fixes a callsign typo an hour later gets that contact's own county back,
+      // not the one they have driven to. (An `ourLocation` stamp an earlier
+      // build left on the ref is not read — the segment is the record.)
       const ourExchange = [
         str(qsoRef?.ourSerial),
         ourName(party, operation as Record<string, unknown>),
-        alreadyStamped || ours,
+        ours,
       ].filter((part) => part).join(' ')
 
       const patch: Record<string, JSONValue> = {}
-      // Only where there is something to record: an operation whose location has
-      // not been set yet would otherwise put an empty ref on every contact, and
-      // the export's fallback to the operation's own county already covers a
-      // contact that carries no stamp.
-      if (ours && !alreadyStamped) patch.refs = [{ type: party.refType, ourLocation: ours }]
       // A deliberate blank still projects, so clearing an exchange on an edit
       // clears the QSO row's column too — but only where this extension owns the
       // field's contents.

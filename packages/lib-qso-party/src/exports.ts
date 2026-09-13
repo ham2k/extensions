@@ -4,35 +4,33 @@
 // The files a party's log leaves as: the sponsor's Cabrillo, and a contest ADIF
 // that resolves every exchange the same way the Cabrillo does.
 //
-// The one place that cannot see segments is the EXPORT, which is handed the base
-// operation and the whole log. So the county we were in is stamped onto each QSO
-// as it is saved, and both files read that stamp in preference to the
-// operation's own location — see `ourLocationForQso`.
+// Both read our county off the operation that was true when each contact was
+// made: the host sends the resolved segments (`ExportRequest.segments`), and
+// the core ADIF generator hands `adifFields` the segment-effective operation —
+// see `ourLocationForQso`. Nothing about where we were is stamped onto a
+// contact; a stamp is a copy a later correction cannot reach.
 
-import { adifForExport, exportFilename, startMillisOf } from "@ham2k/extension-sdk"
+import { exportFilename, startMillisOf } from "@ham2k/extension-sdk"
 import type {
   AdifFieldsHook,
   ExportHook,
   ExportOption,
   ExportOptionsRequest,
-  ExportRequest,
   ExportResult,
   HookContext,
   JSONValue,
 } from "@ham2k/extension-sdk"
 
-import { ourName, partyRefIn, str } from "./entry.ts"
+import { ourLocationText, ourName, partyRefIn, str } from "./entry.ts"
 import {
   cabrilloFor,
-  hasSegments,
-  ourLocationForQso,
   RESOLVED_MARKER,
   resolvedExchanges,
-  SEGMENTED_MARKER,
   theirLocationForFile,
 } from "./exchange.ts"
 import { allInParty, parseLocations } from "./location.ts"
 import type { QsoPartyParams } from "./params.ts"
+import { adifForExport, type SegmentedExportRequest } from "./sdkGap.ts"
 import { type Party, resolveLabel, resolveParty } from "./party.ts"
 
 function filenameFor(
@@ -60,13 +58,9 @@ export function qsoPartyAdifFields(params: QsoPartyParams): AdifFieldsHook {
       _ctx: HookContext,
     ): Promise<{ name: string; value: string }[]> {
       const qsoRef = partyRefIn(party, qso as Record<string, unknown>)
-      // This hook is asked one QSO at a time and never sees the log, so it cannot
-      // tell a segmented operation from an unsegmented one — the Cabrillo can,
-      // and does. Our OWN export tells it, so the two files agree; the core's
-      // whole-log ADIF has no such marker and takes the stamp, which is right for
-      // a rover and stale for a county corrected mid-log on an unsegmented one.
-      const segmented = partyRefIn(party, operation as Record<string, unknown>)?.[SEGMENTED_MARKER] !== false
-      const ours = ourLocationForQso(party, qso, operation, { segmented })
+      // `operation` is already the segment-effective one for this contact (the
+      // core generator resolves it), so our county is simply the operation's.
+      const ours = ourLocationText(party, operation as Record<string, unknown>)
       const weAreInParty = allInParty(parseLocations(party, ours))
       const ourSerial = str(qsoRef?.ourSerial)
       const theirSerial = str(qsoRef?.theirSerial)
@@ -138,7 +132,7 @@ export function qsoPartyExport(params: QsoPartyParams): ExportHook {
       return options
     },
 
-    async generateExport(args: ExportRequest, _ctx: HookContext): Promise<ExportResult> {
+    async generateExport(args: SegmentedExportRequest, _ctx: HookContext): Promise<ExportResult> {
       // Only the two exportTypes offered above: a hook answering for an
       // exportType it never offered makes the ADIF delegation recurse.
       if (args.exportType !== 'cabrillo' && args.exportType !== 'contest-adif') {
@@ -146,30 +140,29 @@ export function qsoPartyExport(params: QsoPartyParams): ExportHook {
       }
 
       const operation = args.operation
-      const segmented = hasSegments(args.qsos)
+      const segments = args.segments
 
       if (args.exportType === 'cabrillo') {
         return {
           filename: filenameFor(party, operation, args.qsos, 'log', args.compactFilenames),
           mimeType: 'text/plain',
-          content: cabrilloFor(party, operation, args.qsos, { segmented }),
+          content: cabrilloFor(party, operation, args.qsos, segments),
         }
       }
 
+      // Every contact's exchange, resolved once for the whole log and carried to
+      // `adifFields` on a COPY of the operation — of every segment's operation
+      // too, since the core generator hands the hook the segment-effective one
+      // and would otherwise hand it an unmarked copy. Never the stored operation.
+      const resolved = resolvedExchanges(party, operation, args.qsos, segments)
+      const marked = (op: Record<string, JSONValue>): Record<string, JSONValue> => ({
+        ...op,
+        refs: ((op.refs as Record<string, JSONValue>[] | undefined) ?? []).map((r) =>
+          r?.type === party.refType ? { ...r, [RESOLVED_MARKER]: resolved } : r),
+      })
       const content = await adifForExport({
-        // Marked so `adifFields` reads the county the same way the Cabrillo does
-        // — see SEGMENTED_MARKER. A copy, never the stored operation.
-        operation: {
-          ...operation,
-          refs: ((operation.refs as Record<string, JSONValue>[] | undefined) ?? []).map((r) =>
-            r?.type === party.refType
-              ? {
-                ...r,
-                [SEGMENTED_MARKER]: segmented,
-                [RESOLVED_MARKER]: resolvedExchanges(party, operation, args.qsos, { segmented }),
-              }
-              : r),
-        },
+        operation: marked(operation),
+        segments: segments?.map((segment) => ({ ...segment, operation: marked(segment.operation) })),
         qsos: args.qsos,
         includePrivateData: args.includePrivateData,
         // This file is the CONTEST's log, so the core exporter asks this

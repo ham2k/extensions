@@ -18,18 +18,22 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import { registerHooks } from "node:module"
 
-import type { HookContext } from "@ham2k/extension-sdk"
+import type { ExportRequest, HookContext } from "@ham2k/extension-sdk"
 
 const SDK_STUB = `
 export function contestScorer(scorer, options) {
   return { scorer, scope: options?.scope, scoreQsos: async () => ({}) }
 }
 export function entityPrefixForCall(call) { return undefined }
-export async function adifForExport({ operation, mainHandler }) {
-  return JSON.stringify({ mainHandler, refs: operation.refs })
-}
 export function exportFilename({ activity, extension }) { return activity + '.' + extension }
 export function startMillisOf() { return 0 }
+// What the core ADIF generator is handed, echoed back as the file — the
+// per-QSO resolution is the generator's job and is tested with it.
+export const hooks = {
+  async invokeOne(hook, key, method, { operation, segments, mainHandler }) {
+    return [{ ok: true, key, value: { content: JSON.stringify({ mainHandler, refs: operation.refs, segments }) } }]
+  },
+}
 `
 
 registerHooks({
@@ -44,7 +48,7 @@ registerHooks({
 })
 
 const { defineQsoParty } = await import("./index.ts")
-const { RESOLVED_MARKER, SEGMENTED_MARKER } = await import("./exchange.ts")
+const { RESOLVED_MARKER } = await import("./exchange.ts")
 const { CA, NY, WI } = await import("./testFixtures.ts")
 
 const ctx = {} as never
@@ -163,24 +167,33 @@ test('an exportType this hook never offered is refused', async () => {
 
 test('the ADIF export tells the per-QSO hook what the Cabrillo already knows', async () => {
   // `adifFields` is asked one contact at a time and never sees the log, so it
-  // cannot tell a segmented operation from an unsegmented one, and cannot know
-  // what a station sent on an earlier band. Both answers ride on a COPY of the
-  // operation.
+  // cannot know what a station sent on an earlier band. The answer rides on a
+  // COPY of the operation — and of every segment's, since the core generator
+  // hands the hook the segment-effective one — along with the segments
+  // themselves, forwarded so the generator can resolve it.
+  const segments = [
+    { fromMillis: -1, operation: operation() },
+    { fromMillis: 1000, operation: operation(NY, 'REN') },
+  ]
   const result = await defineQsoParty(NY).export.generateExport({
     exportType: 'contest-adif',
     operation: operation(),
+    segments,
     qsos: [contact('ERI'), { ...contact(''), uuid: 'q2', band: '40m' }],
-  }, ctx)
+  } as ExportRequest, ctx)
 
   const handed = JSON.parse(result.content) as {
     mainHandler: string
     refs: Record<string, unknown>[]
+    segments: { fromMillis: number; operation: { refs: Record<string, unknown>[] } }[]
   }
   assert.equal(handed.mainHandler, NY.refType, 'this file is the contest′s log')
-  assert.equal(handed.refs[0][SEGMENTED_MARKER], false)
   // The second contact typed no exchange and is resolved to what that station
   // sent the first time — the same fold the scorer and the Cabrillo make.
   assert.deepEqual(handed.refs[0][RESOLVED_MARKER], { q1: 'ERI', q2: 'ERI' })
+  assert.equal(handed.segments.length, 2)
+  assert.equal(handed.segments[1].operation.refs[0].location, 'REN')
+  assert.deepEqual(handed.segments[1].operation.refs[0][RESOLVED_MARKER], { q1: 'ERI', q2: 'ERI' })
 })
 
 test('one contact′s ADIF fields are the exchange as it was sent and received', async () => {

@@ -382,23 +382,25 @@ test('a contact with nothing of ours on it is left alone', async () => {
   assert.deepEqual(cleared!.their, { exchange: '' })
 })
 
-test('the county we were in is stamped once and never revised', async () => {
-  // This hook runs on every EDIT as well as the first save: stamping
-  // unconditionally moves an old contact's county to wherever the operator
-  // happens to be now.
+test('what we sent is re-projected from the operation handed over, and nothing is stamped', async () => {
+  // The host hands this hook the SEGMENT-EFFECTIVE operation for the contact's
+  // own time, so an edit of an old contact reads the county that was true then
+  // — no stamp to protect it, and a stamp an earlier build left on the ref
+  // does not outrank the operation.
   const save = qsoPartyActivity(NY).processQsoBeforeSave!
   const fresh = await save({
     qso: { refs: [{ type: NY.refType, location: 'ERI' }] },
     operation: operation({ location: 'ALB' }),
   }, ctx)
-  assert.deepEqual(fresh!.refs, [{ type: NY.refType, ourLocation: 'ALB' }])
+  assert.equal(fresh!.refs, undefined)
+  assert.deepEqual(fresh!.our, { exchange: 'ALB' })
 
-  const edited = await save({
+  const corrected = await save({
     qso: { refs: [{ type: NY.refType, location: 'ERI', ourLocation: 'ALB' }] },
     operation: operation({ location: 'REN' }),
   }, ctx)
-  assert.equal(edited!.refs, undefined)
-  assert.deepEqual(edited!.our, { exchange: 'ALB' })
+  assert.equal(corrected!.refs, undefined)
+  assert.deepEqual(corrected!.our, { exchange: 'REN' })
 })
 
 test('the operation is titled for the party, and subtitled with where we are', async () => {
