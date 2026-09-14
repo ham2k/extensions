@@ -64,22 +64,34 @@ the app has never shipped separately, and two spotting sources:
   The 49 per-event extensions in `contests/` are its replacement, so porting it
   as well would offer the same fifty events twice.
 
-## Nothing ported is published
+## What is published, and what waits
 
-**The 40 ported built-ins stay in this repository, unpublished, until the app
-stops shipping them.** Every one declares the SAME `ref:` types as the copy the
-app already carries — `ref:pota`, `ref:sotaActivation`, `ref:cqww` — because
-those types name what is written into an operator's log, and renaming one
-orphans every operation already holding it. The kernel routes a ref type to
-exactly one handler, so with both present the operator gets whichever the app
-picked: a coin toss over their own log. Build them, commit them, leave them
-unpublished; publish each one the release after the app drops its built-in copy.
+**A ported built-in stays unpublished until the app can stop offering its own
+copy.** Every one declares the SAME `ref:` types as the copy the app carries —
+`ref:pota`, `ref:sotaActivation`, `ref:cqww` — because those types name what is
+written into an operator's log, and renaming one orphans every operation
+already holding it. The kernel routes a ref type to exactly one handler, so
+with both present the operator gets whichever the app picked: a coin toss over
+their own log. Build them, commit them, leave them unpublished.
 
-The 49 QSO party events are the ones that DO get published, to the `dev`
-channel. They are new events under their own refTypes (`texas-qso-party`), not
-copies of anything the app ships — `qp` stores `{ type: "qp", ref: "TX" }`, which
-nothing here answers for, so the two do not collide on ref routing. An operator
-can see both offerings until `qp` is retired.
+**The exception is the pre-loaded set**, which the app ships packaged and
+installs on first run: `ham2k-pota`, `ham2k-sota`, `ham2k-wwff` and the five
+lookups. Those ARE published, because the app withdraws its own copy of each
+one in the same breath — under the catalog experiment it offers none of its
+built-ins but the core, so nothing collides. Publishing one means re-packing
+the copy in `app/assets/preloaded-extensions/` to match.
+
+The 49 QSO party events are published too. They are new events under their own
+refTypes (`texas-qso-party`), not copies of anything the app ships — `qp`
+stores `{ type: "qp", ref: "TX" }`, and an event reaches back for that pair with
+a qualified `ref:qp/tx` claim rather than answering the bare type, so the two do
+not collide on ref routing. An operator can see both offerings until `qp` is
+retired.
+
+**Channels say how finished a release is** — `stable`, `unstable`, `bleeding` —
+and not which app edition is asking. They cascade: `stable` is visible to
+everyone, `bleeding` only to somebody who went looking. Publishing without
+saying publishes to `stable`.
 
 ## Layout
 
