@@ -345,7 +345,7 @@ export const PARTY_IDENTITIES: QsoPartyIdentity[] = [
     aprsShort: "NHQP",
     trackerCode: "NH",
     hubPage: "nhqp",
-    periods: [{ startMillis: 1789833600000, endMillis: 1789876800000 }],
+    periods: [{ startMillis: 1789833600000, endMillis: 1789876800000 }, { startMillis: 1789905600000, endMillis: 1789941600000 }],
   },
   {
     refType: "njqp",
@@ -529,7 +529,7 @@ export const PARTY_IDENTITIES: QsoPartyIdentity[] = [
     aprsShort: "WAQP",
     trackerCode: "WA",
     hubPage: "waqp",
-    periods: [{ startMillis: 1789833600000, endMillis: 1789887600000 }, { startMillis: 1789920000000, endMillis: 1789948740000 }],
+    periods: [{ startMillis: 1789833600000, endMillis: 1789887540000 }, { startMillis: 1789920000000, endMillis: 1789948740000 }],
   },
   {
     refType: "wiqp",

@@ -18,18 +18,19 @@ export const PARTY: QsoPartyParams = {
   state: "NH",
   cabrilloName: "NH-QSO-PARTY",
   url: "https://w1wqm.org/nh-qso-party/",
-  status: "Verified for 2025; DX entity multipliers corrected against the sponsor’s rules (2026-09)",
-  lastUpdated: "2025-09-04 12:00Z",
+  status: "Verified for 2026 against w1wqm.org",
+  lastUpdated: "2026-09-16 12:00Z",
   periods: [
     // 2026-9-19 16:00Z — 2026-9-20 04:00Z
     { startMillis: 1789833600000, endMillis: 1789876800000 },
+    // 2026-9-20 12:00Z — 2026-9-20 22:00Z
+    { startMillis: 1789905600000, endMillis: 1789941600000 },
   ],
   dcCountsAsMaryland: true,
-  dxIsMultiplier: true,
   dxEntityIsMultiplier: true,
   outOfStateMultsPerBand: true,
   dxEntityMultiplierMax: 10,
-  pointsByMode: { PHONE: 1, CW: 2, DATA: 2 },
+  pointsByMode: { PHONE: 1, CW: 2 },
   entryClasses: {
     operator: ["SINGLE-OP", "MULTI-ONE", "MULTI-UNLIMITED"],
     power: ["QRP", "LOW", "HIGH"],

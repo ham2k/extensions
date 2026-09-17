@@ -70,12 +70,6 @@ const DIVERGENCE_NOTES = {
     "the sponsor never published. These dates were re-read from the sponsor's",
     "own rules in September 2026. Never take polo's file back over this one.",
   ],
-  WA: [
-    "DIVERGES from app-polo, deliberately. polo's copy still carries 2025 dates",
-    "and the old `warsalmonrun.org`, which no longer resolves; the event's page",
-    "is `salmonrun.wwdxc.org`. Both were re-read from the sponsor in September",
-    "2026. Never take polo's file back over this one without re-reading them.",
-  ],
   NS: [
     "The sponsor's contest page is gone (404) and app-polo marks this party",
     "`disabled`; its dates are still 2025 and nothing here re-derives them. The",

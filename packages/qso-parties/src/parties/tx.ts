@@ -17,13 +17,26 @@ export const PARTY: QsoPartyParams = {
   legacyRefs: [{ type: "qp", prefix: "tx" }],
   state: "TX",
   cabrilloName: "TXQP",
-  status: "Pending",
+  url: "https://www.txqp.net/",
+  status: "Verified for 2026 against txqp.net",
+  lastUpdated: "2026-09-16 12:00Z",
   periods: [
     // 2026-9-19 14:00Z — 2026-9-20 02:00Z
     { startMillis: 1789826400000, endMillis: 1789869600000 },
     // 2026-9-20 14:00Z — 2026-9-20 20:00Z
     { startMillis: 1789912800000, endMillis: 1789934400000 },
   ],
+  countyLine: true,
+  dcCountsAsMaryland: true,
+  dxEntityIsMultiplier: true,
+  dxLocationIsPrefix: true,
+  bonusPostMultiplier: true,
+  bonus: {
+    perActivatedCounty: 1000,
+    perActivatedCountyMinimumCount: 5,
+    perActivatedCountyRoverOnly: true,
+  },
+  pointsByMode: { PHONE: 2, CW: 3, DATA: 3 },
   entryClasses: {
     operator: ["SINGLE-OP", "MULTI-ONE"],
     power: ["QRP", "LOW", "HIGH"],

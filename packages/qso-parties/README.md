@@ -42,7 +42,7 @@ test then re-derives all fifty parties from the fixtures through its own
 transcription of the sponsors' quirks and compares, so a normalization the
 script gets wrong has to be got wrong twice to survive.
 
-**Six parties diverge from app-polo deliberately** — BC, NC, NJ, NV, SC and WA
+**Five parties diverge from app-polo deliberately** — BC, NC, NJ, NV and SC
 carry dates and URLs re-read from their sponsors, and polo's copies are OLDER
 than these, not newer. Each of those modules says so at the top; a re-sync that
 takes polo's file back has to answer that comment first.

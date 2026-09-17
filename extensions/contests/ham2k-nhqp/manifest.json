@@ -2,7 +2,7 @@
   "key": "ham2k-nhqp",
   "name": "NHQP: New Hampshire QSO Party",
   "shortName": "NHQP",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "description": "Work stations in New Hampshire.",
   "category": "contest",
   "icon": "star-box",
@@ -34,7 +34,8 @@
       "ca"
     ],
     "dates": [
-      "2026-09-19"
+      "2026-09-19",
+      "2026-09-20"
     ]
   },
   "sharedDependencies": {

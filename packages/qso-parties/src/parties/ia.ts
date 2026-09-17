@@ -18,8 +18,8 @@ export const PARTY: QsoPartyParams = {
   state: "IA",
   cabrilloName: "IAQP",
   url: "http://www.w0yl.com/IAQP",
-  status: "Updated for 2025, but not verified",
-  lastUpdated: "2025-02-20 00:00Z",
+  status: "Verified for 2026 against w0yl.com/IAQP",
+  lastUpdated: "2026-09-16 12:00Z",
   periods: [
     // 2026-9-19 14:00Z — 2026-9-20 01:59Z
     { startMillis: 1789826400000, endMillis: 1789869540000 },
