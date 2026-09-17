@@ -379,6 +379,17 @@ built-in copy** — see **Nothing ported is published**.
 13. **`npm install`** (a new workspace has to reach the root lock), then
     `npm test`, `npm run typecheck`, `npm run build`, `npm run pack`.
 
+## Export settings
+
+Exporting extensions use SDK 0.4.0. Every export hook registers shared settings
+through `getExportTypes()`: `exportType` identifies the activity and format,
+while `exportKey` identifies an individual file, such as a park in an activation.
+Catalog copies share types with their bundled counterparts. Each QSO-party
+event registers its own ref type, with Cabrillo only when its sponsor names one.
+ADIF delegation forwards data preferences and templates to the host generator.
+Reference activity helpers select reference defaults; other exports select
+other-activity defaults. Sponsor-specific filename patterns remain editable defaults.
+
 ## The SDK gap
 
 The app's extensions build against the SDK's **source**; these build against the

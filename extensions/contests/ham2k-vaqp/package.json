@@ -1,6 +1,6 @@
 {
   "name": "@ham2k/ext-vaqp",
-  "version": "0.2.9",
+  "version": "0.2.10",
   "private": true,
   "description": "Ham2K Logger extension: the Virginia QSO Party",
   "author": "Sebastian Delmont <sd@ham2k.com>",
@@ -16,7 +16,7 @@
     "@ham2k/qso-parties": "^0.1.0"
   },
   "devDependencies": {
-    "@ham2k/extension-sdk": "^0.3.0",
+    "@ham2k/extension-sdk": "^0.4.0",
     "@ham2k/extension-tools": "^0.3.0",
     "esbuild": "^0.25.5"
   },

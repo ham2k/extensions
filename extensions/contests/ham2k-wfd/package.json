@@ -1,6 +1,6 @@
 {
   "name": "@ham2k/ext-wfd",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Ham2K Logger extension: Winter Field Day",
   "author": "Sebastian Delmont <sd@ham2k.com>",
@@ -20,7 +20,7 @@
     "These are the ones this extension's own tests reach through the SDK."
   ],
   "devDependencies": {
-    "@ham2k/extension-sdk": "^0.3.0",
+    "@ham2k/extension-sdk": "^0.4.0",
     "@ham2k/extension-tools": "^0.3.0",
     "esbuild": "^0.25.5"
   },

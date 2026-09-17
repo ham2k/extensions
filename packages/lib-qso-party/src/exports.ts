@@ -10,7 +10,7 @@
 // see `ourLocationForQso`. Nothing about where we were is stamped onto a
 // contact; a stamp is a copy a later correction cannot reach.
 
-import { adifForExport, exportFilename, startMillisOf } from "@ham2k/extension-sdk"
+import { adifForExport, exportTypeDefinition, exportFilename, startMillisOf } from "@ham2k/extension-sdk"
 import type {
   AdifFieldsHook,
   ExportHook,
@@ -101,13 +101,20 @@ export function qsoPartyExport(params: QsoPartyParams): ExportHook {
   const party = resolveParty(params)
 
   return {
+    async getExportTypes() {
+      return [
+        exportTypeDefinition(party.refType, 'adif', party.short),
+        ...(party.cabrilloName ? [exportTypeDefinition(party.refType, 'cabrillo', party.short)] : []),
+      ]
+    },
     async suggestExportOptions(args: ExportOptionsRequest, ctx: HookContext): Promise<ExportOption[]> {
       if (!partyRefIn(party, args.operation as Record<string, unknown>)) return []
       const named = (extension: string) =>
         filenameFor(party, args.operation, args.qsos ?? [], extension, args.compactFilenames)
 
       const options: ExportOption[] = [{
-        exportType: 'contest-adif',
+        exportType: `${party.refType}-adif`,
+        templateData: { activity: party.short },
         format: 'adif',
         label: resolveLabel(party.labels.adifExport, ctx, `ADIF for ${party.short}`),
         filename: named('adi'),
@@ -120,7 +127,8 @@ export function qsoPartyExport(params: QsoPartyParams): ExportHook {
       // and inventing one produces a file that looks submittable and is not.
       if (party.cabrilloName) {
         options.push({
-          exportType: 'cabrillo',
+          exportType: `${party.refType}-cabrillo`,
+          templateData: { activity: party.short },
           format: 'cabrillo',
           label: resolveLabel(party.labels.cabrilloExport, ctx, `Cabrillo for ${party.short}`),
           filename: named('log'),
@@ -135,14 +143,14 @@ export function qsoPartyExport(params: QsoPartyParams): ExportHook {
     async generateExport(args: ExportRequest, _ctx: HookContext): Promise<ExportResult> {
       // Only the two exportTypes offered above: a hook answering for an
       // exportType it never offered makes the ADIF delegation recurse.
-      if (args.exportType !== 'cabrillo' && args.exportType !== 'contest-adif') {
+      if (args.exportType !== `${party.refType}-cabrillo` && args.exportType !== `${party.refType}-adif`) {
         return { filename: '', mimeType: '', content: '' }
       }
 
       const operation = args.operation
       const segments = args.segments
 
-      if (args.exportType === 'cabrillo') {
+      if (args.exportType === `${party.refType}-cabrillo`) {
         return {
           filename: filenameFor(party, operation, args.qsos, 'log', args.compactFilenames),
           mimeType: 'text/plain',
@@ -165,6 +173,10 @@ export function qsoPartyExport(params: QsoPartyParams): ExportHook {
         segments: segments?.map((segment) => ({ ...segment, operation: marked(segment.operation) })),
         qsos: args.qsos,
         includePrivateData: args.includePrivateData,
+        includeLookupData: args.includeLookupData,
+        exportSettings: args.exportSettings,
+        exportData: args.exportData,
+        exportTitle: args.exportTitle,
         // This file is the CONTEST's log, so the core exporter asks this
         // extension's `adifFields` hook and no other's.
         mainHandler: party.refType,

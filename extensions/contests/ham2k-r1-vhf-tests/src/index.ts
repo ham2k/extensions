@@ -13,6 +13,7 @@
 // arrl-vhf-tests already proved. `their` number has no placeholder to guess:
 // there is nothing to know about a number the other station hasn't sent yet.
 
+import { exportTypeDefinition } from "@ham2k/extension-sdk"
 import { adifForExport, contestScorer, defineExtension, exportFilename, startMillisOf } from "@ham2k/extension-sdk"
 import type {
   ActivitySuggestion,
@@ -253,6 +254,9 @@ function filenameFor(
 }
 
 const ExportHook = {
+  async getExportTypes() {
+    return [exportTypeDefinition(TYPE, 'adif', manifest.shortName), exportTypeDefinition(TYPE, 'reg1test', manifest.shortName)]
+  },
   async suggestExportOptions(args: ExportOptionsRequest, ctx: HookContext): Promise<ExportOption[]> {
     const event = eventOn(args.operation)
     if (!event) return []
@@ -260,7 +264,8 @@ const ExportHook = {
     const named = (extension: string) => filenameFor(args.operation, args.qsos ?? [], event, extension, args.compactFilenames)
     return [
       {
-        exportType: 'contest-adif',
+        exportType: `${TYPE}-adif`,
+        templateData: { activity: event.key },
         format: 'adif',
         label: t('adifExport', { contest: manifest.shortName }),
         filename: named('adi'),
@@ -269,6 +274,7 @@ const ExportHook = {
       },
       {
         exportType: 'r1-vhf-tests-reg1test',
+        templateData: { activity: event.key },
         format: 'reg1test',
         label: t('reg1testExport', { contest: manifest.shortName }),
         filename: named('edi'),
@@ -279,7 +285,7 @@ const ExportHook = {
   },
 
   async generateExport(args: ExportRequest, ctx: HookContext): Promise<ExportResult> {
-    if (args.exportType !== 'r1-vhf-tests-reg1test' && args.exportType !== 'contest-adif') {
+    if (args.exportType !== 'r1-vhf-tests-reg1test' && args.exportType !== `${TYPE}-adif`) {
       return { filename: '', mimeType: '', content: '' }
     }
 
@@ -310,7 +316,12 @@ const ExportHook = {
     const content = await adifForExport({
       operation: args.operation,
       qsos: args.qsos,
+      segments: args.segments,
       includePrivateData: args.includePrivateData,
+      includeLookupData: args.includeLookupData,
+      exportSettings: args.exportSettings,
+      exportData: args.exportData,
+      exportTitle: args.exportTitle,
       // This file is the CONTEST's log, so the core exporter asks this
       // extension's `adifFields` hook and no other's — app-polo's main
       // handler (see `ExportRequest.mainHandler`).

@@ -219,6 +219,20 @@ test("every extension builds, packs and loads", async (t) => {
       const { definition, registrations } = loadBundle(bundle)
       assert.equal(definition.key, manifest.key)
 
+      // An export must be configurable before an operation is open.
+      for (const registration of registrations.filter((r) => r.category === 'export')) {
+        assert.equal(typeof registration.hook.getExportTypes, 'function', `${name} must register its export types`)
+        const getTypes = registration.hook.getExportTypes as () => Promise<{exportType: string; format: string}[]>
+        const types = await getTypes()
+        assert.ok(types.length > 0, `${name} has no registered export types`)
+        assert.equal(new Set(types.map((type) => type.exportType)).size, types.length)
+        for (const type of types) {
+          assert.ok(['adif', 'cabrillo', 'reg1test'].includes(type.format))
+          assert.ok(!type.exportType.startsWith('ham2k-'), 'settings belong to an activity, not a catalog key')
+          assert.ok(!type.exportType.includes(':'), 'individual file keys do not belong in a shared export type')
+        }
+      }
+
       // What the manifest PROMISES is what the bundle registers. The panel and
       // the catalog read this list without loading anything, so a promise
       // nobody keeps is an extension the operator is told does something it

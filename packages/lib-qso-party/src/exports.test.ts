@@ -33,8 +33,8 @@ export * from "sdk:real"
 export function exportFilename({ activity, extension }) { return activity + '.' + extension }
 export function startMillisOf() { return 0 }
 export const hooks = {
-  async invokeOne(hook, key, method, { operation, segments, mainHandler }) {
-    return [{ ok: true, key, value: { content: JSON.stringify({ mainHandler, refs: operation.refs, segments }) } }]
+  async invokeOne(hook, key, method, { operation, segments, mainHandler, includePrivateData, includeLookupData, exportSettings, exportData, exportTitle }) {
+    return [{ ok: true, key, value: { content: JSON.stringify({ mainHandler, refs: operation.refs, segments, includePrivateData, includeLookupData, exportSettings, exportData, exportTitle }) } }]
   },
 }
 `
@@ -91,7 +91,7 @@ test('a Cabrillo is offered only by a party that names the contest', async () =>
     { operation: operation(), qsos: [] },
     ctx,
   )
-  assert.deepEqual(withName.map((option) => option.exportType), ['contest-adif', 'cabrillo'])
+  assert.deepEqual(withName.map((option) => option.exportType), [`${NY.refType}-adif`, `${NY.refType}-cabrillo`])
   assert.deepEqual(withName.map((option) => option.filename), ['NYQP.adi', 'NYQP.log'])
 
   // Without a `CONTEST:` line there is nothing to tell a checker which contest
@@ -101,7 +101,7 @@ test('a Cabrillo is offered only by a party that names the contest', async () =>
     { operation: operation(WI, 'ADAM'), qsos: [] },
     ctx,
   )
-  assert.deepEqual(unnamed.map((option) => option.exportType), ['contest-adif'])
+  assert.deepEqual(unnamed.map((option) => option.exportType), [`${WI.refType}-adif`])
 
   // And nothing at all is offered for an operation that is not running this
   // party.
@@ -144,7 +144,7 @@ test('the export sheet names the two files in the party′s own words', async ()
 
 test('the Cabrillo is the sponsor′s file, headers and all', async () => {
   const result = await defineQsoParty(CA).export.generateExport({
-    exportType: 'cabrillo',
+    exportType: `${CA.refType}-cabrillo`,
     operation: {
       ...operation(CA, 'ALAM'),
       refs: [{ type: CA.refType, location: 'ALAM', operator: 'SINGLE-OP', power: 'LOW' }],
@@ -182,7 +182,7 @@ test('the ADIF export tells the per-QSO hook what the Cabrillo already knows', a
     { fromMillis: 1000, operation: operation(NY, 'REN') },
   ]
   const result = await defineQsoParty(NY).export.generateExport({
-    exportType: 'contest-adif',
+    exportType: `${NY.refType}-adif`,
     operation: operation(),
     segments,
     qsos: [contact('ERI'), { ...contact(''), uuid: 'q2', band: '40m' }],
@@ -217,4 +217,30 @@ test('one contact′s ADIF fields are the exchange as it was sent and received',
     { name: 'STX', value: '1' },
     { name: 'SRX', value: '7' },
   ])
+})
+
+
+test('party registrations keep settings separate and reflect available formats', async () => {
+  const ny = await defineQsoParty(NY).export.getExportTypes!({}, ctx)
+  const ca = await defineQsoParty(CA).export.getExportTypes!({}, ctx)
+  const wi = await defineQsoParty(WI).export.getExportTypes!({}, ctx)
+  assert.deepEqual(ny.map((type) => type.exportType), [`${NY.refType}-adif`, `${NY.refType}-cabrillo`])
+  assert.equal(ca[0].exportType, `${CA.refType}-adif`)
+  assert.notEqual(ny[0].exportType, ca[0].exportType)
+  assert.deepEqual(wi.map((type) => type.format), ['adif'])
+})
+
+test('ADIF delegation preserves explicit privacy and template preferences', async () => {
+  const exportSettings = { customTemplates: true, adifNotesTemplate: '', adifCommentTemplate: 'My comment' }
+  const exportData = { activity: 'NYQP' }
+  const result = await defineQsoParty(NY).export.generateExport({
+    exportType: `${NY.refType}-adif`, operation: operation(), qsos: [contact('ERI')],
+    includePrivateData: false, includeLookupData: false, exportSettings, exportData, exportTitle: 'My party log',
+  }, ctx)
+  const handed = JSON.parse(result.content)
+  assert.equal(handed.includePrivateData, false)
+  assert.equal(handed.includeLookupData, false)
+  assert.deepEqual(handed.exportSettings, exportSettings)
+  assert.deepEqual(handed.exportData, exportData)
+  assert.equal(handed.exportTitle, 'My party log')
 })

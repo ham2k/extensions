@@ -2,7 +2,7 @@
   "key": "ham2k-gma",
   "name": "GMA: Global Mountain Activity",
   "shortName": "GMA",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Summit references, activation and chasing, and spotting",
   "category": "activity",
   "icon": "summit",
