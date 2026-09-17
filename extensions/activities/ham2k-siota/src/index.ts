@@ -22,11 +22,23 @@ import type { DataFileDefinition, HookContext } from "@ham2k/extension-sdk"
 
 import { tFor } from "./i18n.ts"
 
+import { withRefInput } from "./sdkGap.ts"
+import type { RefTransform } from "./sdkGap.ts"
 import manifest from "../manifest.json" with { type: "json" }
 
 const HUNTING_TYPE = 'siota'
 const ACTIVATION_TYPE = 'siotaActivation'
 const REFERENCE_REGEX = /^VK-[A-Z]{3}[0-9]+$/i
+
+/// Live-typing reformatting, app-polo's SiOTAInput chain: "VKABC" gets its
+/// dash ("VK-ABC"), and a silo typed without the country ("ABC1") gets both
+/// ("VK-ABC1") — once a digit follows, so the three letters of a silo code
+/// being typed are not mistaken for one before it is complete.
+export const TRANSFORMS: RefTransform[] = [
+  { pattern: '(^|,\\s*)VK([A-Z]+)', replacement: '${1}VK-${2}', flags: 'gi' },
+  { pattern: '(^|,\\s*)(?!VK-)([A-Z]{3}\\d)', replacement: '${1}VK-${2}', flags: 'gi' },
+  { pattern: '[^A-Z0-9\\-, ]', replacement: '', flags: 'gi' },
+]
 
 /// A repeat contact is a duplicate on the same band, mode AND day. A silo the
 /// station hasn't given before is called out and earns the Silo-to-Silo
@@ -46,7 +58,7 @@ const SIOTA_SCORING = {
   p2pLabel: (ctx: HookContext) => tFor(ctx)('s2s'),
 }
 
-const { refHandler, activityHook, adifFieldsHook, adifImportHook } = referenceActivity({
+const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImportHook } = referenceActivity({
   key: 'siota',
   label: 'SiOTA',
   activationType: ACTIVATION_TYPE,
@@ -66,6 +78,8 @@ const { refHandler, activityHook, adifFieldsHook, adifImportHook } = referenceAc
   // and the scorer can't disagree about whether this award allows n-fers.
   allowsMultiple: SIOTA_SCORING.allowsMultipleReferences,
 })
+
+const activityHook = withRefInput(factoryActivityHook, () => ({ transforms: TRANSFORMS }))
 
 const siotaDataFile: DataFileDefinition = {
   key: `${manifest.key}-all-silos`,

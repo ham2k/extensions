@@ -18,6 +18,7 @@ import {
   activityScorer,
   contestScorer,
   defineExtension,
+  entityPrefixForCall,
   host,
   huntingExportHook,
   referenceActivity,
@@ -38,6 +39,8 @@ import { DXCC_BY_CODE } from "@ham2k/lib-dxcc-data"
 
 import { tFor } from "./i18n.ts"
 
+import { learnedReferencePrefix, withRefInput } from "./sdkGap.ts"
+import type { RefTransform } from "./sdkGap.ts"
 import manifest from "../manifest.json" with { type: "json" }
 
 const HUNTING_TYPE = 'wwbota'
@@ -46,6 +49,39 @@ const ACTIVATION_TYPE = 'wwbotaActivation'
 const LEGACY_TYPES = ['ukbota', 'ukbotaActivation']
 
 const REFERENCE_REGEX = /^B\/(?:[0-9][A-Z][0-9A-Z]*|[A-Z][0-9A-Z]*)-[0-9]{4,}$/i
+
+/// The prefix a station's bunkers carry — "B/G" for an English call, "B/US"
+/// for a US one — read off the loaded list, since the country segment only
+/// MOSTLY follows the DXCC entity prefix (Canada is "CA", Italy "IT"). The
+/// hunting control follows the OTHER station, the activation control our own;
+/// a call nobody can place gets the program's home "B/G".
+async function defaultPrefix(operation: Record<string, unknown>, qso: Record<string, unknown> | undefined): Promise<string> {
+  const theirCall = (qso?.their as Record<string, unknown> | undefined)?.call as string | undefined
+  const entityPrefix = entityPrefixForCall(theirCall) ?? entityPrefixForCall(operation.stationCall as string | undefined)
+  if (!entityPrefix) return 'B/G'
+  return learnedReferencePrefix('wwbota', entityPrefix, `B/${entityPrefix}`)
+}
+
+/// Live-typing reformatting, after app-polo's WWBOTAInput chain: a bare
+/// number takes the default prefix ("0001" -> "B/G-0001"), a country segment
+/// typed without its scheme gets it ("G-" -> "B/G-"), and a run-on reference
+/// gets its dash and scheme ("G0001" / "B/G0001" -> "B/G-0001").
+///
+/// Every bunker number is exactly four digits, and the dash waits for the
+/// fourth: a country segment can END in a digit ("E7", "S5", "Z3"), so an
+/// earlier dash would split "E7" while it is still being typed. Even so,
+/// "E7000" reads as "E" plus four digits until the fifth arrives, which is
+/// what the last rule is for: five digits after a letter-only segment mean
+/// the first was the segment's, and the dash moves.
+export function transformsForPrefix(prefix: string): RefTransform[] {
+  return [
+    { pattern: '(^|,\\s*)(\\d\\d+)', replacement: `\${1}${prefix}-\${2}`, flags: 'gi' },
+    { pattern: '(^|,\\s*)(?!B/)([0-9]?[A-Z]+[0-9]?)-', replacement: '${1}B/${2}-', flags: 'gi' },
+    { pattern: '(?<![A-Z0-9/])(?:B/)?([0-9]?[A-Z]+[0-9]?)(\\d{4})(?!\\d)', replacement: 'B/${1}-${2}', flags: 'gi' },
+    { pattern: 'B/([0-9]?[A-Z]+)-(\\d)(\\d{4})(?!\\d)', replacement: 'B/${1}${2}-${3}', flags: 'gi' },
+    { pattern: '[^A-Z0-9/\\-, ]', replacement: '', flags: 'gi' },
+  ]
+}
 
 const API_BASE = 'https://api.wwbota.org'
 
@@ -79,7 +115,7 @@ const WWBOTA_SCORING = {
   p2pLabel: (ctx: HookContext) => tFor(ctx)('b2b'),
 }
 
-const { refHandler, activityHook, adifFieldsHook, adifImportHook } = referenceActivity({
+const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImportHook } = referenceActivity({
   key: 'wwbota',
   label: 'WWBOTA',
   activationType: ACTIVATION_TYPE,
@@ -94,6 +130,11 @@ const { refHandler, activityHook, adifFieldsHook, adifImportHook } = referenceAc
   // Derived from the scorer's own rule, not a separate flag — the UI control
   // and the scorer can't disagree about whether this award allows n-fers.
   allowsMultiple: WWBOTA_SCORING.allowsMultipleReferences,
+})
+
+const activityHook = withRefInput(factoryActivityHook, async ({ operation, qso, side }) => {
+  const prefix = await defaultPrefix(operation, side === 'hunting' ? qso : undefined)
+  return { placeholder: `${prefix}-...`, transforms: transformsForPrefix(prefix) }
 })
 
 function refsOfType(container: Record<string, unknown>, type: string): Ref[] {

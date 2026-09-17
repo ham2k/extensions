@@ -5,15 +5,22 @@
 // through the plain functions behind them. `loadExtension` activates the real
 // module against a stand-in kernel, so a registration that stops happening,
 // or a control that stops being offered, fails here. The harness is the SDK's
-// own, copied into `sdkGap.ts` because the published package does not ship it.
+// own, copied into `sdkGapTesting.ts` because the published package does not ship it.
 
 import { test } from "node:test"
 import assert from "node:assert/strict"
 
-import { fixtureOperation, fixtureQso, loadExtension } from "./sdkGap.ts"
+import { applyRefTransforms, fixtureOperation, fixtureQso, loadExtension, typeRefText } from "./sdkGapTesting.ts"
 import manifest from "../manifest.json" with { type: "json" }
 
-const wwbota = await loadExtension(() => import("./index.ts"))
+// The bunker list, one row per entity prefix a test asks about: Canada's
+// bunkers are "B/CA", which no rule derives from the "VE" entity prefix.
+const bunkers: Record<string, string[]> = { VE: ["B/CA-0001", "B/CA-0002"] }
+const wwbota = await loadExtension(() => import("./index.ts"), {
+  hostCalls: {
+    dbLookupSelectAll: (params) => (bunkers[params.subCategory as string] ?? []).map((key) => ({ key, name: key })),
+  },
+})
 
 const operationWith = (...refs: { type: string; ref: string }[]) => fixtureOperation({ refs })
 
@@ -67,4 +74,36 @@ test("Slovenia and North Macedonia activate at 10 contacts, everywhere else at 2
   assert.equal(await progressFor("B/S5-0001"), "1/10", "Slovenia")
   assert.equal(await progressFor("B/Z3-0001"), "1/10", "North Macedonia")
   assert.equal(await progressFor("B/GX-0001"), "1/25", "everywhere else")
+})
+
+async function huntingInput(theirCall: string) {
+  const qso = fixtureQso({ their: { call: theirCall } })
+  const controls = (await wwbota.runHook("activity", "loggingControls", { operation: fixtureOperation(), qso })) as any[]
+  return controls[0].input as { placeholder: string; transforms: { pattern: string; replacement: string; flags?: string }[] }
+}
+
+test("a bare bunker number takes the prefix the list uses for the other station's entity", async () => {
+  const canada = await huntingInput("VE3ABC")
+  assert.equal(canada.placeholder, "B/CA-...")
+  assert.equal(applyRefTransforms("0001", canada.transforms), "B/CA-0001")
+  assert.equal(applyRefTransforms("B/CA-0001,0002", canada.transforms), "B/CA-0001,B/CA-0002")
+
+  // No rows for England in the stubbed list: the DXCC prefix stands in.
+  const england = await huntingInput("G4ABC")
+  assert.equal(applyRefTransforms("0001", england.transforms), "B/G-0001")
+})
+
+test("a reference typed without its scheme or dash is completed as it is typed", async () => {
+  const { transforms } = await huntingInput("G4ABC")
+  assert.equal(typeRefText("G-0001", transforms), "B/G-0001")
+  assert.equal(typeRefText("G0001", transforms), "B/G-0001")
+  assert.equal(typeRefText("B/G0001", transforms), "B/G-0001")
+  // A country segment ending in a digit reads as "E" plus a number until the
+  // fifth digit proves otherwise — the repair has to happen, and only then.
+  assert.equal(typeRefText("E7000", transforms), "B/E-7000")
+  assert.equal(typeRefText("E70001", transforms), "B/E7-0001")
+  assert.equal(typeRefText("E7-0001", transforms), "B/E7-0001")
+  assert.equal(typeRefText("9A0001", transforms), "B/9A-0001")
+  // A finished reference is left alone.
+  assert.equal(applyRefTransforms("B/G-0001", transforms), "B/G-0001")
 })

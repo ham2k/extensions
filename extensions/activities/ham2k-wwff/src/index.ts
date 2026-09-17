@@ -13,6 +13,7 @@ import {
   activityScorer,
   contestScorer,
   defineExtension,
+  entityPrefixForCall,
   host,
   huntingExportHook,
   referenceActivity,
@@ -34,16 +35,42 @@ import { DXCC_BY_CODE } from "@ham2k/lib-dxcc-data"
 
 import { tFor } from "./i18n.ts"
 
+import { learnedReferencePrefix, withRefInput } from "./sdkGap.ts"
+import type { RefTransform } from "./sdkGap.ts"
 import manifest from "../manifest.json" with { type: "json" }
 
 const HUNTING_TYPE = 'wwff'
 const ACTIVATION_TYPE = 'wwffActivation'
 const REFERENCE_REGEX = /^[A-Z0-9]+FF-[0-9]{4,5}$/i
 
+/// The prefix a station's references carry — "KFF" for a US call, "GFF" for
+/// an English one — read off the loaded directory, since it only MOSTLY
+/// follows the DXCC entity prefix (Russia is "RFF", the Canaries "EAFF").
+/// The hunting control follows the OTHER station, the activation control our
+/// own; a call nobody can place gets app-polo's "KFF".
+async function defaultPrefix(operation: Record<string, unknown>, qso: Record<string, unknown> | undefined): Promise<string> {
+  const theirCall = (qso?.their as Record<string, unknown> | undefined)?.call as string | undefined
+  const entityPrefix = entityPrefixForCall(theirCall) ?? entityPrefixForCall(operation.stationCall as string | undefined)
+  if (!entityPrefix) return 'KFF'
+  return learnedReferencePrefix('wwff', entityPrefix, `${entityPrefix}FF`)
+}
+
+/// Live-typing reformatting, app-polo's WWFFInput chain: a bare number takes
+/// the default prefix ("0001" -> "KFF-0001"), a run-on reference gets its
+/// dash ("KFF0001" -> "KFF-0001"). The separator is captured and replayed, so
+/// a second reference after a comma is prefixed the same way.
+export function transformsForPrefix(prefix: string): RefTransform[] {
+  return [
+    { pattern: '(^|,\\s*)(\\d\\d+)', replacement: `\${1}${prefix}-\${2}`, flags: 'gi' },
+    { pattern: '(?<![A-Z0-9])([A-Z0-9]+FF)(\\d+)', replacement: '${1}-${2}', flags: 'gi' },
+    { pattern: '[^A-Z0-9\\-, ]', replacement: '', flags: 'gi' },
+  ]
+}
+
 const SPOTS_URL = 'https://spots.wwff.co/static/spots.json'
 const SPOT_POST_URL = 'https://spots.wwff.co/api/spots/add'
 
-const { refHandler, activityHook, adifFieldsHook, adifImportHook } = referenceActivity({
+const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImportHook } = referenceActivity({
   key: 'wwff',
   label: 'WWFF',
   activationType: ACTIVATION_TYPE,
@@ -57,6 +84,11 @@ const { refHandler, activityHook, adifFieldsHook, adifImportHook } = referenceAc
   // app-polo registers no combinations for WWFF: one record, references joined.
   splitRecordsPerHuntedRef: false,
   adifRefField: 'WWFF',
+})
+
+const activityHook = withRefInput(factoryActivityHook, async ({ operation, qso, side }) => {
+  const prefix = await defaultPrefix(operation, side === 'hunting' ? qso : undefined)
+  return { placeholder: `${prefix}-...`, transforms: transformsForPrefix(prefix) }
 })
 
 /// 44 contacts, accrued across visits rather than per day, and a repeat contact

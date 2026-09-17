@@ -35,11 +35,21 @@ import { formEncode } from "@ham2k/lib-gma-spots"
 import { tFor } from "./i18n.ts"
 import { spotsFromTOTAApi, type TOTAApiSpot } from "./spotMapping.ts"
 
+import { withRefInput } from "./sdkGap.ts"
+import type { RefTransform } from "./sdkGap.ts"
 import manifest from "../manifest.json" with { type: "json" }
 
 const HUNTING_TYPE = 'tota'
 const ACTIVATION_TYPE = 'totaActivation'
 const REFERENCE_REGEX = /^[A-Z0-9]+R-[0-9]{4}$/i
+
+/// Live-typing reformatting, app-polo's TOTAInput chain: a run-on reference
+/// gets its dash ("OKR0001" -> "OKR-0001"). No default prefix — app-polo
+/// offers none either, the program spanning too many countries to guess.
+export const TRANSFORMS: RefTransform[] = [
+  { pattern: '(?<![A-Z0-9])([A-Z0-9]+R)(\\d+)', replacement: '${1}-${2}', flags: 'gi' },
+  { pattern: '[^A-Z0-9\\-, ]', replacement: '', flags: 'gi' },
+]
 
 const API_BASE = 'https://www.rozhledny.eu/apidata'
 
@@ -59,7 +69,7 @@ const TOTA_SCORING = {
   p2pLabel: (ctx: HookContext) => tFor(ctx)('t2t'),
 }
 
-const { refHandler, activityHook, adifFieldsHook, adifImportHook } = referenceActivity({
+const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImportHook } = referenceActivity({
   key: 'tota',
   label: 'TOTA',
   activationType: ACTIVATION_TYPE,
@@ -78,6 +88,8 @@ const { refHandler, activityHook, adifFieldsHook, adifImportHook } = referenceAc
   // and the scorer can't disagree about whether this award allows n-fers.
   allowsMultiple: TOTA_SCORING.allowsMultipleReferences,
 })
+
+const activityHook = withRefInput(factoryActivityHook, () => ({ transforms: TRANSFORMS }))
 
 function refsOfType(container: Record<string, unknown>, type: string): Ref[] {
   return (((container.refs as Ref[] | undefined) ?? [])).filter((r) => r.type === type && r.ref)

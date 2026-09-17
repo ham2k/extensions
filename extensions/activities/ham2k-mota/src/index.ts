@@ -33,11 +33,21 @@ import { locationToGrid6 } from "@ham2k/lib-geo-tools"
 import { postOtherSpotToGMA, postSelfSpotToGMA } from "@ham2k/lib-gma-spots"
 import { tFor } from "./i18n.ts"
 
+import { withRefInput } from "./sdkGap.ts"
+import type { RefTransform } from "./sdkGap.ts"
 import manifest from "../manifest.json" with { type: "json" }
 
 const HUNTING_TYPE = 'mota'
 const ACTIVATION_TYPE = 'motaActivation'
 const REFERENCE_REGEX = /^X[0-9]{5}$/i
+
+/// Live-typing reformatting, app-polo's MOTAInput chain: a bare number takes
+/// the "X" every mill carries ("00001" -> "X00001"), at the start of the
+/// field or after a separator, which is replayed rather than consumed.
+export const TRANSFORMS: RefTransform[] = [
+  { pattern: '(^|,\\s*)(\\d\\d+)', replacement: '${1}X${2}', flags: 'gi' },
+  { pattern: '[^A-Z0-9, ]', replacement: '', flags: 'gi' },
+]
 
 /// Duplicate rules only. A repeat contact on the same band and day is a
 /// duplicate; a new band or day makes it fresh again. A mill the station hasn't
@@ -60,7 +70,7 @@ const MOTA_SCORING = {
   p2pLabel: (ctx: HookContext) => tFor(ctx)('m2m'),
 }
 
-const { refHandler, activityHook, adifFieldsHook, adifImportHook } = referenceActivity({
+const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImportHook } = referenceActivity({
   key: 'mota',
   label: 'MOTA',
   activationType: ACTIVATION_TYPE,
@@ -80,6 +90,8 @@ const { refHandler, activityHook, adifFieldsHook, adifImportHook } = referenceAc
   // and the scorer can't disagree about whether this award allows n-fers.
   allowsMultiple: MOTA_SCORING.allowsMultipleReferences,
 })
+
+const activityHook = withRefInput(factoryActivityHook, () => ({ transforms: TRANSFORMS }))
 
 function refsOfType(container: Record<string, unknown>, type: string): Ref[] {
   return (((container.refs as Ref[] | undefined) ?? [])).filter((r) => r.type === type && r.ref)

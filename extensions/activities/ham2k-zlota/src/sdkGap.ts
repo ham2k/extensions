@@ -18,8 +18,6 @@
 // takes since the app's copy of it gained them — the published factory takes
 // neither, so the same descriptors are shaped after it has built them.
 
-import { host } from "@ham2k/extension-sdk"
-import type { LookupRow } from "@ham2k/extension-sdk"
 
 import type { HookContext, JSONValue } from "@ham2k/extension-sdk"
 
@@ -79,43 +77,4 @@ export function withRefInput(
     }
   }
   return { ...activityHook, ...shaped('operationControls', 'activation'), ...shaped('loggingControls', 'hunting') }
-}
-
-/// `learnedReferencePrefix` in the SDK's referenceActivity.ts: the reference
-/// prefix a program uses for one DXCC entity, learned from the program's own
-/// loaded list rather than derived — WWFF's and WWBOTA's prefixes only mostly
-/// follow the entity prefix (Russia is "RFF", the Canaries are "EAFF", Canada
-/// is "B/CA"), and app-polo builds the same map while it loads the file.
-/// Asked of the lookups table by `subCategory`, which these programs'
-/// data-file mappers set to the entity prefix, and cached per entity for the
-/// session: one query per entity, not one per keystroke.
-///
-/// `fallback` answers when the list has nothing for that entity — not yet
-/// synced, or a country the program has no references in — so the field
-/// still autoformats to SOMETHING the operator can correct.
-const learnedPrefixes = new Map<string, string>()
-export async function learnedReferencePrefix(category: string, entityPrefix: string, fallback: string): Promise<string> {
-  const cacheKey = `${category}:${entityPrefix}`
-  const cached = learnedPrefixes.get(cacheKey)
-  if (cached) return cached
-  let rows: LookupRow[] = []
-  try {
-    rows = await host.dbLookupSelectAll(category, '', entityPrefix)
-  } catch (e) {
-    host.log(`${category}: prefix lookup failed for ${entityPrefix}: ${e}`)
-  }
-  // The most common prefix among the rows, not the first: a list can carry a
-  // stray reference filed under the wrong entity.
-  const counts = new Map<string, number>()
-  for (const row of rows) {
-    const prefix = row.key.split('-')[0]
-    if (prefix) counts.set(prefix, (counts.get(prefix) ?? 0) + 1)
-  }
-  let best: string | undefined
-  for (const [prefix, count] of counts) {
-    if (best === undefined || count > (counts.get(best) ?? 0)) best = prefix
-  }
-  if (best === undefined) return fallback
-  learnedPrefixes.set(cacheKey, best)
-  return best
 }

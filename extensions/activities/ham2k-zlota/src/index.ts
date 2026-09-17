@@ -24,12 +24,27 @@ import { bandForFrequency } from "@ham2k/lib-operation-data"
 
 import { tFor } from "./i18n.ts"
 
+import { withRefInput } from "./sdkGap.ts"
+import type { RefTransform } from "./sdkGap.ts"
 import manifest from "../manifest.json" with { type: "json" }
 
 const HUNTING_TYPE = 'zlota'
 const ACTIVATION_TYPE = 'zlotaActivation'
 
 const REFERENCE_REGEX = /^ZL(?:B\/[0-9]{3}|[HI]\/[A-Z]{2}-[0-9]{3}|L\/[0-9]{4}|P\/[A-Z]{2}-[0-9]{4}|V\/[A-Z]{2,3}-[0-9]{3})$/i
+
+/// Live-typing reformatting, app-polo's ZLOTAInput chain: a scheme letter
+/// typed on its own takes the "ZL" ("P" -> "ZLP"), the code after it gets
+/// its slash ("ZLPOT" -> "ZLP/OT") and, for the schemes whose number follows
+/// letters, its dash ("ZLP/OT1" -> "ZLP/OT-1"). The slash and dash rules are
+/// anchored to the END of the field, so they shape the reference being typed
+/// and leave the finished ones before it alone.
+export const TRANSFORMS: RefTransform[] = [
+  { pattern: '(^|,\\s*)([BHILPV])', replacement: '${1}ZL${2}', flags: 'gi' },
+  { pattern: '\\bZL([BHILPV])([0-9A-Z]+(?:-[0-9])?)$', replacement: 'ZL${1}/${2}', flags: 'i' },
+  { pattern: '\\bZL([BHILPV]/[A-Z]+)([0-9]+)$', replacement: 'ZL${1}-${2}', flags: 'i' },
+  { pattern: '[^A-Z0-9/\\-, ]', replacement: '', flags: 'gi' },
+]
 
 /// The third character of a reference names the kind of place.
 const ASSET_TYPE_BY_CODE: Record<string, string> = {
@@ -80,7 +95,7 @@ const ZLOTA_SCORING = {
   p2pLabel: (ctx: HookContext) => tFor(ctx)('z2z'),
 }
 
-const { refHandler, activityHook, adifFieldsHook, adifImportHook } = referenceActivity({
+const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImportHook } = referenceActivity({
   key: 'zlota',
   label: 'ZLOTA',
   activationType: ACTIVATION_TYPE,
@@ -99,6 +114,8 @@ const { refHandler, activityHook, adifFieldsHook, adifImportHook } = referenceAc
   // and the scorer can't disagree about whether this award allows n-fers.
   allowsMultiple: ZLOTA_SCORING.allowsMultipleReferences,
 })
+
+const activityHook = withRefInput(factoryActivityHook, () => ({ transforms: TRANSFORMS }))
 
 interface ZLOTAApiSpot {
   /// Shared by every row of a multi-reference spot.
