@@ -5,12 +5,12 @@
 // app scores an operation — rather than by folding a scoresheet QSO by QSO the
 // way scorer.test.ts does. That file pins the rules in isolation; this one
 // pins what the operator is shown once they are applied together, and it fails
-// if the hook stops being registered at all (the SDK harness in sdkGap.ts).
+// if the hook stops being registered at all (the SDK harness in sdkGapTesting.ts).
 
 import { test } from "node:test"
 import assert from "node:assert/strict"
 
-import { fixtureOperation, loadExtension } from "./sdkGap.ts"
+import { fixtureOperation, loadExtension } from "./sdkGapTesting.ts"
 
 const cqww = await loadExtension(() => import("./index.ts"))
 

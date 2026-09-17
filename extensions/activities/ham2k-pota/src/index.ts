@@ -37,7 +37,7 @@ import type {
 import { REFERENCE_REGEX, normalizeReference, entityPrefixForCall, transformsForPrefix, hunterDefaultPrefix, activationDefaultPrefix } from "./refFormatting.ts"
 import { suggestOperationTitleForPota } from "./titleSuggestion.ts"
 import { tFor } from "./i18n.ts"
-import { looksLikeReference } from "./sdkGap.ts"
+import { looksLikeReference } from "@ham2k/extension-sdk"
 
 import manifest from "../manifest.json" with { type: "json" }
 

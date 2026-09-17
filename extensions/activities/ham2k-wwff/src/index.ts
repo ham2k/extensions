@@ -16,6 +16,7 @@ import {
   entityPrefixForCall,
   host,
   huntingExportHook,
+  learnedReferencePrefix,
   referenceActivity,
 } from "@ham2k/extension-sdk"
 import type {
@@ -26,6 +27,7 @@ import type {
   PostResult,
   PostSelfSpotRequest,
   Ref,
+  RefTransform,
   Spot,
   SpotEligibility,
 } from "@ham2k/extension-sdk"
@@ -35,8 +37,6 @@ import { DXCC_BY_CODE } from "@ham2k/lib-dxcc-data"
 
 import { tFor } from "./i18n.ts"
 
-import { learnedReferencePrefix, withRefInput } from "./sdkGap.ts"
-import type { RefTransform } from "./sdkGap.ts"
 import manifest from "../manifest.json" with { type: "json" }
 
 const HUNTING_TYPE = 'wwff'
@@ -70,7 +70,7 @@ export function transformsForPrefix(prefix: string): RefTransform[] {
 const SPOTS_URL = 'https://spots.wwff.co/static/spots.json'
 const SPOT_POST_URL = 'https://spots.wwff.co/api/spots/add'
 
-const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImportHook } = referenceActivity({
+const { refHandler, activityHook, adifFieldsHook, adifImportHook } = referenceActivity({
   key: 'wwff',
   label: 'WWFF',
   activationType: ACTIVATION_TYPE,
@@ -79,16 +79,15 @@ const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImpor
   icon: manifest.icon,
   color: manifest.accentColor,
   placeholder: 'KFF-0001',
+  refInput: async ({ operation, qso, side }) => {
+    const prefix = await defaultPrefix(operation, side === 'hunting' ? qso : undefined)
+    return { placeholder: `${prefix}-...`, transforms: transformsForPrefix(prefix) }
+  },
   tFor,
   linkUrl: (reference: string) => `https://wwff.co/directory/?showRef=${encodeURIComponent(reference)}`,
   // app-polo registers no combinations for WWFF: one record, references joined.
   splitRecordsPerHuntedRef: false,
   adifRefField: 'WWFF',
-})
-
-const activityHook = withRefInput(factoryActivityHook, async ({ operation, qso, side }) => {
-  const prefix = await defaultPrefix(operation, side === 'hunting' ? qso : undefined)
-  return { placeholder: `${prefix}-...`, transforms: transformsForPrefix(prefix) }
 })
 
 /// 44 contacts, accrued across visits rather than per day, and a repeat contact

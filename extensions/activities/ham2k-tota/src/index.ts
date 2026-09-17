@@ -26,6 +26,7 @@ import type {
   PostResult,
   PostSelfSpotRequest,
   Ref,
+  RefTransform,
   Spot,
   SpotEligibility,
 } from "@ham2k/extension-sdk"
@@ -35,8 +36,6 @@ import { formEncode } from "@ham2k/lib-gma-spots"
 import { tFor } from "./i18n.ts"
 import { spotsFromTOTAApi, type TOTAApiSpot } from "./spotMapping.ts"
 
-import { withRefInput } from "./sdkGap.ts"
-import type { RefTransform } from "./sdkGap.ts"
 import manifest from "../manifest.json" with { type: "json" }
 
 const HUNTING_TYPE = 'tota'
@@ -69,7 +68,7 @@ const TOTA_SCORING = {
   p2pLabel: (ctx: HookContext) => tFor(ctx)('t2t'),
 }
 
-const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImportHook } = referenceActivity({
+const { refHandler, activityHook, adifFieldsHook, adifImportHook } = referenceActivity({
   key: 'tota',
   label: 'TOTA',
   activationType: ACTIVATION_TYPE,
@@ -78,6 +77,7 @@ const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImpor
   icon: manifest.icon,
   color: manifest.accentColor,
   placeholder: 'OKR-0001',
+  transforms: TRANSFORMS,
   tFor,
   // The tower card, in English: the site also speaks Czech, German, Spanish,
   // French and Polish, and defaults to Czech without the parameter.
@@ -88,8 +88,6 @@ const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImpor
   // and the scorer can't disagree about whether this award allows n-fers.
   allowsMultiple: TOTA_SCORING.allowsMultipleReferences,
 })
-
-const activityHook = withRefInput(factoryActivityHook, () => ({ transforms: TRANSFORMS }))
 
 function refsOfType(container: Record<string, unknown>, type: string): Ref[] {
   return (((container.refs as Ref[] | undefined) ?? [])).filter((r) => r.type === type && r.ref)

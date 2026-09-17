@@ -19,13 +19,11 @@ import {
   huntingExportHook,
   referenceActivity,
 } from "@ham2k/extension-sdk"
-import type { DataFileDefinition, HookContext, Spot } from "@ham2k/extension-sdk"
+import type { DataFileDefinition, HookContext, RefTransform, Spot } from "@ham2k/extension-sdk"
 import { bandForFrequency } from "@ham2k/lib-operation-data"
 
 import { tFor } from "./i18n.ts"
 
-import { withRefInput } from "./sdkGap.ts"
-import type { RefTransform } from "./sdkGap.ts"
 import manifest from "../manifest.json" with { type: "json" }
 
 const HUNTING_TYPE = 'zlota'
@@ -95,7 +93,7 @@ const ZLOTA_SCORING = {
   p2pLabel: (ctx: HookContext) => tFor(ctx)('z2z'),
 }
 
-const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImportHook } = referenceActivity({
+const { refHandler, activityHook, adifFieldsHook, adifImportHook } = referenceActivity({
   key: 'zlota',
   label: 'ZLOTA',
   activationType: ACTIVATION_TYPE,
@@ -104,6 +102,7 @@ const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImpor
   icon: manifest.icon,
   color: manifest.accentColor,
   placeholder: 'ZLH/AA-001',
+  transforms: TRANSFORMS,
   tFor,
   // ontheair.nz names an asset page after its code with the slash written as
   // an underscore — `/assets/ZLB_001`, not `ZLB/001`, which is a different route.
@@ -114,8 +113,6 @@ const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImpor
   // and the scorer can't disagree about whether this award allows n-fers.
   allowsMultiple: ZLOTA_SCORING.allowsMultipleReferences,
 })
-
-const activityHook = withRefInput(factoryActivityHook, () => ({ transforms: TRANSFORMS }))
 
 interface ZLOTAApiSpot {
   /// Shared by every row of a multi-reference spot.

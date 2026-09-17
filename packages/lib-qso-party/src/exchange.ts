@@ -5,6 +5,7 @@
 // codes the entry row offers, which of them are floated to the top, and the
 // Cabrillo rows one contact turns into.
 
+import { operationForQso } from "@ham2k/extension-sdk"
 import type { JSONValue, OperationSegmentPayload } from "@ham2k/extension-sdk"
 import { qsonToCabrillo } from "@ham2k/lib-qson-cabrillo"
 
@@ -32,7 +33,6 @@ import {
 } from "./location.ts"
 import { CANADIAN_PROVINCES, US_STATES } from "./locations.ts"
 import { normalizeCode, type Party, stateForCounty, WARC_BANDS } from "./party.ts"
-import { operationForQso } from "./sdkGap.ts"
 
 /// What a contact with no exchange typed is recorded as, resolved the way the
 /// scorer resolves it: what this station sent us earlier, then what their

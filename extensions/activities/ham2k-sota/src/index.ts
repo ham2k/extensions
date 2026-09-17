@@ -44,7 +44,7 @@ import { spotModeFor } from "./spotMode.ts"
 import { spotsFromSOTAApi, type SOTAApiSpot } from "./spotMapping.ts"
 import { oauthErrorCode } from "./oauthErrors.ts"
 
-import { looksLikeReference } from "./sdkGap.ts"
+import { looksLikeReference } from "@ham2k/extension-sdk"
 
 import manifest from "../manifest.json" with { type: "json" }
 

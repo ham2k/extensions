@@ -12,10 +12,12 @@ import {
   activityExportHook,
   activityScorer,
   contestScorer,
+  countryPrefixForCall,
   defineExtension,
   host,
   huntingExportHook,
   referenceActivity,
+  transformsForPrefix,
 } from "@ham2k/extension-sdk"
 import type {
   DataFileDefinition,
@@ -33,7 +35,6 @@ import { locationToGrid6 } from "@ham2k/lib-geo-tools"
 
 import { tFor } from "./i18n.ts"
 
-import { countryPrefixForCall, transformsForPrefix, withRefInput } from "./sdkGap.ts"
 import manifest from "../manifest.json" with { type: "json" }
 
 const HUNTING_TYPE = 'llota'
@@ -68,7 +69,7 @@ const LLOTA_SCORING = {
   p2pLabel: (ctx: HookContext) => tFor(ctx)('l2l'),
 }
 
-const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImportHook } = referenceActivity({
+const { refHandler, activityHook, adifFieldsHook, adifImportHook } = referenceActivity({
   key: 'llota',
   label: 'LLOTA',
   activationType: ACTIVATION_TYPE,
@@ -77,6 +78,10 @@ const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImpor
   icon: manifest.icon,
   color: manifest.accentColor,
   placeholder: 'LLUS-0001',
+  refInput: ({ operation, qso, side }) => {
+    const prefix = defaultPrefix(operation, side === 'hunting' ? qso : undefined)
+    return { placeholder: `${prefix}-...`, transforms: transformsForPrefix(prefix) }
+  },
   tFor,
   linkUrl: (reference: string) => `https://llota.app/list/ref/${encodeURIComponent(reference)}`,
   // One record per hunted lake, like POTA.
@@ -85,11 +90,6 @@ const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImpor
   // Derived from the scorer's own rule, not a separate flag — the UI control
   // and the scorer can't disagree about whether this award allows n-fers.
   allowsMultiple: LLOTA_SCORING.allowsMultipleReferences,
-})
-
-const activityHook = withRefInput(factoryActivityHook, ({ operation, qso, side }) => {
-  const prefix = defaultPrefix(operation, side === 'hunting' ? qso : undefined)
-  return { placeholder: `${prefix}-...`, transforms: transformsForPrefix(prefix) }
 })
 
 function refsOfType(container: Record<string, unknown>, type: string): Ref[] {

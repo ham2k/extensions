@@ -12,7 +12,7 @@
 // `sdkGap` is the name to grep for: every copy in this repository deletes
 // together, the day the SDK publishes what it holds.
 //
-// Test-only, hence its own file beside `sdkGap.ts`: `index.ts` never imports
+// Test-only, hence its own file beside `sdkGapTesting.ts`: `index.ts` never imports
 // it, so no bundle carries it.
 //
 // Running a hook without the app:

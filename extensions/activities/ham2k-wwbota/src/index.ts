@@ -21,6 +21,7 @@ import {
   entityPrefixForCall,
   host,
   huntingExportHook,
+  learnedReferencePrefix,
   referenceActivity,
 } from "@ham2k/extension-sdk"
 import type {
@@ -31,6 +32,7 @@ import type {
   PostResult,
   PostSelfSpotRequest,
   Ref,
+  RefTransform,
   Spot,
   SpotEligibility,
 } from "@ham2k/extension-sdk"
@@ -39,8 +41,6 @@ import { DXCC_BY_CODE } from "@ham2k/lib-dxcc-data"
 
 import { tFor } from "./i18n.ts"
 
-import { learnedReferencePrefix, withRefInput } from "./sdkGap.ts"
-import type { RefTransform } from "./sdkGap.ts"
 import manifest from "../manifest.json" with { type: "json" }
 
 const HUNTING_TYPE = 'wwbota'
@@ -115,7 +115,7 @@ const WWBOTA_SCORING = {
   p2pLabel: (ctx: HookContext) => tFor(ctx)('b2b'),
 }
 
-const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImportHook } = referenceActivity({
+const { refHandler, activityHook, adifFieldsHook, adifImportHook } = referenceActivity({
   key: 'wwbota',
   label: 'WWBOTA',
   activationType: ACTIVATION_TYPE,
@@ -124,17 +124,16 @@ const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImpor
   icon: manifest.icon,
   color: manifest.accentColor,
   placeholder: 'B/G-0001',
+  refInput: async ({ operation, qso, side }) => {
+    const prefix = await defaultPrefix(operation, side === 'hunting' ? qso : undefined)
+    return { placeholder: `${prefix}-...`, transforms: transformsForPrefix(prefix) }
+  },
   tFor,
   // app-polo names every hunted bunker in a single record's SIG_INFO.
   splitRecordsPerHuntedRef: false,
   // Derived from the scorer's own rule, not a separate flag — the UI control
   // and the scorer can't disagree about whether this award allows n-fers.
   allowsMultiple: WWBOTA_SCORING.allowsMultipleReferences,
-})
-
-const activityHook = withRefInput(factoryActivityHook, async ({ operation, qso, side }) => {
-  const prefix = await defaultPrefix(operation, side === 'hunting' ? qso : undefined)
-  return { placeholder: `${prefix}-...`, transforms: transformsForPrefix(prefix) }
 })
 
 function refsOfType(container: Record<string, unknown>, type: string): Ref[] {

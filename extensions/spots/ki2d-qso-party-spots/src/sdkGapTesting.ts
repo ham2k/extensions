@@ -9,7 +9,7 @@
 //
 // Nothing here may DIVERGE — it is the SDK's implementation verbatim, so that
 // a hook proved here behaves the same way under the app's own harness.
-// `sdkGap.ts` is the name to grep for: every copy in this repository deletes
+// `sdkGapTesting.ts` is the name to grep for: every copy in this repository deletes
 // together, the day the SDK publishes what it holds.
 //
 // Test-only. `index.ts` never imports it, so no bundle carries it.

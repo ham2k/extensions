@@ -345,8 +345,8 @@ function packageJsonFor(key, party) {
       "@ham2k/qso-parties": "^0.1.0",
     },
     devDependencies: {
-      "@ham2k/extension-sdk": "^0.2.0",
-      "@ham2k/extension-tools": "^0.2.0",
+      "@ham2k/extension-sdk": "^0.3.0",
+      "@ham2k/extension-tools": "^0.3.0",
       esbuild: "^0.25.5",
     },
     engines: { node: ">=24" },

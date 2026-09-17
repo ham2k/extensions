@@ -386,15 +386,14 @@ The app's extensions build against the SDK's **source**; these build against the
 
 - **A symbol the published SDK does not export yet** goes into the extension's
   own `src/sdkGap.ts`, copied verbatim from the SDK with a comment saying what it
-  is a copy of. `looksLikeReference` is POTA's one, and SOTA's. The hook-test
-  harness — `loadExtension`, `fixtureOperation`, `fixtureQso` — is the other,
-  in `src/sdkGapTesting.ts` beside it wherever an extension has hook tests: the
-  SDK holds it in `src/testing.ts` and keeps it out of the barrel deliberately,
-  so every extension does not bundle it, and publishes no `./testing` subpath to
-  import it by instead — and a test-only copy gets its own file so that the
-  runtime copies in `sdkGap.ts` do not drag it into the bundle. Grep for
-  `sdkGap` to find every such debt at once, and delete them when the SDK next
-  publishes.
+  is a copy of, and is deleted the day the SDK publishes it — 0.3.0 emptied every
+  runtime copy there was. The one standing debt is the hook-test harness —
+  `loadExtension`, `fixtureOperation`, `fixtureQso` — in `src/sdkGapTesting.ts`
+  wherever an extension has hook tests: the SDK holds it in `src/testing.ts` and
+  keeps it out of the barrel deliberately, so every extension does not bundle
+  it, and publishes no `./testing` subpath to import it by instead. A test-only
+  copy gets its own file so that a runtime copy in `sdkGap.ts` never drags it
+  into the bundle. Grep for `sdkGap` to find every such debt at once.
 - **The published `dist/` is bundler-only**: its barrel re-exports `./types` with
   no file extension and its catalogs import `.json` with no import attribute.
   esbuild resolves both, which is why every bundle builds; Node resolves neither,

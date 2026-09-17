@@ -18,12 +18,10 @@ import {
   huntingExportHook,
   referenceActivity,
 } from "@ham2k/extension-sdk"
-import type { DataFileDefinition, HookContext } from "@ham2k/extension-sdk"
+import type { DataFileDefinition, HookContext, RefTransform } from "@ham2k/extension-sdk"
 
 import { tFor } from "./i18n.ts"
 
-import { withRefInput } from "./sdkGap.ts"
-import type { RefTransform } from "./sdkGap.ts"
 import manifest from "../manifest.json" with { type: "json" }
 
 const HUNTING_TYPE = 'siota'
@@ -58,7 +56,7 @@ const SIOTA_SCORING = {
   p2pLabel: (ctx: HookContext) => tFor(ctx)('s2s'),
 }
 
-const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImportHook } = referenceActivity({
+const { refHandler, activityHook, adifFieldsHook, adifImportHook } = referenceActivity({
   key: 'siota',
   label: 'SiOTA',
   activationType: ACTIVATION_TYPE,
@@ -67,6 +65,7 @@ const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImpor
   icon: manifest.icon,
   color: manifest.accentColor,
   placeholder: 'VK-ABC123',
+  transforms: TRANSFORMS,
   tFor,
   linkUrl: (reference: string) => `https://www.silosontheair.com/silo/${encodeURIComponent(reference)}`,
   // app-polo names every hunted silo in a single record's SIG_INFO.
@@ -78,8 +77,6 @@ const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImpor
   // and the scorer can't disagree about whether this award allows n-fers.
   allowsMultiple: SIOTA_SCORING.allowsMultipleReferences,
 })
-
-const activityHook = withRefInput(factoryActivityHook, () => ({ transforms: TRANSFORMS }))
 
 const siotaDataFile: DataFileDefinition = {
   key: `${manifest.key}-all-silos`,

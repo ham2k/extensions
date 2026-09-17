@@ -20,15 +20,18 @@ import { registerHooks } from "node:module"
 
 import type { ExportRequest, HookContext } from "@ham2k/extension-sdk"
 
+// The real SDK, with the host boundary swapped: `hooks.invokeOne` is what
+// reaches the core's ADIF generator, and here it echoes what it was handed
+// back as the file — the per-QSO resolution is the generator's job and is
+// tested with it. Everything else, `adifForExport` included, is the SDK's own,
+// so a delegating export that dropped `segments` would fail HERE and not only
+// on the host. The file NAME is fixed too: the SDK's reads the operation's
+// date, and the clock when it has none, and neither is what these tests are
+// about. A local name shadows the same name from `export *`.
 const SDK_STUB = `
-export function contestScorer(scorer, options) {
-  return { scorer, scope: options?.scope, scoreQsos: async () => ({}) }
-}
-export function entityPrefixForCall(call) { return undefined }
+export * from "sdk:real"
 export function exportFilename({ activity, extension }) { return activity + '.' + extension }
 export function startMillisOf() { return 0 }
-// What the core ADIF generator is handed, echoed back as the file — the
-// per-QSO resolution is the generator's job and is tested with it.
 export const hooks = {
   async invokeOne(hook, key, method, { operation, segments, mainHandler }) {
     return [{ ok: true, key, value: { content: JSON.stringify({ mainHandler, refs: operation.refs, segments }) } }]
@@ -38,6 +41,9 @@ export const hooks = {
 
 registerHooks({
   resolve(specifier, context, next) {
+    // Resolved from this file, not from the stub: `stub:sdk` is no place to
+    // look a bare specifier up from.
+    if (specifier === 'sdk:real') return next('@ham2k/extension-sdk', { ...context, parentURL: import.meta.url })
     if (specifier === '@ham2k/extension-sdk') return { url: 'stub:sdk', shortCircuit: true }
     return next(specifier, context)
   },

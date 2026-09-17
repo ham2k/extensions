@@ -10,12 +10,13 @@
 // see `ourLocationForQso`. Nothing about where we were is stamped onto a
 // contact; a stamp is a copy a later correction cannot reach.
 
-import { exportFilename, startMillisOf } from "@ham2k/extension-sdk"
+import { adifForExport, exportFilename, startMillisOf } from "@ham2k/extension-sdk"
 import type {
   AdifFieldsHook,
   ExportHook,
   ExportOption,
   ExportOptionsRequest,
+  ExportRequest,
   ExportResult,
   HookContext,
   JSONValue,
@@ -30,7 +31,6 @@ import {
 } from "./exchange.ts"
 import { allInParty, parseLocations } from "./location.ts"
 import type { QsoPartyParams } from "./params.ts"
-import { adifForExport, type SegmentedExportRequest } from "./sdkGap.ts"
 import { type Party, resolveLabel, resolveParty } from "./party.ts"
 
 function filenameFor(
@@ -132,7 +132,7 @@ export function qsoPartyExport(params: QsoPartyParams): ExportHook {
       return options
     },
 
-    async generateExport(args: SegmentedExportRequest, _ctx: HookContext): Promise<ExportResult> {
+    async generateExport(args: ExportRequest, _ctx: HookContext): Promise<ExportResult> {
       // Only the two exportTypes offered above: a hook answering for an
       // exportType it never offered makes the ADIF delegation recurse.
       if (args.exportType !== 'cabrillo' && args.exportType !== 'contest-adif') {

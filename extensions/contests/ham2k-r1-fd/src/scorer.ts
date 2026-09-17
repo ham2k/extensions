@@ -18,7 +18,7 @@
 import { fmtInteger } from "@ham2k/lib-format-tools"
 import { parseCallsign } from "@ham2k/lib-callsigns"
 import type { ContestScorer, JSONValue, QsoScoreVerdict, ScoreTally } from "@ham2k/extension-sdk"
-import { annotateCallAgainstCountryFile } from "./sdkGap.ts"
+import { annotateCallAgainstCountryFile } from "@ham2k/extension-sdk"
 
 /// The ref type an operation stores. It is data in the operator's log, so it
 /// stays what the app's own built-in wrote there whatever this package is

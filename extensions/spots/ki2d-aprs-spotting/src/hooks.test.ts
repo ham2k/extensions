@@ -9,7 +9,7 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 
-import { fixtureOperation, loadExtension } from "./sdkGap.ts"
+import { fixtureOperation, loadExtension } from "./sdkGapTesting.ts"
 import { base64 } from "./aprs.ts"
 
 const requests: { url: string; method?: string; headers?: Record<string, string>; body?: string }[] = []

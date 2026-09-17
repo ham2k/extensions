@@ -9,7 +9,7 @@
 import { test, mock } from "node:test"
 import assert from "node:assert/strict"
 
-import { fixtureOperation, loadExtension } from "./sdkGap.ts"
+import { fixtureOperation, loadExtension } from "./sdkGapTesting.ts"
 
 /// Every request the stand-in host was asked for, in order.
 const requests: { url: string; method?: string; headers?: Record<string, string>; body?: string }[] = []

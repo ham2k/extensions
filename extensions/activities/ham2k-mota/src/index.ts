@@ -26,6 +26,7 @@ import type {
   PostResult,
   PostSelfSpotRequest,
   Ref,
+  RefTransform,
   SpotEligibility,
 } from "@ham2k/extension-sdk"
 import { locationToGrid6 } from "@ham2k/lib-geo-tools"
@@ -33,8 +34,6 @@ import { locationToGrid6 } from "@ham2k/lib-geo-tools"
 import { postOtherSpotToGMA, postSelfSpotToGMA } from "@ham2k/lib-gma-spots"
 import { tFor } from "./i18n.ts"
 
-import { withRefInput } from "./sdkGap.ts"
-import type { RefTransform } from "./sdkGap.ts"
 import manifest from "../manifest.json" with { type: "json" }
 
 const HUNTING_TYPE = 'mota'
@@ -70,7 +69,7 @@ const MOTA_SCORING = {
   p2pLabel: (ctx: HookContext) => tFor(ctx)('m2m'),
 }
 
-const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImportHook } = referenceActivity({
+const { refHandler, activityHook, adifFieldsHook, adifImportHook } = referenceActivity({
   key: 'mota',
   label: 'MOTA',
   activationType: ACTIVATION_TYPE,
@@ -79,6 +78,7 @@ const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImpor
   icon: manifest.icon,
   color: manifest.accentColor,
   placeholder: 'X00001',
+  transforms: TRANSFORMS,
   tFor,
   // The GMA site carries the reference lists for the castle, lighthouse and
   // mill programs as well as its own summits — one page per reference,
@@ -90,8 +90,6 @@ const { refHandler, activityHook: factoryActivityHook, adifFieldsHook, adifImpor
   // and the scorer can't disagree about whether this award allows n-fers.
   allowsMultiple: MOTA_SCORING.allowsMultipleReferences,
 })
-
-const activityHook = withRefInput(factoryActivityHook, () => ({ transforms: TRANSFORMS }))
 
 function refsOfType(container: Record<string, unknown>, type: string): Ref[] {
   return (((container.refs as Ref[] | undefined) ?? [])).filter((r) => r.type === type && r.ref)
