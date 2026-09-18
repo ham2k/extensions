@@ -18,8 +18,8 @@ export const PARTY: QsoPartyParams = {
   state: "CA",
   cabrilloName: "CA-QSO-PARTY",
   url: "https://www.cqp.org/",
-  status: "Updated for 2025, but not verified",
-  lastUpdated: "2025-09-08 12:00Z",
+  status: "Verified for 2026 against cqp.org",
+  lastUpdated: "2026-09-17 12:00Z",
   periods: [
     // 2026-10-3 16:00Z — 2026-10-4 21:59Z
     { startMillis: 1791043200000, endMillis: 1791151140000 },
@@ -27,7 +27,7 @@ export const PARTY: QsoPartyParams = {
   countyLine: true,
   dcCountsAsMaryland: true,
   stateCountsForInState: true,
-  pointsByMode: { PHONE: 2, CW: 3 },
+  pointsByMode: { PHONE: 3, CW: 3 },
   exchange: { number: true },
   entryClasses: {
     operator: ["SINGLE-OP", "SINGLE-OP-ASSISTED", "MULTI-ONE", "MULTI-TWO", "MULTI-UNLIMITED"],

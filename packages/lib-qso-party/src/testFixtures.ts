@@ -356,3 +356,46 @@ export const NV = party({
   pointsByMode: { PHONE: 1, CW: 2 },
   counties: { CAR: 'Carson City', CHU: 'Churchill' },
 })
+
+/// Arizona: the two sides of the state line multiply differently. Out of
+/// state, the counties again on every band and mode; in state, states,
+/// provinces and entities once per mode and never a county — the county
+/// multiplies as Arizona, which is also the own state `stateCountsForInState`
+/// adds, so the two rules name ONE multiplier.
+export const AZ = party({
+  refType: 'az-qso-party',
+  name: 'Arizona QSO Party',
+  short: 'AZQP',
+  state: 'AZ',
+  countyLine: true,
+  dcCountsAsMaryland: true,
+  stateCountsForInState: true,
+  dxEntityIsMultiplier: true,
+  multsPerMode: true,
+  outOfStateMultsPerBand: true,
+  bonusPostMultiplier: true,
+  countiesAreMultipliersInParty: false,
+  pointsByMode: { PHONE: 1, CW: 2 },
+  bonusStations: { K7A: 100 },
+  counties: { MCP: 'Maricopa', PMA: 'Pima', YMA: 'Yuma' },
+})
+
+/// Pennsylvania: every DX station together is ONE multiplier, the bonus
+/// station pays on each band and mode, after the multiplier, and the exchange
+/// carries a serial number.
+export const PA = party({
+  refType: 'pa-qso-party',
+  name: 'Pennsylvania QSO Party',
+  short: 'PAQP',
+  state: 'PA',
+  countyLine: true,
+  dcCountsAsMaryland: true,
+  dxIsMultiplier: true,
+  bonusPerBandMode: true,
+  bonusPostMultiplier: true,
+  bonus: { perActivatedCounty: 500, perActivatedCountyMinimumCount: 10, perActivatedCountyRoverOnly: true },
+  pointsByMode: { PHONE: 1, CW: 2 },
+  bonusStations: { K3ZMC: 200 },
+  exchange: { number: true },
+  counties: { ELK: 'Elk', MGY: 'Montgomery' },
+})

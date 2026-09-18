@@ -59,16 +59,23 @@ const DIVERGENCE_NOTES = {
     "file back over this one without re-reading the sponsor.",
   ],
   NV: [
-    "DIVERGES from app-polo, deliberately. polo's copy still carries 2025 dates",
-    "and no rules URL. These dates are DERIVED from the sponsor's standing rule",
-    "(the second weekend in October), because their own site still shows 2025 —",
-    "so re-read them before the event rather than trusting them outright.",
+    "DIVERGES from app-polo, deliberately: polo's copy carries no rules URL. Both",
+    "carry dates DERIVED from the sponsor's standing rule (the second weekend in",
+    "October), because their own site still shows 2025 — so re-read them before",
+    "the event rather than trusting them outright.",
   ],
   SC: [
     "DIVERGES from app-polo, deliberately. polo's copy ends on 2025-2-29, a date",
     "that year does not have, which a date parser rolls forward into a period",
     "the sponsor never published. These dates were re-read from the sponsor's",
     "own rules in September 2026. Never take polo's file back over this one.",
+  ],
+  SD: [
+    "DIVERGES from app-polo, deliberately. polo's copy assumes `SD-QSO-PARTY` as the",
+    "Cabrillo name because the sponsor names none; the Cabrillo registry at",
+    "contestcalendar.com lists `SDQSOP`, which is also this party's ref type.",
+    "Never take polo's file back over this one: it would rename the contest every",
+    "submitted log declares, and the extension's own identity with it.",
   ],
   NS: [
     "The sponsor's contest page is gone (404) and app-polo marks this party",

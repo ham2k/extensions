@@ -24,7 +24,7 @@ import type { QsoPartyScoresheet } from "./index.ts"
 import type { QsoPartyParams } from "./params.ts"
 import { resolveParty } from "./party.ts"
 import { multiplierPrefix, qsoPartyScorer } from "./scorer.ts"
-import { ACQP, CO, DE, ID, IL, ME, NC, NEQP, NH, NV, NY, OH, SC, SEVEN_QP, TN, WI, WV } from "./testFixtures.ts"
+import { ACQP, AZ, CO, DE, ID, IL, ME, NC, NEQP, NH, NV, NY, OH, PA, SC, SEVEN_QP, TN, WI, WV } from "./testFixtures.ts"
 
 const ctx = { online: false } as never
 
@@ -620,4 +620,69 @@ test('the band table separates digital from CW even where the party scores them 
   // operator which of the two they worked.
   const { summary } = run([qso({ mode: 'FT8', location: 'NJ', refType: DE.refType })], { params: DE, ourLocation: 'NDE' })
   assert.match(summary().longSummary as string, /\*\*20m\*\*: 0 CW, 0 SSB, 1 Digital, \*\*1 total\*\*/)
+})
+
+test('Arizona multiplies by county per band and mode outside, by state per mode inside', () => {
+  // Out of state: a county counts again on every band and every mode.
+  const outside = run([
+    qso({ location: 'MCP', refType: AZ.refType }),
+    qso({ location: 'MCP', band: '40m', refType: AZ.refType }),
+    qso({ location: 'MCP', band: '40m', mode: 'SSB', refType: AZ.refType }),
+  ], { params: AZ, ourLocation: 'NY' })
+  assert.deepEqual(Object.keys(outside.sheet.mults).sort(), ['20m:CW:MCP', '40m:CW:MCP', '40m:PHONE:MCP'])
+
+  // In state: two Arizona counties on CW are one multiplier, Arizona itself —
+  // and `stateCountsForInState` names the same one, not a second. A DX station
+  // with no exchange is its entity, never a state that shares its prefix: `PA`
+  // read as a location would be Pennsylvania.
+  const inside = run([
+    qso({ location: 'MCP', refType: AZ.refType }),
+    qso({ call: 'K1ABD', location: 'YMA', refType: AZ.refType }),
+    qso({ call: 'K1ABE', location: 'NY', refType: AZ.refType }),
+    qso({ call: 'K1ABF', location: 'NY', band: '40m', refType: AZ.refType }),
+    qso({ call: 'PA3XYZ', entityPrefix: 'PA', refType: AZ.refType }),
+  ], { params: AZ, ourLocation: 'PMA' })
+  assert.deepEqual(Object.keys(inside.sheet.mults).sort(), ['CW:AZ', 'CW:DX:PA', 'CW:NY'])
+  assert.equal(inside.sheet.entities.PA, 1)
+  assert.equal(inside.sheet.states.PA, undefined)
+
+  // The county still identifies the station: the same one from the same county
+  // is a repeat, and a mobile that has moved is a fresh contact worth points.
+  const repeat = run([
+    qso({ call: 'K7XX', location: 'MCP', refType: AZ.refType }),
+    qso({ call: 'K7XX', location: 'MCP', refType: AZ.refType }),
+  ], { params: AZ, ourLocation: 'PMA' })
+  assert.equal(repeat.sheet.dupes, 1)
+  const moved = run([
+    qso({ call: 'K7XX', location: 'MCP', refType: AZ.refType }),
+    qso({ call: 'K7XX', location: 'YMA', refType: AZ.refType }),
+  ], { params: AZ, ourLocation: 'PMA' })
+  assert.equal(moved.sheet.dupes, 0)
+  assert.equal(moved.sheet.points, 4)
+
+  // Total = (QSO points × multipliers) + bonus, with K7A worth 100 once.
+  const bonus = run([
+    qso({ call: 'K7A', location: 'MCP', refType: AZ.refType }),
+    qso({ call: 'K7A', location: 'MCP', band: '40m', refType: AZ.refType }),
+  ], { params: AZ, ourLocation: 'NY' })
+  assert.equal(bonus.summary().total, 4 * 2 + 100)
+})
+
+test('Pennsylvania counts all DX as one multiplier, and its bonus station per band after the multiplier', () => {
+  const dx = run(
+    ['DL', 'F', 'G'].map((prefix, index) => qso({ call: `${prefix}1AA${index}`, entityPrefix: prefix, refType: PA.refType })),
+    { params: PA, ourLocation: 'ELK' },
+  )
+  assert.deepEqual(Object.keys(dx.sheet.mults), ['DX'])
+
+  // Each valid QSO with K3ZMC is worth 200, so a second band earns it again.
+  const bonus = run([
+    qso({ call: 'K3ZMC', location: 'MGY', refType: PA.refType }),
+    qso({ call: 'K3ZMC', location: 'MGY', band: '40m', refType: PA.refType }),
+  ], { params: PA, ourLocation: 'ELK' })
+  assert.equal(bonus.sheet.bonusStations.K3ZMC, 400)
+  // Two CW QSOs at 2 points, one multiplier (the county), then the bonus.
+  assert.equal(bonus.sheet.points, 4)
+  assert.equal(multsOf(bonus), 1)
+  assert.equal(bonus.summary().total, 4 * 1 + 400)
 })

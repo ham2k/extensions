@@ -18,8 +18,8 @@ export const PARTY: QsoPartyParams = {
   state: "IL",
   cabrilloName: "IL-QSO-PARTY",
   url: "https://w9awe.org/ilqp/",
-  status: "Updated for 2025, but not verified",
-  lastUpdated: "2025-10-12 12:00Z",
+  status: "Date confirmed for 2026, rules and bonus stations not verified",
+  lastUpdated: "2026-09-17 12:00Z",
   periods: [
     // 2026-10-18 17:00Z — 2026-10-19 01:00Z
     { startMillis: 1792342800000, endMillis: 1792371600000 },

@@ -18,8 +18,8 @@ export const PARTY: QsoPartyParams = {
   state: "NY",
   cabrilloName: "NY-QSO-PARTY",
   url: "https://nyqp.org/",
-  status: "Updated for 2025, but not verified",
-  lastUpdated: "2025-02-20 00:00Z",
+  status: "Matches the 2025 rules, 2026 rules not yet published",
+  lastUpdated: "2026-09-17 12:00Z",
   periods: [
     // 2026-10-17 14:00Z — 2026-10-18 01:59Z
     { startMillis: 1792245600000, endMillis: 1792288740000 },
