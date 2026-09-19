@@ -43,6 +43,7 @@ import { tFor } from "./i18n.ts"
 import {
   NUMBER_PATTERN,
   firstName,
+  guessedName,
   suggestedName,
   guessedQth,
   normalizeNumber,
@@ -58,6 +59,10 @@ import {
   sessionsFrom,
 } from "./schedule.ts"
 import { CWTScorer, contestTitle } from "./scorer.ts"
+import { DataFile, fileCache, Settings } from "./data/hooks.ts"
+import { createPrefill } from "./integration/prefill.ts"
+import { callFilterCategory } from '../../../../packages/spot-filters/src/index.ts'
+import { callFilter } from './data/spot-filter.ts'
 
 import manifest from "../manifest.json" with { type: "json" }
 
@@ -225,7 +230,7 @@ const ActivityHook = {
 
     const t = tFor(ctx)
     const their = ((qso?.their as Record<string, JSONValue>) ?? {})
-    const name = await suggestedName(ctx, operation, qso)
+    const name = guessedName(their)
     const qth = guessedQth(their)
 
     return [
@@ -476,16 +481,23 @@ const ExportHook = {
   },
 }
 
+const prefill = createPrefill(fileCache, ActivityHook)
+
 defineExtension({
   ...manifest,
   onActivation({ registerHook }) {
-    registerHook('activity', { hook: ActivityHook, key: manifest.key })
+    registerHook('activity', { hook: prefill.activity, key: manifest.key })
     registerHook(`ref:${TYPE}`, { hook: RefHandler, key: manifest.key })
     registerHook('adifFields', { hook: AdifFieldsHook, key: manifest.key })
     registerHook('export', { hook: ExportHook, key: manifest.key })
     registerHook('scoring', {
-      hook: contestScorer(CWTScorer, { scope: { refTypes: [TYPE] } }),
+      hook: prefill.scoring(contestScorer(CWTScorer, { scope: { refTypes: [TYPE] } })),
       key: manifest.key,
     })
+    registerHook('lookup', { hook: prefill.lookup, key: manifest.key })
+    registerHook('dataFile', { hook: DataFile, key: DataFile.key })
+    registerHook('settingsPanel', { hook: Settings, key: manifest.key })
+    registerHook(callFilterCategory, { hook: callFilter, key: manifest.key })
+    void fileCache.load()
   },
 })
