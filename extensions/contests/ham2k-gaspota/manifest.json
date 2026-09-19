@@ -1,0 +1,63 @@
+{
+  "key": "ham2k-gaspota",
+  "name": "GASPOTA: Georgia State Parks on the Air",
+  "shortName": "GASPOTA",
+  "version": "0.1.0",
+  "description": "Georgia State Parks on the Air — the April event, scored for activators and hunters from the Georgia state parks you activate and work alongside POTA",
+  "category": "contest",
+  "icon": "fruit-cherries",
+  "accentColor": "#C2410C",
+  "api": 1,
+  "keywords": [
+    "contest",
+    "gaspota",
+    "gasp",
+    "gapota",
+    "ga-pota",
+    "georgia",
+    "ga",
+    "stateparks",
+    "park",
+    "parks",
+    "pota"
+  ],
+  "relevance": {
+    "countries": [
+      "us",
+      "ca"
+    ],
+    "dates": [
+      "2026-04-18"
+    ]
+  },
+  "hooks": [
+    "activity",
+    "adifFields",
+    "export",
+    "ref:gaspota",
+    "ref:stateparks/gasp",
+    "scoring"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "name": "GASPOTA: Parques Estatales de Georgia en el Aire",
+      "description": "Georgia State Parks on the Air — el evento de abril, puntuado para activadores y cazadores con los parques estatales de Georgia que activas y trabajas junto con POTA",
+      "keywords": [
+        "concurso",
+        "parque",
+        "parques",
+        "estatal"
+      ]
+    }
+  }
+}

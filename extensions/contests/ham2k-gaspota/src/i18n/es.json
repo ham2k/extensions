@@ -1,0 +1,7 @@
+{
+  "parkAdifExport": "ADIF para {{contest}} en {{ref}}",
+  "addPota": "**Agrega también tu activación POTA** — este evento no tiene intercambio propio. Se puntúa con el parque estatal de Georgia que activas y los parques que trabajas, como referencias POTA.",
+  "period": "**Período:** {{period}}",
+  "scoring": "**Activadores:** (QSOs + 5 × parques distintos de Georgia trabajados) × parques activados. **Cazadores:** parques de Georgia trabajados × contactos con ellos, más 100 por ambos días UTC. Una estación cuenta una vez por banda y modo desde cada parque que activas; 60, 30, 17 y 12 m no cuentan.",
+  "submit": "**Envía** tus logs en [gaparks.org](https://gaparks.org/) dentro de 14 días; los cazadores se registran allí en vez de enviar un log. Los bonos de repetición, primera activación y caminata se acreditan allí."
+}

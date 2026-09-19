@@ -21,30 +21,40 @@ app-polo's `qp` extension carried inside it, and an APRS position beacon.
 
 ## What is here
 
-92 extensions, grouped by the manifest's own `category`:
+95 extensions, grouped by the manifest's own `category`:
 
 | directory | manifest `category` | n | of which |
 |---|---|--:|---|
 | `extensions/activities/` | `activity` | 18 | 18 ported built-ins |
-| `extensions/contests/` | `contest` | 65 | 15 ported built-ins, 49 QSO party events, 1 new park event |
+| `extensions/contests/` | `contest` | 68 | 14 ported built-ins, 49 QSO party events, 5 park events |
 | `extensions/lookups/` | `lookup` | 5 | 5 ported built-ins |
 | `extensions/spots/` | `spots` | 3 | 1 ported built-in, 2 new spotting sources |
 | `extensions/dashboard/` | `dashboard` | 1 | 1 ported built-in |
-| **total** | | **92** | **40 ported, 52 new** |
+| **total** | | **95** | **39 ported, 56 new** |
 
-The 40 are the app's own extensions, ported one for one. The 52 are new: events
-the app has never shipped separately, a park contest, and two spotting sources:
+The 39 are the app's own extensions, ported one for one. The 56 are new: events
+the app has never shipped separately, five state-park events, and two spotting
+sources:
 
-- **`ham2k-wipota`** is [Wisconsin Parks on the Air](https://wipota.com), and
-  the one contest here written for the catalog rather than ported or generated.
-  It is played through POTA the way `ham2k-stateparks`' Texas, Florida and
-  Georgia are — no exchange field, the parks read off the POTA refs already
-  being logged — and is its own extension rather than a fifth event there
-  because `stateparks` is a ported built-in, which stays unpublished. "A
-  Wisconsin park" is POTA's own `location` on the ref, with a snapshot of
-  POTA's Wisconsin list (`src/wi-parks.json`) behind it for a ref logged
-  offline. Its dates are this year's, in `src/index.ts` and the manifest's
-  `relevance.dates`; both move each September.
+- **The state-park events** — `ham2k-txspota`, `ham2k-flspota`,
+  `ham2k-gaspota`, `ham2k-ohspota` and `ham2k-wispota` — are one extension
+  each, written for the catalog from each sponsor's own rules rather than
+  ported or generated. They share NO code, deliberately: each scorer follows
+  its own sponsor and is free to diverge, and they already do — Texas adds its
+  multipliers, Georgia scores hunters by a formula of their own, Ohio splits a
+  multi-park operator into one entry per park. Each file cites the rules
+  document and sections it implements; re-read those when a new season is
+  published, and move the dates in `src/event.ts` (`src/index.ts` for
+  Wisconsin) together with the manifest's `relevance.dates`.
+
+  All five are played through POTA: the parks are the POTA refs already being
+  logged, so only Ohio, whose sponsor exchanges a three-letter park identifier,
+  has an entry-row field. Texas, Florida, Georgia and Ohio were one app
+  built-in, `stateparks`, and an operation logged there carries
+  `{type: 'stateparks', ref: 'TXSP'}`; each event claims its own with a
+  qualified `ref:stateparks/<key>` and answers it as it stands, the way the QSO
+  parties answer `ref:qp/<code>`. Wisconsin answers `wipota`, the type it
+  stored under its first name, `ham2k-wipota`.
 
 - **`ki2d-qso-party-spots`** reads the [QSO Party Hub](http://qsopartyhub.com)
   and the [QSO Party APRS Tracker](https://mobiletracker.stateqso.com) for
@@ -74,6 +84,9 @@ the app has never shipped separately, a park contest, and two spotting sources:
 - **`qp`.** The app's single contest extension covering all fifty QSO parties.
   The 49 per-event extensions in `contests/` are its replacement, so porting it
   as well would offer the same fifty events twice.
+- **`stateparks`.** The app's single extension for the Texas, Florida, Georgia
+  and Ohio state-park events, for the same reason: the four per-event
+  extensions in `contests/` replace it.
 
 ## What is published, and what waits
 
@@ -289,11 +302,12 @@ re-sync and every date moves at once, touching nobody's hand-written prose.
 
 ## Porting a built-in
 
-The app ships 53 extensions of its own. 40 of them are here, ported one for one,
-so that each can ship and update without an app release; the other 13 are the 12
-core ones and `qp`, and **What is NOT here** says why neither comes across.
+The app ships 53 extensions of its own. 39 of them are here, ported one for one,
+so that each can ship and update without an app release; the other 14 are the 12
+core ones, `qp` and `stateparks`, and **What is NOT here** says why none of them
+comes across.
 `extensions/activities/ham2k-pota` is the worked example; every step below is
-one it went through. **None of the 40 is published while the app still ships its
+one it went through. **None of the 39 is published while the app still ships its
 built-in copy** — see **Nothing ported is published**.
 
 1. **Copy.** `src/**` (tests included), `manifest.json`, and the `src/i18n/*.json`

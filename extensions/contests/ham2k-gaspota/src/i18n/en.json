@@ -1,0 +1,7 @@
+{
+  "parkAdifExport": "ADIF for {{contest}} at {{ref}}",
+  "addPota": "**Add your POTA activation too** — this event has no exchange of its own. It is scored from the Georgia state park you activate and the parks you work, as POTA references.",
+  "period": "**Period:** {{period}}",
+  "scoring": "**Activators:** (QSOs + 5 × distinct Georgia parks worked) × parks activated. **Hunters:** Georgia parks worked × contacts with them, plus 100 for both UTC days. A station counts once per band and mode from each park you activate; 60, 30, 17 and 12 m do not count.",
+  "submit": "**Submit** your logs at [gaparks.org](https://gaparks.org/) within 14 days; hunters register there instead of sending a log. The repeat, first-time and hike-in bonuses are credited there."
+}

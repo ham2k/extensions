@@ -1,0 +1,64 @@
+{
+  "key": "ham2k-ohspota",
+  "name": "OSPOTA: Ohio State Parks On The Air",
+  "shortName": "OSPOTA",
+  "version": "0.1.0",
+  "description": "Ohio State Parks On The Air — PCARS's September contest, with the park-identifier exchange and the Cabrillo the sponsor takes",
+  "category": "contest",
+  "icon": "flag-checkered",
+  "accentColor": "#1D4ED8",
+  "api": 1,
+  "keywords": [
+    "contest",
+    "ospota",
+    "ohspota",
+    "ohsp",
+    "ohio",
+    "oh",
+    "stateparks",
+    "park",
+    "parks",
+    "pota",
+    "cabrillo"
+  ],
+  "relevance": {
+    "countries": [
+      "us",
+      "ca"
+    ],
+    "dates": [
+      "2026-09-12"
+    ]
+  },
+  "hooks": [
+    "activity",
+    "adifFields",
+    "export",
+    "ref:ohspota",
+    "ref:stateparks/ohsp",
+    "scoring"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "@ham2k/lib-qson-cabrillo": "^1.2.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "name": "OSPOTA: Parques Estatales de Ohio en el Aire",
+      "description": "Ohio State Parks On The Air — el concurso de septiembre de PCARS, con el intercambio de identificador de parque y el Cabrillo que pide el organizador",
+      "keywords": [
+        "concurso",
+        "parque",
+        "parques",
+        "estatal"
+      ]
+    }
+  }
+}

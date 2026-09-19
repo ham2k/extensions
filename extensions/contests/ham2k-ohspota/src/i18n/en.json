@@ -1,0 +1,12 @@
+{
+  "ourParkLabel": "Our Park",
+  "ourPowerLabel": "Power",
+  "ourCategoryLabel": "Entry Category",
+  "powerLP": "Low Power",
+  "powerHP": "High Power",
+  "theirParkLabel": "Park",
+  "cabrilloExport": "Cabrillo for {{contest}}",
+  "period": "**Period:** {{period}}",
+  "scoring": "**Score:** QSOs × Ohio state parks, the one you are in included. SSB and CW only, on 80, 40, 20, 15 and 10 m, once per band and mode. Each park you operate from is its own entry, and needs 10 contacts, 4 of them with other parks.",
+  "submit": "**Submit** the Cabrillo, with a summary sheet for each park, to LOGS@ospota.org within 14 days."
+}

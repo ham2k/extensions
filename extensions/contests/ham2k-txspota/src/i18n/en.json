@@ -1,0 +1,12 @@
+{
+  "parkAdifExport": "ADIF for {{contest}} at {{ref}}",
+  "ourPowerLabel": "Power",
+  "powerQRP": "QRP",
+  "powerLP": "Low Power",
+  "powerHP": "High Power",
+  "addPota": "**Add your POTA activation too** — this event has no exchange of its own. It is scored from the Texas state park you activate and the parks you work, as POTA references.",
+  "period": "**Period:** {{period}}",
+  "scoring": "**Score:** QSO points × (power + Texas parks worked + parks activated) + bonuses. CW is 2 points, everything else 1. A station counts once per band, mode and park; 60, 30, 17 and 12 m do not count. Outside a Texas state park, only contacts with one count.",
+  "bonuses": "**Bonuses:** 5 for K5LRK, 50 for activating more than three parks, 50 for working one activator in three parks. The park-sign photo bonus is claimed when you upload.",
+  "submit": "**Submit** at [tspota.org](https://www.tspota.org/) by the end of April."
+}

@@ -1,0 +1,60 @@
+{
+  "key": "ham2k-wispota",
+  "name": "WIPOTA: Wisconsin Parks on the Air",
+  "shortName": "WIPOTA",
+  "version": "0.1.0",
+  "description": "Wisconsin Parks on the Air — the Fox Cities ARC's September contest, scored from the Wisconsin POTA parks you operate in and the ones you work",
+  "category": "contest",
+  "icon": "pine-tree",
+  "accentColor": "#1B7A2B",
+  "api": 1,
+  "keywords": [
+    "contest",
+    "wipota",
+    "wispota",
+    "wisconsin",
+    "wi",
+    "park",
+    "parks",
+    "pota",
+    "fcarc"
+  ],
+  "relevance": {
+    "countries": [
+      "us",
+      "ca"
+    ],
+    "dates": [
+      "2026-09-19"
+    ]
+  },
+  "hooks": [
+    "activity",
+    "adifFields",
+    "export",
+    "ref:wipota",
+    "ref:wispota",
+    "scoring"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "name": "WIPOTA: Parques de Wisconsin en el Aire",
+      "description": "Wisconsin Parks on the Air — el concurso de septiembre del Fox Cities ARC, puntuado con los parques POTA de Wisconsin desde los que operas y los que trabajas",
+      "keywords": [
+        "concurso",
+        "parque",
+        "parques"
+      ]
+    }
+  }
+}

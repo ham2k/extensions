@@ -1,0 +1,39 @@
+// Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>
+// SPDX-License-Identifier: MIT
+//
+// Whose reference a ref is decides everything downstream: the scorer's scope
+// hands this extension every legacy state-parks operation, and only `isOurRef`
+// stands between Georgia's rules and a Texas log.
+
+import { test } from "node:test"
+import assert from "node:assert/strict"
+
+import { eventRefIn, isOurRef, ourParks, theirParks } from "./parks.ts"
+
+test("ours is our own type, or the combined extension's ref naming Georgia", () => {
+  assert.equal(isOurRef({ type: 'gaspota' }), true)
+  assert.equal(isOurRef({ type: 'stateparks', ref: 'GASP' }), true)
+  assert.equal(isOurRef({ type: 'stateparks', ref: 'gasp' }), true)
+  assert.equal(isOurRef({ type: 'stateparks', ref: 'TXSP' }), false)
+  assert.equal(isOurRef({ type: 'stateparks' }), false)
+  assert.equal(isOurRef({ type: 'flspota' }), false)
+  assert.equal(isOurRef(undefined), false)
+})
+
+test("our own type wins where an operation carries both", () => {
+  const own = { type: 'gaspota' }
+  assert.equal(eventRefIn({ refs: [{ type: 'stateparks', ref: 'GASP' }, own] }), own)
+  assert.equal(eventRefIn({ refs: [{ type: 'stateparks', ref: 'OHSP' }] }), undefined)
+})
+
+test("only a listed park is one of ours; every POTA park is one of theirs", () => {
+  const operation = { refs: [{ type: 'potaActivation', ref: 'us-2165' }, { type: 'potaActivation', ref: 'US-5579' }] }
+  assert.deepEqual(ourParks(operation), ['US-2165'])
+  const qso = { refs: [{ type: 'pota', ref: 'US-5579' }, { type: 'pota', ref: 'US-2166' }, { type: 'pota', ref: 'US-2166' }] }
+  assert.deepEqual(theirParks(qso), ['US-5579', 'US-2166'])
+})
+
+test("each side reads its OWN ref type", () => {
+  assert.deepEqual(ourParks({ refs: [{ type: 'pota', ref: 'US-2165' }] }), [])
+  assert.deepEqual(theirParks({ refs: [{ type: 'potaActivation', ref: 'US-2165' }] }), [])
+})

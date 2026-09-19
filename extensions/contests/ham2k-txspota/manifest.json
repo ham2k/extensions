@@ -1,0 +1,63 @@
+{
+  "key": "ham2k-txspota",
+  "name": "TSPOTA: Texas State Parks On The Air",
+  "shortName": "TSPOTA",
+  "version": "0.1.0",
+  "description": "Texas State Parks On The Air — the Lake Area ARK's April event, scored from the Texas state parks you activate and work alongside POTA",
+  "category": "contest",
+  "icon": "star-circle",
+  "accentColor": "#B91C1C",
+  "api": 1,
+  "keywords": [
+    "contest",
+    "tspota",
+    "txspota",
+    "txsp",
+    "texas",
+    "tx",
+    "stateparks",
+    "park",
+    "parks",
+    "pota",
+    "k5lrk"
+  ],
+  "relevance": {
+    "countries": [
+      "us",
+      "ca"
+    ],
+    "dates": [
+      "2026-04-18"
+    ]
+  },
+  "hooks": [
+    "activity",
+    "adifFields",
+    "export",
+    "ref:stateparks/txsp",
+    "ref:txspota",
+    "scoring"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "name": "TSPOTA: Parques Estatales de Texas en el Aire",
+      "description": "Texas State Parks On The Air — el evento de abril del Lake Area ARK, puntuado con los parques estatales de Texas que activas y trabajas junto con POTA",
+      "keywords": [
+        "concurso",
+        "parque",
+        "parques",
+        "estatal"
+      ]
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "key": "ham2k-flspota",
+  "name": "FSPOTA: Florida State Parks on the Air",
+  "shortName": "FSPOTA",
+  "version": "0.1.0",
+  "description": "Florida State Parks on the Air — the Tamiami ARC's April event, scored from the Florida state parks you activate alongside your POTA activation",
+  "category": "contest",
+  "icon": "palm-tree",
+  "accentColor": "#00695C",
+  "api": 1,
+  "keywords": [
+    "contest",
+    "fspota",
+    "flspota",
+    "flsp",
+    "florida",
+    "fl",
+    "stateparks",
+    "park",
+    "parks",
+    "pota"
+  ],
+  "relevance": {
+    "countries": [
+      "us",
+      "ca"
+    ],
+    "dates": [
+      "2026-04-17"
+    ]
+  },
+  "hooks": [
+    "activity",
+    "adifFields",
+    "export",
+    "ref:flspota",
+    "ref:stateparks/flsp",
+    "scoring"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "name": "FSPOTA: Parques Estatales de Florida en el Aire",
+      "description": "Florida State Parks on the Air — el evento de abril del Tamiami ARC, puntuado con los parques estatales de Florida que activas junto con tu activación POTA",
+      "keywords": [
+        "concurso",
+        "parque",
+        "parques",
+        "estatal"
+      ]
+    }
+  }
+}
