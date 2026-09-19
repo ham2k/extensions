@@ -17,11 +17,14 @@
     "to the host's instance at build time, so the bundle needs none of them",
     "installed. The unit tests do: `node --test` runs the source as it is, with",
     "Node's own resolver, so every bare specifier it reaches has to be on disk.",
-    "These are the ones this extension's own tests reach through the SDK."
+    "These are the ones this extension's own tests reach through the SDK.",
+    "Keep the SDK at 0.6.0 while the temporary spotCallFilter:v1 transport is in use.",
+    "SDK 0.8.1 closes category types; the host still supports this existing bridge.",
+    "Move to newer SDKs when the bridge has a supported replacement."
   ],
   "devDependencies": {
-    "@ham2k/extension-sdk": "^0.8.1",
-    "@ham2k/extension-tools": "^0.6.0",
+    "@ham2k/extension-sdk": "0.6.0",
+    "@ham2k/extension-tools": "0.6.0",
     "esbuild": "^0.25.5"
   },
   "engines": {
