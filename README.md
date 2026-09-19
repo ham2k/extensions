@@ -21,19 +21,30 @@ app-polo's `qp` extension carried inside it, and an APRS position beacon.
 
 ## What is here
 
-91 extensions, grouped by the manifest's own `category`:
+92 extensions, grouped by the manifest's own `category`:
 
 | directory | manifest `category` | n | of which |
 |---|---|--:|---|
 | `extensions/activities/` | `activity` | 18 | 18 ported built-ins |
-| `extensions/contests/` | `contest` | 64 | 15 ported built-ins, 49 QSO party events |
+| `extensions/contests/` | `contest` | 65 | 15 ported built-ins, 49 QSO party events, 1 new park event |
 | `extensions/lookups/` | `lookup` | 5 | 5 ported built-ins |
 | `extensions/spots/` | `spots` | 3 | 1 ported built-in, 2 new spotting sources |
 | `extensions/dashboard/` | `dashboard` | 1 | 1 ported built-in |
-| **total** | | **91** | **40 ported, 51 new** |
+| **total** | | **92** | **40 ported, 52 new** |
 
-The 40 are the app's own extensions, ported one for one. The 51 are new: events
-the app has never shipped separately, and two spotting sources:
+The 40 are the app's own extensions, ported one for one. The 52 are new: events
+the app has never shipped separately, a park contest, and two spotting sources:
+
+- **`ham2k-wipota`** is [Wisconsin Parks on the Air](https://wipota.com), and
+  the one contest here written for the catalog rather than ported or generated.
+  It is played through POTA the way `ham2k-stateparks`' Texas, Florida and
+  Georgia are — no exchange field, the parks read off the POTA refs already
+  being logged — and is its own extension rather than a fifth event there
+  because `stateparks` is a ported built-in, which stays unpublished. "A
+  Wisconsin park" is POTA's own `location` on the ref, with a snapshot of
+  POTA's Wisconsin list (`src/wi-parks.json`) behind it for a ref logged
+  offline. Its dates are this year's, in `src/index.ts` and the manifest's
+  `relevance.dates`; both move each September.
 
 - **`ki2d-qso-party-spots`** reads the [QSO Party Hub](http://qsopartyhub.com)
   and the [QSO Party APRS Tracker](https://mobiletracker.stateqso.com) for
