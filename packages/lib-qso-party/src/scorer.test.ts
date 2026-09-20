@@ -123,6 +123,34 @@ test('an exchange that was never sent, and one that means nothing', () => {
   assert.deepEqual(run([qso({ location: 'ZZZ', entityPrefix: '' })]).scores[0].alerts, ['invalidExchange'])
 })
 
+test('an exchange nobody typed is scored from what we know of where they are', () => {
+  // Nothing was copied, so rather than refuse the contact both sides read the
+  // state the QSO carries — `their.state` from an operator or an import, or the
+  // lookup's own guess. Through `defaultTheirLocation`, the one function the
+  // export reads too, so a contact cannot be scored under one location and
+  // filed under another.
+  const blank = (their: Record<string, JSONValue>): Record<string, JSONValue> => ({
+    their: { call: 'K1ABC', entityPrefix: 'K', ...their },
+    band: '20m',
+    mode: 'CW',
+    refs: [{ type: NY.refType, location: '' }],
+  })
+
+  const asserted = run([blank({ state: 'NJ' })])
+  assert.ok((asserted.scores[0].value as number) > 0)
+  assert.deepEqual(asserted.scores[0].alerts, undefined)
+  assert.deepEqual(Object.keys(asserted.sheet.mults), ['NJ'])
+
+  // The lookup's own guess reaches it too, which is what a live QSO carries
+  // before the operator touches the State field.
+  assert.deepEqual(Object.keys(run([blank({ guess: { state: 'CA' } })]).sheet.mults), ['CA'])
+
+  // Their own state, in their own party. They send a COUNTY, so this is not
+  // what they sent — but the alternative is refusing a contact that plainly
+  // happened, and the operator can still type the county in.
+  assert.deepEqual(Object.keys(run([blank({ state: 'NY' })]).sheet.mults), ['NY'])
+})
+
 test('a typo from a US station is a bad exchange, not a DX contact', () => {
   // `K` is an entity, so a resolution that ends in "any entity at all means DX"
   // scores a mistyped county — and claims a `DX:K` multiplier in every party

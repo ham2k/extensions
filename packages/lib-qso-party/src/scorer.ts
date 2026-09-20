@@ -29,7 +29,7 @@ import type { ContestScorer, JSONValue, QsoScoreVerdict, ScoreTally } from "@ham
 
 import { isMobile, ourLocationText, partyRefIn, powerMultiplier, str } from "./entry.ts"
 import type { QsoPartyLocation, QsoPartyParams } from "./params.ts"
-import { allInParty, entityPrefixOf, parseLocations, theirLocations } from "./location.ts"
+import { allInParty, defaultTheirLocation, entityPrefixOf, parseLocations, theirLocations } from "./location.ts"
 import { CANADIAN_PROVINCES, US_STATES } from "./locations.ts"
 import { superModeForMode } from "./modes.ts"
 import {
@@ -178,14 +178,6 @@ function multipliersFor(
   return { keys: [] }
 }
 
-/// A location for a station that sent none — their entity, where the party asks
-/// for one, and nothing at all for a station in the party's own country, who is
-/// expected to send a state or a county.
-function defaultLocationFor(party: Party, entityPrefix: string): string {
-  if (!entityPrefix || entityPrefix === 'K' || entityPrefix === 'VE') return ''
-  return party.dxLocationIsPrefix ? entityPrefix : 'DX'
-}
-
 export function qsoPartyScorer(params: QsoPartyParams): ContestScorer<QsoPartyScoresheet> {
   const party = resolveParty(params)
 
@@ -252,7 +244,7 @@ export function qsoPartyScorer(params: QsoPartyParams): ContestScorer<QsoPartySc
       const entityPrefix = entityPrefixOf(qso)
       const qsoRef = partyRefIn(party, qso as Record<string, unknown>)
       const typed = str(qsoRef?.location).trim()
-      const fallback = sheet.lastLocation[call] ?? defaultLocationFor(party, entityPrefix)
+      const fallback = sheet.lastLocation[call] ?? defaultTheirLocation(party, qso)
       const { locations: theirs, standing } = theirLocations(party, typed || fallback, {
         entityPrefix,
         weAreInParty,

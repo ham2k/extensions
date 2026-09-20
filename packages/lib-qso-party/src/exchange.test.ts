@@ -20,13 +20,13 @@ import {
   exchangeInheritPrefix,
   exchangeOptionsFor,
   exchangeTransforms,
-  fallbackTheirLocation,
   ourLocationForQso,
   preferredCodesFor,
   resolvedExchanges,
   suggestedExchangeFor,
   theirLocationForFile,
 } from "./exchange.ts"
+import { defaultTheirLocation } from "./location.ts"
 import type { QsoPartyParams } from "./params.ts"
 import { resolveParty } from "./party.ts"
 import { ACQP, CA, ID, MD, MN, NY, SEVEN_QP, WA, WI } from "./testFixtures.ts"
@@ -158,22 +158,37 @@ test('a contact with nobody in the party is left out of the file', () => {
   assert.equal(cabrilloRowsFor(ny, qso({ location: 'CT' }), operation('ALB'), 'N0DEV').length, 1)
 })
 
-test('an exchange nobody copied is not invented for the file', () => {
-  // The scorer refuses to score a contact whose exchange was never typed
-  // (`missingExchange`), so writing the lookup's guessed state into the file
-  // would claim a contact the scoreboard already declined.
-  assert.equal(fallbackTheirLocation(ny, qso({ state: 'NJ' })), '')
-  assert.deepEqual(
-    cabrilloRowsFor(ny, qso({ state: 'NJ' }), operation('ALB'), 'N0DEV'),
-    [],
-    'a contact with nothing to claim is not claimed',
-  )
+test('an exchange nobody typed falls back to what we know of where they are', () => {
+  // The exchange is what they SENT, and this is the gap where nothing was
+  // copied at all: rather than score the contact zero and file nothing, both
+  // sides read the state the QSO carries — asserted on `their.state` by an
+  // operator or an import, or the callsign lookup's own guess. The scorer and
+  // the file read one function, so they cannot disagree about it.
+  assert.equal(defaultTheirLocation(ny, qso({ state: 'NJ' })), 'NJ')
+  const rows = cabrilloRowsFor(ny, qso({ state: 'NJ' }), operation('ALB'), 'N0DEV')
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0][5].trim(), 'NJ')
 
+  // Nothing known: still nothing claimed. A contact we cannot place is one the
+  // scorer refuses (`missingExchange`), and a file may not claim what the
+  // scoreboard declined.
+  assert.equal(defaultTheirLocation(ny, qso()), '')
+  assert.deepEqual(cabrilloRowsFor(ny, qso(), operation('ALB'), 'N0DEV'), [])
+
+  // A state that means nothing to this party is not a state. `parseLocations`
+  // would drop it anyway; refusing it HERE is what keeps the fallback from
+  // reporting a location it cannot resolve.
+  assert.equal(defaultTheirLocation(ny, qso({ state: 'ZZ' })), '')
+
+  // Only consulted for a station in the party's own country. A DX lookup's
+  // `state` is its own country's subdivision and the two-letter codes collide —
+  // a German `NS` is not Nova Scotia.
+  assert.equal(defaultTheirLocation(ny, qso({ entityPrefix: 'DL', state: 'NS' })), 'DX')
   // A DX station's exchange IS their entity — nobody asks them to send one, so
   // this is what they gave us, not a guess.
-  assert.equal(fallbackTheirLocation(ny, qso({ entityPrefix: 'DL' })), 'DX')
+  assert.equal(defaultTheirLocation(ny, qso({ entityPrefix: 'DL' })), 'DX')
   // And where a party asks for the prefix instead of the word DX.
-  assert.equal(fallbackTheirLocation(resolveParty(WA), qso({ entityPrefix: 'DL' })), 'DL')
+  assert.equal(defaultTheirLocation(resolveParty(WA), qso({ entityPrefix: 'DL' })), 'DL')
 })
 
 test('the file claims a contact only where the score does', () => {
@@ -190,8 +205,8 @@ test('the file claims a contact only where the score does', () => {
 test('the file says what the scoreboard claimed for an Alaskan contact', () => {
   // The scorer credits an Alaskan station as the state `AK`; a file writing `DX`
   // for the same contact would not support the multiplier already claimed.
-  assert.equal(fallbackTheirLocation(ny, qso({ entityPrefix: 'KL' })), 'AK')
-  assert.equal(fallbackTheirLocation(ny, qso({ entityPrefix: 'KH6' })), 'HI')
+  assert.equal(defaultTheirLocation(ny, qso({ entityPrefix: 'KL' })), 'AK')
+  assert.equal(defaultTheirLocation(ny, qso({ entityPrefix: 'KH6' })), 'HI')
 })
 
 test('a rover suffix is stripped only where the sponsor asked for it', () => {

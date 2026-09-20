@@ -24,11 +24,11 @@ import {
 import {
   allInParty,
   COUNTY_LINE_SEPARATOR,
+  defaultTheirLocation,
   entityPrefixOf,
   nameForLocation,
   parseLocations,
   splitLocations,
-  stateForEntity,
   theirLocations,
 } from "./location.ts"
 import { CANADIAN_PROVINCES, US_STATES } from "./locations.ts"
@@ -47,29 +47,12 @@ export function theirLocationForFile(
   const their = (qso.their as Record<string, JSONValue>) ?? {}
   const call = str(their.call).toUpperCase()
   const remembered = call ? lastLocation?.[call] : undefined
-  const text = str(qsoRef?.location).trim() || remembered || fallbackTheirLocation(party, qso)
+  const text = str(qsoRef?.location).trim() || remembered || defaultTheirLocation(party, qso)
   const { locations } = theirLocations(party, text, { entityPrefix, weAreInParty })
   if (call && locations.length > 0 && lastLocation) {
     lastLocation[call] = locations.map((location) => location.code).join(COUNTY_LINE_SEPARATOR)
   }
   return locations.map((location) => location.sent).join(COUNTY_LINE_SEPARATOR)
-}
-
-/// What a station that sent nothing is recorded as.
-export function fallbackTheirLocation(party: Party, qso: Record<string, JSONValue>): string {
-  const entity = entityPrefixOf(qso as Record<string, unknown>)
-  // A station in the party's own country sends a county or a state, and a
-  // lookup's guess is not what they sent: the scorer refuses to score an
-  // exchange that was never copied (`missingExchange`), so a file claiming one
-  // under a guessed state would claim a contact the scoreboard already
-  // declined.
-  if (entity === 'K' || entity === 'VE') return ''
-  // Alaska and Hawaii are US STATES that do not send `K`, and the scorer credits
-  // them as such — so a file that wrote `DX` for one would not support the
-  // multiplier the scoreboard already claimed.
-  const state = stateForEntity(entity)
-  if (state && !party.alaskaAndHawaiiAreDX) return state
-  return party.dxLocationIsPrefix && entity ? entity : 'DX'
 }
 
 /// Whether a contact on [band] counts at all — the WARC bands are closed to
@@ -163,7 +146,7 @@ export function cabrilloRowsFor(
   // station scores zero, and a file reading the ref raw claims MORE.
   const typed = str(qsoRef?.location).trim()
   const remembered = call ? lastLocation?.[call] : undefined
-  const theirText = typed || remembered || fallbackTheirLocation(party, qso)
+  const theirText = typed || remembered || defaultTheirLocation(party, qso)
 
   const ourLocations = parseLocations(party, ourLocationForQso(party, qso, operation, segments))
   const weAreIn = allInParty(ourLocations)

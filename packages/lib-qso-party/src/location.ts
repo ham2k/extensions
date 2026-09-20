@@ -9,6 +9,8 @@
 // and a Cabrillo writer resolve the same exchange separately they drift apart
 // exactly where the rules are subtle.
 
+import type { JSONValue } from "@ham2k/extension-sdk"
+
 import { entityPrefixForCall } from "./dxcc.ts"
 import type { QsoPartyLocation, QsoPartyStanding } from "./params.ts"
 import { isInParty, normalizeCode, type Party, stateForCounty } from "./party.ts"
@@ -197,6 +199,36 @@ export function parseLocations(
     })
   }
   return locations
+}
+
+/// What a station who sent us no exchange is recorded as — the ONE answer the
+/// scorer and both exports read, so a contact cannot be scored under one
+/// location and filed under another.
+///
+/// In the party's own country, what the lookup says: `their.state` if the
+/// operator or an import asserted one, else the callsign lookup's guess. It is
+/// consulted only here, where the alternative is `missingExchange` and a
+/// contact worth nothing — the entry row still asks the operator for the
+/// exchange, and still ranks counties rather than inventing one, because a
+/// county is the thing a lookup cannot know.
+///
+/// The guess is refused unless it RESOLVES against this party, and consulted
+/// only for a K or VE station: a DX lookup's `state` is its own country's
+/// subdivision, and two-letter codes collide — a German `NS` is not Nova
+/// Scotia. Outside those two countries the exchange is the entity, which no
+/// party asks a DX station to type.
+export function defaultTheirLocation(party: Party, qso: Record<string, JSONValue>): string {
+  const entityPrefix = entityPrefixOf(qso as Record<string, unknown>)
+  if (entityPrefix === 'K' || entityPrefix === 'VE') {
+    const guessed = guessedStateOf(qso as Record<string, unknown>)
+    return guessed && normalizeLocation(party, guessed, { entityPrefix }) ? guessed : ''
+  }
+  // Alaska and Hawaii are US STATES that do not send `K`, and the scorer
+  // credits them as such — so a file that wrote `DX` for one would not support
+  // the multiplier the scoreboard already claimed.
+  const state = stateForEntity(entityPrefix)
+  if (state && !party.alaskaAndHawaiiAreDX) return state
+  return party.dxLocationIsPrefix && entityPrefix ? entityPrefix : 'DX'
 }
 
 /// The state an entity's stations are in, for the two that are US states but do
