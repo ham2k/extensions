@@ -124,13 +124,22 @@ export type QsoPartyLabel = string | ((ctx: HookContext) => string)
 /// the key says the engine appends a value — a translation that omits the half
 /// it thought was appended renders half a label.
 export interface QsoPartyLabels {
-  /// The setup form's location field — `Our County`. Whoever translates it owns
-  /// the noun too: `labelForCounty` is the sponsor's word only where the
-  /// sponsor has one, and English otherwise.
+  /// The setup form's location field — `Our QP Location`.
+  ///
+  /// Deliberately the engine's own words rather than the sponsor's noun: an
+  /// operator reading a row of four-character fields needs to know WHICH of
+  /// them the QSO party wants, and `County` is wrong anyway for everyone
+  /// sending a state or a province. `labelForCounty` names the sponsor's
+  /// county-equivalent for the prose that talks ABOUT one; it does not label
+  /// these two fields.
   ourLocation?: QsoPartyLabel
-  /// The exchange row's location field — the bare noun, `County`. As
-  /// `ourLocation`.
+  /// The exchange row's location field — `QP Location`. As `ourLocation`.
   theirLocation?: QsoPartyLabel
+  /// The same field where the logging row has squeezed it below that label's
+  /// width — `QP Loc`. The core measures and picks between the two, so a
+  /// translation states the short form and never when it is used; one as long
+  /// as the full label simply never gets shown.
+  theirLocationShort?: QsoPartyLabel
   /// The county-line instruction. The engine appends an EXAMPLE built from this
   /// party's own county codes, so a translation states the instruction alone.
   countyLineHelp?: QsoPartyLabel

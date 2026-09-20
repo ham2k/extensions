@@ -41,6 +41,7 @@ import {
   exchangeOptionsFor,
   exchangeTransforms,
   preferredCodesFor,
+  suggestedExchangeFor,
 } from "./exchange.ts"
 import { COUNTY_LINE_SEPARATOR, guessedStateOf } from "./location.ts"
 import type {
@@ -72,8 +73,11 @@ const LABELS = {
   power: 'Power',
   station: 'Station',
   status: '**Status:**',
+  theirLocation: 'QP Location',
+  theirLocationShort: 'QP Loc',
   theirName: 'Name',
   theirSerial: 'Their #',
+  ourLocation: 'Our QP Location',
 }
 
 /// The party's own translator over the engine's English, for the whole of one
@@ -352,7 +356,7 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
           type: 'field',
           fieldType: 'text',
           key: 'location',
-          label: resolveLabel(party.labels.ourLocation, ctx, `Our ${party.labelForCounty}`),
+          label: t('ourLocation'),
           value: ourLocationText(party, undefined, ref),
           placeholder: Object.keys(party.counties)[0],
         },
@@ -455,10 +459,12 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
 
       const guessedState = qso ? guessedStateOf(qso as Record<string, unknown>) : ''
       const options = exchangeOptionsFor(party, qso)
+      const suggested = suggestedExchangeFor(party, qso, guessedState)
       const inheritPrefix = exchangeInheritPrefix(party)
       controls.push({
         key: `${party.refType}/location`,
-        label: resolveLabel(party.labels.theirLocation, ctx, party.labelForCounty),
+        label: t('theirLocation'),
+        shortLabel: t('theirLocationShort'),
         ...chrome,
         order: 40,
         input: {
@@ -473,10 +479,12 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
           // A county line is two codes and a separator, so the field is longer
           // than any one of them — and DX entity prefixes can be four.
           maxLength: party.countyLine ? 13 : 6,
-          // Ranking, not pre-filling: a lookup's state is right often enough to
-          // be worth floating that state's counties to the top, and wrong often
-          // enough that writing one in would be worse than useless.
+          // Two different uses of one guess: the state itself is written in
+          // where it is the whole exchange (`suggestedExchangeFor` says when),
+          // and its counties are floated to the top for the station who sends
+          // one of those instead — a county is never guessed, only ranked.
           preferredCodes: preferredCodesFor(party, guessedState),
+          ...(suggested ? { suggestedValue: suggested } : {}),
           ...(party.countyLine
             ? {
               multiValue: {

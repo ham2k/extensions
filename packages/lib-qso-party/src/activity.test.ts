@@ -299,7 +299,7 @@ test('a party that supplies no translator reads exactly as it did before there w
   // engine's English whatever locale the app is in — the same strings, composed
   // the same way, as when there was no seam at all.
   const form = await setupForm({ ...NY, status: 'Verified for 2026' }, {}, ES)
-  assert.equal(labelOf(form, 'location'), 'Our County')
+  assert.equal(labelOf(form, 'location'), 'Our QP Location')
   assert.equal(labelOf(form, 'email'), 'E-mail for the log submission')
   assert.equal(labelOf(form, 'operator'), 'Entry Class')
   assert.deepEqual(optionLabels(form, 'operator').slice(0, 2), ['Not declared', 'Single Operator'])
@@ -309,10 +309,12 @@ test('a party that supplies no translator reads exactly as it did before there w
   assert.match(markdown, /\*\*Status:\*\* Verified for 2026/)
   assert.match(markdown, /\*\*Period:\*\* 2026-10-17 14:00Z/)
 
-  // A party whose subdivisions are its own word keeps it: the noun is the
-  // sponsor's, and only the sentence around it is the engine's.
+  // The sponsor's own noun does NOT reach this field. `labelForCounty` names
+  // the county-equivalent for prose that talks ABOUT one; the field itself says
+  // which activity wants it, because that is what an operator reading a row of
+  // four-character fields needs to know — and `District` would not tell them.
   const districts = await setupForm({ ...NY, labelForCounty: 'District' }, {}, ES)
-  assert.equal(labelOf(districts, 'location'), 'Our District')
+  assert.equal(labelOf(districts, 'location'), 'Our QP Location')
 })
 
 test('the exchange field asks for a serial only where the sponsor does', async () => {

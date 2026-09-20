@@ -32,7 +32,7 @@ import {
   theirLocations,
 } from "./location.ts"
 import { CANADIAN_PROVINCES, US_STATES } from "./locations.ts"
-import { normalizeCode, type Party, stateForCounty, WARC_BANDS } from "./party.ts"
+import { normalizeCode, type Party, partyStates, stateForCounty, WARC_BANDS } from "./party.ts"
 
 /// What a contact with no exchange typed is recorded as, resolved the way the
 /// scorer resolves it: what this station sent us earlier, then what their
@@ -319,6 +319,37 @@ export function exchangeInheritPrefix(party: Party): number {
   // Only the multi-state parties have codes long enough for the shorthand to
   // mean anything — the same length test `splitLocations` makes.
   return Object.keys(party.counties).some((code) => code.length > 4) ? 2 : 0
+}
+
+/// The exchange pre-filled from the callsign lookup: the state it guessed, and
+/// only for a station OUTSIDE the party.
+///
+/// Outside the party the state IS the whole exchange, and a lookup is right
+/// about which state a US call lives in nearly every time — so filling it saves
+/// the operator the one thing they would otherwise type for most of the log.
+/// Inside the party it is not the exchange at all: an NY station in NYQP sends
+/// a COUNTY, `NY` resolves cleanly to the state anyway (`partyStates` exists to
+/// catch exactly that), and a prefill would hand the scorer a state multiplier
+/// for a contact whose county nobody copied.
+///
+/// This is the one place a guess is written into the field rather than ranked
+/// into the suggestion line (`preferredCodesFor`). The argument for ranking is
+/// about a COUNTY guess, which no lookup makes; a state is a narrower claim and
+/// a far better one. The core still guarantees a suggestion never displaces
+/// what the operator typed.
+///
+/// Suggested only when it is one of the codes this station could send at all,
+/// so a DX contact — whose option set is empty and whose field is freeform —
+/// is left alone.
+export function suggestedExchangeFor(
+  party: Party,
+  qso: Record<string, JSONValue> | undefined,
+  guessedState: string,
+): string | undefined {
+  if (!guessedState) return undefined
+  if (partyStates(party).has(guessedState)) return undefined
+  const offered = exchangeOptionsFor(party, qso).some((option) => option.code === guessedState)
+  return offered ? guessedState : undefined
 }
 
 /// The codes floated to the top of the suggestion list: the counties of the

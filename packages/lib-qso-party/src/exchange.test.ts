@@ -24,6 +24,7 @@ import {
   ourLocationForQso,
   preferredCodesFor,
   resolvedExchanges,
+  suggestedExchangeFor,
   theirLocationForFile,
 } from "./exchange.ts"
 import type { QsoPartyParams } from "./params.ts"
@@ -258,14 +259,43 @@ test("a party offers its neighbours' counties, because its entrants work them", 
   assert.equal(resolveParty(SEVEN_QP).counties.CASCL, undefined)
 })
 
-test('the guessed state floats its counties up, and never fills the field', () => {
-  // Ranking rather than prefilling: a location guess is wrong often enough that
-  // writing it in would be worse than useless.
+test('the guessed state floats its counties up, and never fills a county in', () => {
+  // A COUNTY is only ever ranked: no lookup guesses one, so writing one in
+  // would be worse than useless. The state itself is the other half of the same
+  // guess and IS written in where it is the whole exchange — see below.
   const preferred = preferredCodesFor(resolveParty(SEVEN_QP), 'OR')
   assert.ok(preferred.includes('ORDES'))
   assert.ok(preferred.includes('OR'))
   assert.equal(preferred.some((code) => code.startsWith('WA')), false)
   assert.deepEqual(preferredCodesFor(ny, ''), [])
+})
+
+test('a looked-up state is pre-filled only where it IS the whole exchange', () => {
+  // Out of the party: the state is everything they send, so it goes in.
+  assert.equal(suggestedExchangeFor(ny, qso({ entityPrefix: 'K', state: 'CA' }), 'CA'), 'CA')
+
+  // In the party they send a COUNTY. `NY` is a perfectly valid option and
+  // resolves cleanly to the state, so nothing downstream would object — the log
+  // would just quietly claim a state multiplier for a county nobody copied.
+  // This is the assertion the whole guard exists for.
+  assert.equal(suggestedExchangeFor(ny, qso({ entityPrefix: 'K', state: 'NY' }), 'NY'), undefined)
+
+  // Every state a multi-state party covers, not just the one its key names —
+  // read off its own county codes, which is the only place that set exists.
+  const sevenQp = resolveParty(SEVEN_QP)
+  for (const state of ['OR', 'WA', 'ID', 'UT']) {
+    assert.equal(suggestedExchangeFor(sevenQp, qso({ entityPrefix: 'K', state, params: SEVEN_QP }), state), undefined, state)
+  }
+  assert.equal(suggestedExchangeFor(sevenQp, qso({ entityPrefix: 'K', state: 'CA', params: SEVEN_QP }), 'CA'), 'CA')
+
+  // A state the station could not have sent. A VE station in a US party is
+  // offered provinces only, and a DX station nothing at all — the field is
+  // freeform there, and a US state written into it would be an exchange from
+  // the wrong continent.
+  assert.equal(suggestedExchangeFor(ny, qso({ entityPrefix: 'VE', state: 'CA' }), 'CA'), undefined)
+  assert.equal(suggestedExchangeFor(ny, qso({ entityPrefix: 'DL', state: 'CA' }), 'CA'), undefined)
+
+  assert.equal(suggestedExchangeFor(ny, qso({ entityPrefix: 'K' }), ''), undefined)
 })
 
 test('the declared entry classes become the Cabrillo CATEGORY lines', () => {
