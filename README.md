@@ -21,7 +21,7 @@ app-polo's `qp` extension carried inside it, and an APRS position beacon.
 
 ## What is here
 
-95 extensions, grouped by the manifest's own `category`:
+98 extensions, grouped by the manifest's own `category`:
 
 | directory | manifest `category` | n | of which |
 |---|---|--:|---|
@@ -29,8 +29,8 @@ app-polo's `qp` extension carried inside it, and an APRS position beacon.
 | `extensions/contests/` | `contest` | 68 | 14 ported built-ins, 49 QSO party events, 5 park events |
 | `extensions/lookups/` | `lookup` | 5 | 5 ported built-ins |
 | `extensions/spots/` | `spots` | 3 | 1 ported built-in, 2 new spotting sources |
-| `extensions/dashboard/` | `dashboard` | 1 | 1 ported built-in |
-| **total** | | **95** | **39 ported, 56 new** |
+| `extensions/dashboard/` | `dashboard` | 4 | 1 ported built-in, 3 SVG reference panels |
+| **total** | | **98** | **39 ported, 56 new, 3 SVG reference panels** |
 
 The 39 are the app's own extensions, ported one for one. The 56 are new: events
 the app has never shipped separately, five state-park events, and two spotting
@@ -69,6 +69,10 @@ sources:
   the tracker parses and what app-polo sends; from a park it names the
   reference. One beacon source, deliberately: the QP source reads the tracker
   and never beacons, so the two installed together beacon once.
+
+The SVG reference panels carry `ki2d-` keys and install from a file.
+See [dashboard development](extensions/dashboard/README.md) for building and
+packaging them; they require the experimental SVG host APIs.
 
 ## What is NOT here, and why
 
