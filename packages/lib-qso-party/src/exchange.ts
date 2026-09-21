@@ -314,35 +314,6 @@ export function exchangeInheritPrefix(party: Party): number {
   return Object.keys(party.counties).some((code) => code.length > 4) ? 2 : 0
 }
 
-/// The exchange pre-filled from the callsign lookup: the state it guessed.
-///
-/// Outside the party the state IS the whole exchange, and a lookup is right
-/// about which state a US call lives in nearly every time — so filling it saves
-/// the operator the one thing they would otherwise type for most of the log.
-///
-/// This is the one place a guess is written into the field rather than ranked
-/// into the suggestion line (`preferredCodesFor`). The argument for ranking is
-/// about a COUNTY guess, which no lookup makes; a state is a narrower claim and
-/// a far better one. The core still guarantees a suggestion never displaces
-/// what the operator typed.
-///
-/// Filled only when it is one of the codes this station could send, which is
-/// the whole guard: [options] holds no DX list at all, and no party holds its
-/// OWN states, so an in-party caller — who sends a county — is refused here by
-/// the same rule that tints `NY` red in the New York QSO Party.
-///
-/// [options] is what `exchangeOptionsFor` already answered for this station —
-/// passed in rather than rebuilt, because it runs once per callsign resolution
-/// and is up to ~470 entries for the largest parties.
-export function suggestedExchangeFor(
-  party: Party,
-  options: { code: string }[],
-  guessedState: string,
-): string | undefined {
-  if (!guessedState) return undefined
-  return options.some((option) => option.code === guessedState) ? guessedState : undefined
-}
-
 /// What this station sent us EARLIER in this operation, if anything.
 ///
 /// The best answer there is: it is not a guess at all but an exchange the

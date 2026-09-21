@@ -42,9 +42,8 @@ import {
   exchangeTransforms,
   loggedExchangeFor,
   preferredCodesFor,
-  suggestedExchangeFor,
 } from "./exchange.ts"
-import { COUNTY_LINE_SEPARATOR, guessedStateOf } from "./location.ts"
+import { COUNTY_LINE_SEPARATOR, defaultTheirLocation, guessedStateOf } from "./location.ts"
 import type {
   ModeClass,
   OperatorClass,
@@ -484,7 +483,13 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
         await operationLog(ctx, str(operation.uuid)),
         str((qso?.their as Record<string, JSONValue> | undefined)?.call),
       )
-      const suggested = logged || suggestedExchangeFor(party, options, guessedState)
+      // The hint is what the log will claim if nothing is typed — the same
+      // function the scorer and both exports fall back to, so the field cannot
+      // promise one thing and the score record another. It is never written
+      // IN: a state is not what an in-party caller sends, `DX` is not
+      // something a DX station is asked to send, and neither is a value the
+      // operator copied.
+      const hint = defaultTheirLocation(party, (qso ?? {}) as Record<string, JSONValue>)
       const inheritPrefix = exchangeInheritPrefix(party)
       controls.push({
         key: `${party.refType}/location`,
@@ -504,18 +509,16 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
           // A county line is two codes and a separator, so the field is longer
           // than any one of them — and DX entity prefixes can be four.
           maxLength: party.countyLine ? 13 : 6,
-          // Two different uses of one guess: the state itself is written in
-          // where it is the whole exchange (`suggestedExchangeFor` says when),
-          // and its counties are floated to the top for the station who sends
-          // one of those instead — a county is never guessed, only ranked.
+          // The guessed state RANKS the list and never fills it: no lookup
+          // guesses a county, and the state itself is a hint rather than a
+          // value (`hint` above).
           preferredCodes: preferredCodesFor(party, guessedState),
-          // Says what the lookup knows even where that is not an exchange
-          // anybody sends — inside the party it is the county that goes here,
-          // and "NY" in the hint is how the operator sees WHICH New York
-          // station this is without the field claiming they sent it. Invisible
-          // whenever a value is filled in above, hint that it is.
-          ...(guessedState ? { placeholder: guessedState } : {}),
-          ...(suggested ? { suggestedValue: suggested } : {}),
+          // The only thing written in: an exchange this station already gave
+          // us in this operation. Not a guess at all, and what the score and
+          // the file already fall back to silently — so filling it is the
+          // operator confirming it rather than finding out afterwards.
+          ...(logged ? { suggestedValue: logged } : {}),
+          ...(hint ? { placeholder: hint } : {}),
           ...(party.countyLine
             ? {
               multiValue: {

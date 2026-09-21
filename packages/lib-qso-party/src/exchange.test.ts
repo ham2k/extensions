@@ -24,7 +24,6 @@ import {
   ourLocationForQso,
   preferredCodesFor,
   resolvedExchanges,
-  suggestedExchangeFor,
   theirLocationForFile,
 } from "./exchange.ts"
 import { defaultTheirLocation } from "./location.ts"
@@ -340,32 +339,22 @@ test('what this station sent us earlier is offered before any guess', () => {
   assert.equal(loggedExchangeFor(ny, blanks, 'K1ABC'), 'ERI')
 })
 
-test('a looked-up state is pre-filled only where it IS the whole exchange', () => {
-  // Out of the party: the state is everything they send, so it goes in.
-  assert.equal(suggestedExchangeFor(ny, exchangeOptionsFor(ny, qso({ entityPrefix: 'K', state: 'CA' })), 'CA'), 'CA')
+test('the hint is what the log will claim if nothing is typed', () => {
+  // One function for the hint and the fallback, so the field cannot promise
+  // one thing and the score record another — and never a VALUE, because none
+  // of these is an exchange anybody copied.
+  const hint = (q: Record<string, JSONValue>) => defaultTheirLocation(ny, q)
 
-  // In the party they send a COUNTY. `NY` is a perfectly valid option and
-  // resolves cleanly to the state, so nothing downstream would object — the log
-  // would just quietly claim a state multiplier for a county nobody copied.
-  // This is the assertion the whole guard exists for.
-  assert.equal(suggestedExchangeFor(ny, exchangeOptionsFor(ny, qso({ entityPrefix: 'K', state: 'NY' })), 'NY'), undefined)
-
-  // Every state a multi-state party covers, not just the one its key names —
-  // read off its own county codes, which is the only place that set exists.
-  const sevenQp = resolveParty(SEVEN_QP)
-  for (const state of ['OR', 'WA', 'ID', 'UT']) {
-    assert.equal(suggestedExchangeFor(sevenQp, exchangeOptionsFor(sevenQp, qso({ entityPrefix: 'K', state, params: SEVEN_QP })), state), undefined, state)
-  }
-  assert.equal(suggestedExchangeFor(sevenQp, exchangeOptionsFor(sevenQp, qso({ entityPrefix: 'K', state: 'CA', params: SEVEN_QP })), 'CA'), 'CA')
-
-  // A state the station could not have sent. A VE station in a US party is
-  // offered provinces only, and a DX station nothing at all — the field is
-  // freeform there, and a US state written into it would be an exchange from
-  // the wrong continent.
-  assert.equal(suggestedExchangeFor(ny, exchangeOptionsFor(ny, qso({ entityPrefix: 'VE', state: 'CA' })), 'CA'), undefined)
-  assert.equal(suggestedExchangeFor(ny, exchangeOptionsFor(ny, qso({ entityPrefix: 'DL', state: 'CA' })), 'CA'), undefined)
-
-  assert.equal(suggestedExchangeFor(ny, exchangeOptionsFor(ny, qso({ entityPrefix: 'K' })), ''), undefined)
+  // Out of the party the state IS what they will send…
+  assert.equal(hint(qso({ entityPrefix: 'K', state: 'PA' })), 'PA')
+  // …in the party it is not, and the hint says so anyway: it is how the
+  // operator sees WHICH New York station this is while typing the county.
+  assert.equal(hint(qso({ entityPrefix: 'K', state: 'NY' })), 'NY')
+  // A DX station is never asked to type an exchange at all, so the hint is
+  // what the file will write for them.
+  assert.equal(hint(qso({ entityPrefix: 'DL' })), 'DX')
+  assert.equal(defaultTheirLocation(resolveParty(WA), qso({ entityPrefix: 'DL' })), 'DL')
+  assert.equal(hint(qso()), '')
 })
 
 test('the declared entry classes become the Cabrillo CATEGORY lines', () => {
