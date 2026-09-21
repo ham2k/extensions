@@ -219,6 +219,12 @@ export function parseLocations(
 /// party asks a DX station to type.
 export function defaultTheirLocation(party: Party, qso: Record<string, JSONValue>): string {
   const entityPrefix = entityPrefixOf(qso as Record<string, unknown>)
+  // A station in no known entity — no callsign yet, or one the country file
+  // cannot place — is a QSO we cannot place, not a DX contact
+  // (`normalizeLocation` draws the same line). Answering `DX` here would slip
+  // past the scorer, which normalizes it back to nothing without an entity,
+  // and be offered as the suggestion in an empty entry row.
+  if (!entityPrefix) return ''
   if (entityPrefix === 'K' || entityPrefix === 'VE') {
     const guessed = guessedStateOf(qso as Record<string, unknown>)
     // A state CODE, and only that. `normalizeLocation` reads anything longer

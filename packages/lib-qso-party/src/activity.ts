@@ -476,13 +476,11 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
       // What this station sent us earlier beats anything a lookup can offer: it
       // is not a guess but an exchange the operator already copied, and it is
       // what the scorer and both exports would silently fall back to anyway. A
-      // whole-log read, which this hook can afford — it runs once per callsign
-      // resolution, not per keystroke.
-      const logged = loggedExchangeFor(
-        party,
-        await operationLog(ctx, str(operation.uuid)),
-        str((qso?.their as Record<string, JSONValue> | undefined)?.call),
-      )
+      // whole-log read, so only when there is a callsign to look for: this hook
+      // is also called with no QSO at all, and none of those callers can use
+      // the answer.
+      const call = str((qso?.their as Record<string, JSONValue> | undefined)?.call)
+      const logged = call ? loggedExchangeFor(party, await operationLog(ctx, str(operation.uuid)), call) : ''
       // What they sent earlier wins — not a guess, but an exchange already
       // copied. Else the value an empty exchange is scored and filed as
       // anyway, so a prefill left alone changes nothing about the log.

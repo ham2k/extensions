@@ -355,6 +355,11 @@ test('the hint is what the log will claim if nothing is typed', () => {
   assert.equal(hint(qso({ entityPrefix: 'DL' })), 'DX')
   assert.equal(defaultTheirLocation(resolveParty(WA), qso({ entityPrefix: 'DL' })), 'DL')
   assert.equal(hint(qso()), '')
+  // No entity at all — no callsign yet, or one the country file cannot place
+  // — is a QSO we cannot place, not a DX contact. Answered `DX`, it would be
+  // the suggestion shown in every empty entry row.
+  assert.equal(defaultTheirLocation(ny, {}), '')
+  assert.equal(defaultTheirLocation(ny, { their: { call: 'Q0ZZZ' } } as Record<string, JSONValue>), '')
 })
 
 test('the declared entry classes become the Cabrillo CATEGORY lines', () => {
