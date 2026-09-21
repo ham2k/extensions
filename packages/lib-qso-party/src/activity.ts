@@ -40,6 +40,7 @@ import {
   exchangeInheritPrefix,
   exchangeOptionsFor,
   exchangeTransforms,
+  loggedExchangeFor,
   preferredCodesFor,
   suggestedExchangeFor,
 } from "./exchange.ts"
@@ -54,6 +55,20 @@ import type {
   StationClass,
 } from "./params.ts"
 import { daysUntil, hasAlreadyRun, type Party, resolveLabel, resolveParty } from "./party.ts"
+
+/// The operation's log, or nothing to learn from.
+///
+/// A host with no log access is not an error here — the exchange field is
+/// still the operator's to type, and letting a refused read escape would take
+/// the whole control row down with it.
+async function operationLog(ctx: HookContext, uuid: string): Promise<Record<string, JSONValue>[]> {
+  if (!uuid || !ctx.getQsos) return []
+  try {
+    return (await ctx.getQsos(uuid)) ?? []
+  } catch {
+    return []
+  }
+}
 
 /// The English an operator reads where the party's own translator says nothing.
 /// Every key here is a key of `QsoPartyLabels` — which is the only place a
@@ -423,7 +438,7 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
     /// The exchange: what they send us. A location always; a serial for the
     /// parties that number their contacts, and a name for those that trade them.
     async loggingControls(
-      { qso }: { operation: Record<string, JSONValue>; qso?: Record<string, JSONValue> },
+      { operation, qso }: { operation: Record<string, JSONValue>; qso?: Record<string, JSONValue> },
       ctx: HookContext,
     ): Promise<LoggingControlDescriptor[]> {
       const controls: LoggingControlDescriptor[] = []
@@ -459,7 +474,17 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
 
       const guessedState = qso ? guessedStateOf(qso as Record<string, unknown>) : ''
       const options = exchangeOptionsFor(party, qso)
-      const suggested = suggestedExchangeFor(party, options, guessedState)
+      // What this station sent us earlier beats anything a lookup can offer: it
+      // is not a guess but an exchange the operator already copied, and it is
+      // what the scorer and both exports would silently fall back to anyway. A
+      // whole-log read, which this hook can afford — it runs once per callsign
+      // resolution, not per keystroke.
+      const logged = loggedExchangeFor(
+        party,
+        await operationLog(ctx, str(operation.uuid)),
+        str((qso?.their as Record<string, JSONValue> | undefined)?.call),
+      )
+      const suggested = logged || suggestedExchangeFor(party, options, guessedState)
       const inheritPrefix = exchangeInheritPrefix(party)
       controls.push({
         key: `${party.refType}/location`,
@@ -484,6 +509,12 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
           // and its counties are floated to the top for the station who sends
           // one of those instead — a county is never guessed, only ranked.
           preferredCodes: preferredCodesFor(party, guessedState),
+          // Says what the lookup knows even where that is not an exchange
+          // anybody sends — inside the party it is the county that goes here,
+          // and "NY" in the hint is how the operator sees WHICH New York
+          // station this is without the field claiming they sent it. Invisible
+          // whenever a value is filled in above, hint that it is.
+          ...(guessedState ? { placeholder: guessedState } : {}),
           ...(suggested ? { suggestedValue: suggested } : {}),
           ...(party.countyLine
             ? {

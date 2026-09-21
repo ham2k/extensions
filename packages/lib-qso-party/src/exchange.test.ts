@@ -20,6 +20,7 @@ import {
   exchangeInheritPrefix,
   exchangeOptionsFor,
   exchangeTransforms,
+  loggedExchangeFor,
   ourLocationForQso,
   preferredCodesFor,
   resolvedExchanges,
@@ -286,9 +287,57 @@ test('the guessed state floats its counties up, and never fills a county in', ()
   // guess and IS written in where it is the whole exchange — see below.
   const preferred = preferredCodesFor(resolveParty(SEVEN_QP), 'OR')
   assert.ok(preferred.includes('ORDES'))
-  assert.ok(preferred.includes('OR'))
   assert.equal(preferred.some((code) => code.startsWith('WA')), false)
+  // Oregon's own code is NOT floated up: `OR` is one of 7QP's states, so it is
+  // not an exchange any station sends and the field does not offer it. A
+  // suggestion the same field then tints red is worse than none.
+  assert.equal(preferred.includes('OR'), false)
+  // A state from outside the party is both offered and floated.
+  assert.ok(preferredCodesFor(ny, 'NJ').includes('NJ'))
   assert.deepEqual(preferredCodesFor(ny, ''), [])
+})
+
+test('the party\'s own state is not an exchange anybody sends', () => {
+  // In NYQP an in-state station sends a COUNTY, and nobody outside New York is
+  // in New York — so `NY` is an exchange no station could have given. It
+  // resolves cleanly to the state, which is exactly why the field has to refuse
+  // it: accepted, it scores the contact under out-of-party rules and files a
+  // state multiplier for a county nobody copied.
+  const codes = exchangeOptionsFor(ny, qso({ entityPrefix: 'K' })).map((option) => option.code)
+  assert.equal(codes.includes('NY'), false)
+  assert.ok(codes.includes('NJ'), 'every other state is still an exchange')
+  assert.ok(codes.includes('ALB'), 'and the counties are what an in-state station sends')
+
+  // Every state a multi-state party covers, not just the one its key names.
+  const sevenQp = exchangeOptionsFor(resolveParty(SEVEN_QP), qso({ entityPrefix: 'K', params: SEVEN_QP }))
+    .map((option) => option.code)
+  for (const state of ['OR', 'WA', 'ID', 'UT']) {
+    assert.equal(sevenQp.includes(state), false, state)
+  }
+  assert.ok(sevenQp.includes('CA'))
+})
+
+test('what this station sent us earlier is offered before any guess', () => {
+  // Not a guess at all: an exchange the operator already copied from this same
+  // station, and the one the scorer and both exports would silently fall back
+  // to for a blank second-band contact.
+  const entry = (call: string, location: string, band = '20m') =>
+    ({ their: { call }, band, refs: [{ type: NY.refType, location }] }) as Record<string, JSONValue>
+  const log = [entry('K1ABC', 'ERI'), entry('K2XYZ', 'ALB')]
+  assert.equal(loggedExchangeFor(ny, log, 'K1ABC'), 'ERI')
+  assert.equal(loggedExchangeFor(ny, log, 'k1abc'), 'ERI', 'the log is not case-sensitive')
+  assert.equal(loggedExchangeFor(ny, log, 'W9NEW'), '')
+  assert.equal(loggedExchangeFor(ny, log, ''), '')
+
+  // The LAST county they gave, not the first: a rover who drove into the next
+  // county sends the new one, and offering the old one would re-log a county
+  // they have left.
+  assert.equal(loggedExchangeFor(ny, [...log, entry('K1ABC', 'CHA', '40m')], 'K1ABC'), 'CHA')
+
+  // A contact whose exchange was never copied teaches this nothing, and an
+  // event marker is not a contact.
+  const blanks = [entry('K1ABC', 'ERI'), entry('K1ABC', '', '15m'), entry('K1ABC', 'ZZZ', 'event')]
+  assert.equal(loggedExchangeFor(ny, blanks, 'K1ABC'), 'ERI')
 })
 
 test('a looked-up state is pre-filled only where it IS the whole exchange', () => {

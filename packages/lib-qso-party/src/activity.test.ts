@@ -347,13 +347,18 @@ test('a station with no list to choose from types whatever they heard', async ()
   assert.equal(us.input.allowFreeform, false)
 })
 
-test("the lookup's state ranks the list rather than filling the field", async () => {
-  // A guess is right often enough to be worth floating that state's counties to
-  // the top, and wrong often enough that writing one in would be worse than
-  // useless.
+test("the lookup's state ranks the list, hints at itself, and fills nothing in", async () => {
+  // An IN-PARTY caller: they send a county, which no lookup guesses, so the
+  // state's counties float to the top and nothing is written in. The state
+  // itself is neither offered nor ranked — `NY` is an exchange no station in
+  // the New York QSO Party sends — but it is still shown as a hint, which is
+  // how the operator sees which New York station this is.
   const { input } = await exchangeInput(NY, { their: { call: 'K1ABC', entityPrefix: 'K', guess: { state: 'NY' } } })
   assert.ok(input.preferredCodes!.includes('ALB'))
-  assert.ok(input.preferredCodes!.includes('NY'))
+  assert.equal(input.preferredCodes!.includes('NY'), false)
+  assert.equal(input.options!.some((option) => option.code === 'NY'), false)
+  assert.equal(input.suggestedValue, undefined)
+  assert.equal(input.placeholder, 'NY')
 })
 
 test('the exchange is mirrored into the field the rest of the app reads', async () => {

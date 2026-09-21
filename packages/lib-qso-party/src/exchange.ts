@@ -218,11 +218,21 @@ export function exchangeOptionsFor(
   // multiplier is a per-party rule. It is still a value stations SEND, on every
   // party, so it belongs in the list either way — without it the field tints a
   // perfectly good exchange as unknown while the scorer accepts it.
-  const states = [
+  // The party's OWN states are not in either list. Nobody sends one: inside the
+  // party the exchange is a county, and outside it nobody is in those states to
+  // begin with — so `NY` in the New York QSO Party is an exchange no station
+  // could have given, and the field says so in red rather than accepting it as
+  // the state it resolves to. (`partyStates` is the same set the scorer reads
+  // to catch an operator who typed their state where their county belongs;
+  // this is the other end of that mistake.)
+  const ours = partyStates(party)
+  const notOurs = (options: { code: string; name?: string }[]) =>
+    options.filter((option) => !ours.has(option.code))
+  const states = notOurs([
     ...asOptions(US_STATES),
     { code: 'DC', name: nameForLocation(party, 'DC') },
-  ]
-  const provinces = asOptions(CANADIAN_PROVINCES)
+  ])
+  const provinces = notOurs(asOptions(CANADIAN_PROVINCES))
 
   if (entity === 'K') {
     return party.entity === 'VE' ? states : [...ourCounties, ...states]
@@ -304,16 +314,11 @@ export function exchangeInheritPrefix(party: Party): number {
   return Object.keys(party.counties).some((code) => code.length > 4) ? 2 : 0
 }
 
-/// The exchange pre-filled from the callsign lookup: the state it guessed, and
-/// only for a station OUTSIDE the party.
+/// The exchange pre-filled from the callsign lookup: the state it guessed.
 ///
 /// Outside the party the state IS the whole exchange, and a lookup is right
 /// about which state a US call lives in nearly every time — so filling it saves
 /// the operator the one thing they would otherwise type for most of the log.
-/// Inside the party it is not the exchange at all: an NY station in NYQP sends
-/// a COUNTY, `NY` resolves cleanly to the state anyway (`partyStates` exists to
-/// catch exactly that), and a prefill would hand the scorer a state multiplier
-/// for a contact whose county nobody copied.
 ///
 /// This is the one place a guess is written into the field rather than ranked
 /// into the suggestion line (`preferredCodesFor`). The argument for ranking is
@@ -321,9 +326,10 @@ export function exchangeInheritPrefix(party: Party): number {
 /// a far better one. The core still guarantees a suggestion never displaces
 /// what the operator typed.
 ///
-/// Suggested only when it is one of the codes this station could send at all,
-/// so a DX contact — whose option set is empty and whose field is freeform —
-/// is left alone.
+/// Filled only when it is one of the codes this station could send, which is
+/// the whole guard: [options] holds no DX list at all, and no party holds its
+/// OWN states, so an in-party caller — who sends a county — is refused here by
+/// the same rule that tints `NY` red in the New York QSO Party.
 ///
 /// [options] is what `exchangeOptionsFor` already answered for this station —
 /// passed in rather than rebuilt, because it runs once per callsign resolution
@@ -334,8 +340,36 @@ export function suggestedExchangeFor(
   guessedState: string,
 ): string | undefined {
   if (!guessedState) return undefined
-  if (partyStates(party).has(guessedState)) return undefined
   return options.some((option) => option.code === guessedState) ? guessedState : undefined
+}
+
+/// What this station sent us EARLIER in this operation, if anything.
+///
+/// The best answer there is: it is not a guess at all but an exchange the
+/// operator already copied from this same station, and it is what the scorer
+/// and both exports fall back to for a blank second-band contact (the
+/// `lastLocation` fold). Offering it in the field means the operator confirms
+/// it rather than discovering after the fact that it was assumed.
+///
+/// [qsos] is the operation's log, oldest first, so the LAST match wins — a
+/// rover who gave a new county on the last band sent that county, not the one
+/// they opened with.
+export function loggedExchangeFor(
+  party: Party,
+  qsos: Record<string, JSONValue>[],
+  call: string,
+): string {
+  const wanted = call.trim().toUpperCase()
+  if (!wanted) return ''
+  let found = ''
+  for (const qso of qsos) {
+    if (qso.band === 'event') continue
+    const their = (qso.their as Record<string, JSONValue>) ?? {}
+    if (str(their.call).toUpperCase() !== wanted) continue
+    const location = str(partyRefIn(party, qso as Record<string, unknown>)?.location).trim()
+    if (location) found = location
+  }
+  return found
 }
 
 /// The codes floated to the top of the suggestion list: the counties of the
@@ -344,7 +378,11 @@ export function preferredCodesFor(party: Party, guessedState: string): string[] 
   if (!guessedState) return []
   const state = normalizeCode(guessedState)
   const counties = Object.keys(party.counties).filter((code) => stateForCounty(party, code) === state)
-  return [...counties, state]
+  // The state itself only where it is a code a station could send: inside the
+  // party it is not offered at all (`exchangeOptionsFor`), and floating a value
+  // to the top of a list it is not in would offer the operator an exchange the
+  // same field then tints as wrong.
+  return partyStates(party).has(state) ? counties : [...counties, state]
 }
 
 /// Our own location as the file's `LOCATION:` header writes it — the county, or
