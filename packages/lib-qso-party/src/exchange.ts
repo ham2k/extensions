@@ -324,15 +324,18 @@ export function exchangeInheritPrefix(party: Party): number {
 /// Suggested only when it is one of the codes this station could send at all,
 /// so a DX contact — whose option set is empty and whose field is freeform —
 /// is left alone.
+///
+/// [options] is what `exchangeOptionsFor` already answered for this station —
+/// passed in rather than rebuilt, because it runs once per callsign resolution
+/// and is up to ~470 entries for the largest parties.
 export function suggestedExchangeFor(
   party: Party,
-  qso: Record<string, JSONValue> | undefined,
+  options: { code: string }[],
   guessedState: string,
 ): string | undefined {
   if (!guessedState) return undefined
   if (partyStates(party).has(guessedState)) return undefined
-  const offered = exchangeOptionsFor(party, qso).some((option) => option.code === guessedState)
-  return offered ? guessedState : undefined
+  return options.some((option) => option.code === guessedState) ? guessedState : undefined
 }
 
 /// The codes floated to the top of the suggestion list: the counties of the

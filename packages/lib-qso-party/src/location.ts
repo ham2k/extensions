@@ -221,7 +221,15 @@ export function defaultTheirLocation(party: Party, qso: Record<string, JSONValue
   const entityPrefix = entityPrefixOf(qso as Record<string, unknown>)
   if (entityPrefix === 'K' || entityPrefix === 'VE') {
     const guessed = guessedStateOf(qso as Record<string, unknown>)
-    return guessed && normalizeLocation(party, guessed, { entityPrefix }) ? guessed : ''
+    // A state CODE, and only that. `normalizeLocation` reads anything longer
+    // than four characters as a county carrying its state in its first two, so
+    // a lookup that hands back a NAME would resolve `MINNESOTA` to `MI` —
+    // Michigan — and both the score and the file would claim the wrong state
+    // with nothing looking wrong anywhere. Every US state, DC and every
+    // Canadian province is two characters; a longer answer has told us nothing
+    // we can file.
+    if (guessed.length !== 2 || !normalizeLocation(party, guessed, { entityPrefix })) return ''
+    return guessed
   }
   // Alaska and Hawaii are US STATES that do not send `K`, and the scorer
   // credits them as such — so a file that wrote `DX` for one would not support

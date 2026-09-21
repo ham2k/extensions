@@ -459,7 +459,7 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
 
       const guessedState = qso ? guessedStateOf(qso as Record<string, unknown>) : ''
       const options = exchangeOptionsFor(party, qso)
-      const suggested = suggestedExchangeFor(party, qso, guessedState)
+      const suggested = suggestedExchangeFor(party, options, guessedState)
       const inheritPrefix = exchangeInheritPrefix(party)
       controls.push({
         key: `${party.refType}/location`,
