@@ -347,18 +347,21 @@ test('a station with no list to choose from types whatever they heard', async ()
   assert.equal(us.input.allowFreeform, false)
 })
 
-test("the lookup's state ranks the list, hints at itself, and fills nothing in", async () => {
-  // An IN-PARTY caller: they send a county, which no lookup guesses, so the
-  // state's counties float to the top and nothing is written in. The state
-  // itself is neither offered nor ranked — `NY` is an exchange no station in
-  // the New York QSO Party sends — but it is still shown as a hint, which is
-  // how the operator sees which New York station this is.
-  const { input } = await exchangeInput(NY, { their: { call: 'K1ABC', entityPrefix: 'K', guess: { state: 'NY' } } })
-  assert.ok(input.preferredCodes!.includes('ALB'))
-  assert.equal(input.preferredCodes!.includes('NY'), false)
-  assert.equal(input.options!.some((option) => option.code === 'NY'), false)
-  assert.equal(input.suggestedValue, undefined)
-  assert.equal(input.placeholder, 'NY')
+test("the lookup fills in what the log would claim, and only hints at an in-party caller's own state", async () => {
+  // In the party: they send a COUNTY, which no lookup guesses, so the state's
+  // counties float to the top and the state itself is only a hint — `NY` is
+  // the exchange nobody in the New York QSO Party sends.
+  const inParty = (await exchangeInput(NY, { their: { call: 'K1ABC', entityPrefix: 'K', guess: { state: 'NY' } } })).input
+  assert.ok(inParty.preferredCodes!.includes('ALB'))
+  assert.equal(inParty.preferredCodes!.includes('NY'), false)
+  assert.equal(inParty.options!.some((option) => option.code === 'NY'), false)
+  assert.equal(inParty.suggestedValue, undefined)
+  assert.equal(inParty.placeholder, 'NY')
+
+  // Out of the party the state IS their exchange, and it goes in as a value.
+  const outside = (await exchangeInput(NY, { their: { call: 'W3WC', entityPrefix: 'K', guess: { state: 'PA' } } })).input
+  assert.equal(outside.suggestedValue, 'PA')
+  assert.equal(outside.placeholder, undefined)
 })
 
 test('the exchange is mirrored into the field the rest of the app reads', async () => {

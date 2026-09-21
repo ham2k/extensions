@@ -483,13 +483,17 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
         await operationLog(ctx, str(operation.uuid)),
         str((qso?.their as Record<string, JSONValue> | undefined)?.call),
       )
-      // The hint is what the log will claim if nothing is typed — the same
-      // function the scorer and both exports fall back to, so the field cannot
-      // promise one thing and the score record another. It is never written
-      // IN: a state is not what an in-party caller sends, `DX` is not
-      // something a DX station is asked to send, and neither is a value the
-      // operator copied.
+      // What they sent earlier wins — not a guess, but an exchange already
+      // copied. Else the value an empty exchange is scored and filed as
+      // anyway, so a prefill left alone changes nothing about the log.
       const hint = defaultTheirLocation(party, (qso ?? {}) as Record<string, JSONValue>)
+      // Except an in-party caller's own state: it is not an exchange anyone
+      // sends (`NY` in NYQP is not offered), so it is shown as a hint — which
+      // New York station this is — while the county goes in the field. A
+      // freeform field (a DX station's) has nothing to reject.
+      const hintIsExchange = options.length === 0 || options.some((option) => option.code === hint)
+      const suggested = logged || (hintIsExchange ? hint : '')
+      const placeholder = suggested ? '' : hint
       const inheritPrefix = exchangeInheritPrefix(party)
       controls.push({
         key: `${party.refType}/location`,
@@ -509,16 +513,13 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
           // A county line is two codes and a separator, so the field is longer
           // than any one of them — and DX entity prefixes can be four.
           maxLength: party.countyLine ? 13 : 6,
-          // The guessed state RANKS the list and never fills it: no lookup
-          // guesses a county, and the state itself is a hint rather than a
-          // value (`hint` above).
+          // The guessed state's counties float up for the caller who sends one
+          // of those — a county is never guessed, only ranked.
           preferredCodes: preferredCodesFor(party, guessedState),
-          // The only thing written in: an exchange this station already gave
-          // us in this operation. Not a guess at all, and what the score and
-          // the file already fall back to silently — so filling it is the
-          // operator confirming it rather than finding out afterwards.
-          ...(logged ? { suggestedValue: logged } : {}),
-          ...(hint ? { placeholder: hint } : {}),
+          // Written in where it is an exchange, hinted where it is not — see
+          // `suggested` and `placeholder` above.
+          ...(suggested ? { suggestedValue: suggested } : {}),
+          ...(placeholder ? { placeholder } : {}),
           ...(party.countyLine
             ? {
               multiValue: {
