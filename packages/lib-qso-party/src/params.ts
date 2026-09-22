@@ -322,6 +322,12 @@ export interface QsoPartyParams {
   /// DC is scored as Maryland. Rules saying "50 states" with no mention of DC
   /// mean true; rules naming DC explicitly mean false. Default false.
   dcCountsAsMaryland?: boolean
+  /// A US or Canadian station outside the party sends its ARRL/RAC SECTION, not
+  /// its state or province (PA). Strict: a state is valid only where a section
+  /// shares its abbreviation, because the sponsor's checker reads the same list
+  /// — so `dcCountsAsMaryland` and `alaskaAndHawaiiAreDX` have nothing to say
+  /// under it (`MDC` and `PAC` are sections of their own). Default false.
+  sectionsForOutOfState?: boolean
   /// An in-party station counts its OWN state as a multiplier as well as the
   /// county the contact came from (CO). Default false.
   stateCountsForInState?: boolean

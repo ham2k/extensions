@@ -15,6 +15,7 @@ import {
   normalizeLocation,
   parseLocations,
   splitLocations,
+  stateForEntity,
   theirLocations,
 } from "./location.ts"
 import { resolveParty } from "./party.ts"
@@ -64,14 +65,32 @@ test('an unknown location falls back to where the callsign says they are', () =>
   assert.equal(normalizeLocation(ny, 'ZZZ', { entityPrefix: 'K' }), '')
 })
 
-test('Alaska is KL in the country file, and a state in every shipped party', () => {
+test('Alaska is KL in the country file, which is what a station sending NOTHING is read as', () => {
   // A lookup for `KL7` never matches what the country file answers, so an
-  // Alaskan station whose exchange could not be read would score as DX rather
-  // than as the state multiplier they are.
-  assert.equal(normalizeLocation(ny, 'ZZZ', { entityPrefix: 'KL' }), 'AK')
-  assert.equal(normalizeLocation(ny, 'ZZZ', { entityPrefix: 'KH6' }), 'HI')
+  // Alaskan station who sent no exchange at all would be read as DX rather than
+  // as the state multiplier they are. This is the ONE place a prefix still
+  // answers for a location: a station who sent nothing, where it is the best
+  // answer there is.
+  assert.equal(stateForEntity(ny, 'KL'), 'AK')
+  assert.equal(stateForEntity(ny, 'KH6'), 'HI')
   // What app-polo wrote stays readable, for a synced or imported log.
-  assert.equal(normalizeLocation(ny, 'ZZZ', { entityPrefix: 'KL7' }), 'AK')
+  assert.equal(stateForEntity(ny, 'KL7'), 'AK')
+})
+
+test('an unreadable exchange from a Hawaiian is a typo, not the state their prefix names', () => {
+  // They send a county or a state like any other US station, and the entry row
+  // now offers them that list and tints what is not on it — so a code nobody
+  // can read is their mis-copy, and reading it as `HI` made a multiplier out of
+  // a mis-hearing while the score went up and nothing was flagged.
+  assert.equal(normalizeLocation(ny, 'ZZZ', { entityPrefix: 'KH6' }), '')
+  assert.equal(normalizeLocation(ny, 'ZZZ', { entityPrefix: 'KL' }), '')
+  assert.equal(normalizeLocation(ny, 'ZZZ', { entityPrefix: 'KL7' }), '')
+  // Exactly as it is for a station signing `K`, which is the point.
+  assert.equal(normalizeLocation(ny, 'ZZZ', { entityPrefix: 'K' }), '')
+  // What they actually send still reads.
+  assert.equal(normalizeLocation(ny, 'HI', { entityPrefix: 'KH6' }), 'HI')
+  // A genuinely DX station is still DX.
+  assert.equal(normalizeLocation(ny, 'ZZZ', { entityPrefix: 'DL' }), 'DX')
 })
 
 test("a long code that is nobody's county is read as its state", () => {

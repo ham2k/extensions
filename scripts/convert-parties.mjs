@@ -303,6 +303,7 @@ function optionsOf(raw) {
     entity: str(o.entity)?.toUpperCase() === "VE" ? "VE" : "K",
     countyLine: bool(o.countyLine),
     dcCountsAsMaryland: bool(o.dcCountsAsMaryland),
+    sectionsForOutOfState: bool(o.sectionsForOutOfState),
     stateCountsForInState: bool(o.stateCountsForInState),
     countiesAreMultipliersInParty,
     alaskaAndHawaiiAreDX: bool(o.alaskaAndHawaiiAreDX),
@@ -491,7 +492,7 @@ function emitParty(raw, key) {
   const rules = []
   if (options.entity !== "K") rules.push(["entity", quote(options.entity)])
   for (const flag of [
-    "countyLine", "dcCountsAsMaryland", "stateCountsForInState", "alaskaAndHawaiiAreDX",
+    "countyLine", "dcCountsAsMaryland", "sectionsForOutOfState", "stateCountsForInState", "alaskaAndHawaiiAreDX",
     "selfCountsForCounty", "selfMobileCountsForCounty", "dxIsMultiplier", "dxEntityIsMultiplier",
     "dxLocationIsPrefix", "multsPerBandMode", "multsPerBand", "multsPerMode", "inStateMultsPerBand",
     "outOfStateMultsPerBand", "bonusPerBandMode", "bonusPerMode", "bonusPostMultiplier",

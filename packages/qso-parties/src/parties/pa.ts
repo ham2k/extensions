@@ -19,7 +19,7 @@ export const PARTY: QsoPartyParams = {
   cabrilloName: "PA-QSO-PARTY",
   url: "https://paqso.org/index.html",
   status: "Verified for 2026 against paqso.org (rules rev 08/25/26)",
-  lastUpdated: "2026-09-17 12:00Z",
+  lastUpdated: "2026-09-18 12:00Z",
   periods: [
     // 2026-10-10 16:00Z — 2026-10-11 04:00Z
     { startMillis: 1791648000000, endMillis: 1791691200000 },
@@ -27,7 +27,7 @@ export const PARTY: QsoPartyParams = {
     { startMillis: 1791723600000, endMillis: 1791756000000 },
   ],
   countyLine: true,
-  dcCountsAsMaryland: true,
+  sectionsForOutOfState: true,
   dxIsMultiplier: true,
   bonusPerBandMode: true,
   bonusPostMultiplier: true,
@@ -38,6 +38,7 @@ export const PARTY: QsoPartyParams = {
   },
   pointsByMode: { PHONE: 1, CW: 2 },
   bonusStations: { K3ZMC: 200 },
+  powerMultipliers: { QRP: 2 },
   exchange: { number: true },
   entryClasses: {
     operator: ["SINGLE-OP", "MULTI-ONE"],

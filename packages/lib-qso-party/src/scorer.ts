@@ -29,7 +29,15 @@ import type { ContestScorer, JSONValue, QsoScoreVerdict, ScoreTally } from "@ham
 
 import { isMobile, ourLocationText, partyRefIn, powerMultiplier, str } from "./entry.ts"
 import type { QsoPartyLocation, QsoPartyParams } from "./params.ts"
-import { allInParty, defaultTheirLocation, entityPrefixOf, parseLocations, theirLocations } from "./location.ts"
+import {
+  allInParty,
+  defaultTheirLocation,
+  entityPrefixOf,
+  ourOwnCodes,
+  outOfPartyTables,
+  parseLocations,
+  theirLocations,
+} from "./location.ts"
 import { CANADIAN_PROVINCES, US_STATES } from "./locations.ts"
 import { superModeForMode } from "./modes.ts"
 import {
@@ -156,8 +164,9 @@ function multipliersFor(
     }
   }
 
-  if (US_STATES[code] || code === 'DC') return { keys: [`${prefix}${code}`], state: code }
-  if (CANADIAN_PROVINCES[code]) return { keys: [`${prefix}${code}`], province: code }
+  const tables = outOfPartyTables(party)
+  if (tables.us[code] || code === 'DC') return { keys: [`${prefix}${code}`], state: code }
+  if (tables.canada[code]) return { keys: [`${prefix}${code}`], province: code }
 
   if (code === 'DX') {
     const entity = entityOf(location)
@@ -227,7 +236,7 @@ export function qsoPartyScorer(params: QsoPartyParams): ContestScorer<QsoPartySc
       // is then scored under out-of-party rules: different multiplier keys, no
       // own-county multiplier, no activated-county bonus. The contact still
       // counts for what it is worth; the operator is told, on every QSO.
-      const ourStates = weAreInParty ? undefined : partyStates(party)
+      const ourStates = weAreInParty ? undefined : ourOwnCodes(party)
       const typedOurState = ourStates !== undefined
         && ourLocations.some((location) => ourStates.has(location.code))
       sheet.weAreInParty ??= weAreInParty
@@ -248,6 +257,7 @@ export function qsoPartyScorer(params: QsoPartyParams): ContestScorer<QsoPartySc
       const { locations: theirs, standing } = theirLocations(party, typed || fallback, {
         entityPrefix,
         weAreInParty,
+        received: typed !== '',
       })
       const theyAreInParty = standing.theyAreInParty
 
@@ -551,13 +561,33 @@ function longSummaryFor(party: Party, sheet: QsoPartyScoresheet, bonusPoints: nu
   // out-of-party station's multipliers are its counties, and printing fifty
   // states they can never claim reads as fifty missing ones.
   if (sheet.weAreInParty) {
-    parts.push(`### ${fmtInteger(Object.keys(sheet.states).length)} US States`)
-    const states = Object.keys(US_STATES)
-    if (!party.dcCountsAsMaryland) states.push('DC')
+    const sections = party.sectionsForOutOfState
+    const tables = outOfPartyTables(party)
+    // A code inside the party is one nobody can send us, so it is no part of a
+    // chase list — PAQP's own `EPA` and `WPA`, and the party's own state
+    // everywhere else. Shown anyway once it HAS been counted: the heading reads
+    // `sheet.states` while the list reads the party's table, and a code held by
+    // one and hidden by the other prints a count above nothing struck. An
+    // in-party station's own state reaches the sheet exactly that way, from a
+    // contact whose exchange was never copied (`defaultTheirLocation`).
+    //
+    // Unless the party's own ground is a multiplier by another route: NEQP
+    // scores an in-party contact by STATE and CO counts its own alongside the
+    // county, so there those codes are exactly what the list exists to show as
+    // still needed. A chase list answers "what is left", and hiding the six
+    // New England states until they are worked answers "what is done".
+    const ownGroundMultiplies = party.stateCountsForInState || !party.countiesAreMultipliersInParty
+    const ours = ownGroundMultiplies ? new Set<string>() : ourOwnCodes(party)
+    const chaseable = (table: Record<string, number>, codes: string[]) =>
+      codes.filter((code) => !ours.has(code) || table[code] !== undefined)
+
+    parts.push(`### ${fmtInteger(Object.keys(sheet.states).length)} ${sections ? 'ARRL Sections' : 'US States'}`)
+    const states = chaseable(sheet.states, Object.keys(tables.us))
+    if (!sections && !party.dcCountsAsMaryland) states.push('DC')
     parts.push(states.map((code) => worked(sheet.states, code)).join(' '))
 
-    parts.push(`### ${fmtInteger(Object.keys(sheet.provinces).length)} Canadian Provinces`)
-    parts.push(Object.keys(CANADIAN_PROVINCES).map((code) => worked(sheet.provinces, code)).join(' '))
+    parts.push(`### ${fmtInteger(Object.keys(sheet.provinces).length)} ${sections ? 'RAC Sections' : 'Canadian Provinces'}`)
+    parts.push(chaseable(sheet.provinces, Object.keys(tables.canada)).map((code) => worked(sheet.provinces, code)).join(' '))
 
     if (party.dxEntityIsMultiplier || party.dxIsMultiplier) {
       const entities = Object.keys(sheet.entities).sort()

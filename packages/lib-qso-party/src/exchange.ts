@@ -9,6 +9,8 @@ import { operationForQso } from "@ham2k/extension-sdk"
 import type { JSONValue, OperationSegmentPayload } from "@ham2k/extension-sdk"
 import { qsonToCabrillo } from "@ham2k/lib-qson-cabrillo"
 
+import { STATE_FOR_SECTION } from "./locations.ts"
+
 import {
   ourEmail,
   ourLocationText,
@@ -27,6 +29,8 @@ import {
   defaultTheirLocation,
   entityPrefixOf,
   nameForLocation,
+  ourOwnCodes,
+  outOfPartyTables,
   parseLocations,
   splitLocations,
   stateForEntity,
@@ -48,8 +52,9 @@ export function theirLocationForFile(
   const their = (qso.their as Record<string, JSONValue>) ?? {}
   const call = str(their.call).toUpperCase()
   const remembered = call ? lastLocation?.[call] : undefined
-  const text = str(qsoRef?.location).trim() || remembered || defaultTheirLocation(party, qso)
-  const { locations } = theirLocations(party, text, { entityPrefix, weAreInParty })
+  const typed = str(qsoRef?.location).trim()
+  const text = typed || remembered || defaultTheirLocation(party, qso)
+  const { locations } = theirLocations(party, text, { entityPrefix, weAreInParty, received: typed !== '' })
   if (call && locations.length > 0 && lastLocation) {
     lastLocation[call] = locations.map((location) => location.code).join(COUNTY_LINE_SEPARATOR)
   }
@@ -151,7 +156,11 @@ export function cabrilloRowsFor(
 
   const ourLocations = parseLocations(party, ourLocationForQso(party, qso, operation, segments))
   const weAreIn = allInParty(ourLocations)
-  const { locations, standing } = theirLocations(party, theirText, { entityPrefix, weAreInParty: weAreIn })
+  const { locations, standing } = theirLocations(party, theirText, {
+    entityPrefix,
+    weAreInParty: weAreIn,
+    received: typed !== '',
+  })
 
   // Every gate the scorer applies, in the order it applies them — a contact it
   // scored zero may not appear in the file, and one it never learned from may
@@ -226,21 +235,26 @@ export function exchangeOptionsFor(
   // the state it resolves to. (`partyStates` is the same set the scorer reads
   // to catch an operator who typed their state where their county belongs;
   // this is the other end of that mistake.)
-  const ours = partyStates(party)
+  // `ourOwnCodes`, not `partyStates`: a SECTION lies inside a state without
+  // sharing its code, so PAQP's own `EPA` and `WPA` are exactly as unsendable
+  // as `NY` is in the New York QSO Party and slip a plain state comparison.
+  const ours = ourOwnCodes(party)
   const notOurs = (options: { code: string; name?: string }[]) =>
     options.filter((option) => !ours.has(option.code))
-  const states = notOurs([
-    ...asOptions(US_STATES),
-    { code: 'DC', name: nameForLocation(party, 'DC') },
-  ])
-  const provinces = notOurs(asOptions(CANADIAN_PROVINCES))
+  // Where the exchange is a section the DC question does not arise: `MDC` is in
+  // the table, and `DC` is not something the sponsor accepts.
+  const tables = outOfPartyTables(party)
+  const states = notOurs(party.sectionsForOutOfState
+    ? asOptions(tables.us)
+    : [...asOptions(tables.us), { code: 'DC', name: nameForLocation(party, 'DC') }])
+  const provinces = notOurs(asOptions(tables.canada))
 
   // Alaska and Hawaii are US states whose stations do not sign `K`. They send
   // a county or a state like any other US station — and in the Hawaii QSO
   // Party a Hawaiian is the one station that sends one of its multipliers.
   // Left to the DX path below, exactly they would get no list to pick from
   // and no tint for a typo. Unless the party counts them as DX.
-  const usState = entity === 'K' || (stateForEntity(entity) !== '' && !party.alaskaAndHawaiiAreDX)
+  const usState = entity === 'K' || (stateForEntity(party, entity) !== '' && !party.alaskaAndHawaiiAreDX)
   if (usState) {
     return party.entity === 'VE' ? states : [...ourCounties, ...states]
   }
@@ -392,7 +406,12 @@ export function pastExchangeHolds(
 /// the state it belongs to, anything else as itself.
 function stateOfCode(party: Party, code: string): string {
   const isCounty = party.counties[code] !== undefined || party.otherCounties[code] !== undefined
-  return isCounty ? stateForCounty(party, code) : code
+  if (isCounty) return stateForCounty(party, code)
+  // A section by the state it lies in. Without this step a past exchange can
+  // never survive the comparison where the party speaks sections: what was
+  // stored is `EMA` and what the lookup answers is `MA`, so the prefill is
+  // simply dead for every out-of-state station.
+  return STATE_FOR_SECTION[code] ?? code
 }
 
 /// The codes floated to the top of the suggestion list: the counties of the
@@ -405,7 +424,16 @@ export function preferredCodesFor(party: Party, guessedState: string): string[] 
   // party it is not offered at all (`exchangeOptionsFor`), and floating a value
   // to the top of a list it is not in would offer the operator an exchange the
   // same field then tints as wrong.
-  return partyStates(party).has(state) ? counties : [...counties, state]
+  const ours = ourOwnCodes(party)
+  if (!party.sectionsForOutOfState) return ours.has(state) ? counties : [...counties, state]
+  // A lookup answers with a STATE and the field holds sections, so the state
+  // itself is in no list and ranking by it would rank nothing. Every section of
+  // that state is floated instead, since no lookup can say which of
+  // California's nine they are sitting in.
+  const tables = outOfPartyTables(party)
+  const sections = [...Object.keys(tables.us), ...Object.keys(tables.canada)]
+    .filter((code) => !ours.has(code) && (STATE_FOR_SECTION[code] ?? code) === state)
+  return [...counties, ...sections]
 }
 
 /// Our own location as the file's `LOCATION:` header writes it — the county, or

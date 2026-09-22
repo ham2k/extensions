@@ -30,7 +30,7 @@ import {
 import { defaultTheirLocation } from "./location.ts"
 import type { QsoPartyParams } from "./params.ts"
 import { resolveParty } from "./party.ts"
-import { ACQP, CA, ID, MD, MN, NY, SEVEN_QP, WA, WI } from "./testFixtures.ts"
+import { ACQP, CA, ID, MD, MN, NY, PA, SEVEN_QP, WA, WI } from "./testFixtures.ts"
 
 const ny = resolveParty(NY)
 
@@ -524,4 +524,57 @@ test('the whole file: a header a checker can read, and one line per contact', ()
   const qsos = lines.filter((line) => line.startsWith('QSO:'))
   assert.equal(qsos.length, 1)
   assert.match(qsos[0], /^QSO: 14000 CW 2026-10-17 1430 N0DEV\s+599\s+ALB\s+K1ABC\s+599\s+ERI\s*$/)
+})
+
+test('a party that exchanges sections offers, and files, sections', () => {
+  const pa = resolveParty(PA)
+  const us = exchangeOptionsFor(pa, qso({ params: PA, entityPrefix: 'K' })).map((option) => option.code)
+  assert.ok(us.includes('ELK') && us.includes('EMA') && us.includes('MDC') && us.includes('CT'))
+  for (const state of ['CA', 'NY', 'MD', 'DC']) assert.equal(us.includes(state), false, `${state} is offered`)
+  // A section INSIDE Pennsylvania is as unsendable as the state is elsewhere:
+  // its stations send a county. A plain `partyStates` comparison misses these,
+  // because a section lies in a state without sharing its code.
+  assert.equal(us.includes('EPA'), false)
+  assert.equal(us.includes('WPA'), false)
+  const ve = exchangeOptionsFor(pa, qso({ params: PA, entityPrefix: 'VE' })).map((option) => option.code)
+  assert.ok(ve.includes('GH') && ve.includes('TER'))
+  assert.equal(ve.includes('ON'), false)
+
+  // The file says what the scoreboard scored: the section as sent, and nothing
+  // for a state or for a section inside Pennsylvania.
+  assert.ok(cabrilloRowsFor(pa, qso({ params: PA, location: 'ema' }), operation('ELK', PA), 'N0DEV')[0]
+    .some((cell) => cell.trim() === 'EMA'))
+  assert.deepEqual(cabrilloRowsFor(pa, qso({ params: PA, location: 'CA' }), operation('ELK', PA), 'N0DEV'), [])
+  assert.deepEqual(cabrilloRowsFor(pa, qso({ params: PA, location: 'EPA' }), operation('ELK', PA), 'N0DEV'), [])
+})
+
+test('the guess floats SECTIONS where the exchange is a section', () => {
+  // A lookup answers with a state and the field holds sections, so ranking by
+  // the state ranks a code that is not in the list — the guess silently stops
+  // floating anything, which is the failure `guessedStateOf` warns about.
+  const pa = resolveParty(PA)
+  assert.deepEqual(preferredCodesFor(pa, 'MA').sort(), ['EMA', 'WMA'])
+  // All nine of California's, since no lookup can say which one they are in.
+  // Nine and not ten: `PAC` sits in the sponsor's W6 column by call area, but
+  // it is Hawaii and the Pacific islands, so it belongs to no state here.
+  assert.deepEqual(preferredCodesFor(pa, 'CA').sort(), ['EB', 'LAX', 'ORG', 'SB', 'SCV', 'SDG', 'SF', 'SJV', 'SV'])
+  assert.deepEqual(preferredCodesFor(pa, 'HI'), ['PAC'])
+  // A guess of Pennsylvania itself floats the counties and never `EPA`/`WPA`.
+  const home = preferredCodesFor(pa, 'PA')
+  assert.ok(home.includes('ELK'))
+  assert.deepEqual(home.some((code) => code === 'EPA' || code === 'WPA'), false)
+})
+
+test('an exchange from an earlier running still holds when the party speaks sections', () => {
+  // What was stored is a SECTION and what the lookup answers is a STATE, so a
+  // bare comparison never matches and the prefill is dead for every
+  // out-of-state station — the great majority of a PAQP log.
+  const pa = resolveParty(PA)
+  const options = exchangeOptionsFor(pa, qso({ params: PA, entityPrefix: 'K' }))
+  assert.equal(pastExchangeHolds(pa, options, 'MA', 'EMA'), true)
+  assert.equal(pastExchangeHolds(pa, options, '', 'EMA'), true)
+  // A station who has since moved is still refused: `EMA` is not in Ohio.
+  assert.equal(pastExchangeHolds(pa, options, 'OH', 'EMA'), false)
+  // And a code this party does not offer at all never holds.
+  assert.equal(pastExchangeHolds(pa, options, 'MA', 'MA'), false)
 })
