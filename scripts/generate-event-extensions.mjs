@@ -39,7 +39,7 @@ import { CANADIAN_PROVINCES, US_STATES } from "../packages/lib-qso-party/src/loc
 
 const EXTENSIONS_DIR = resolve(import.meta.dirname, "..", "extensions", "contests")
 
-const VERSION = "0.2.11"
+const VERSION = "0.2.12"
 
 /// The accent an event carries, by the flag of the country whose party it is.
 /// Two colors for the family rather than fifty — what tells two events apart
@@ -350,7 +350,7 @@ function packageJsonFor(key, party) {
       "@ham2k/qso-parties": "^0.1.0",
     },
     devDependencies: {
-      "@ham2k/extension-sdk": "^0.4.0",
+      "@ham2k/extension-sdk": "^0.5.6",
       "@ham2k/extension-tools": "^0.3.0",
       esbuild: "^0.25.5",
     },

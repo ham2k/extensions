@@ -2,7 +2,7 @@
   "key": "ham2k-acqp",
   "name": "ACQP: Atlantic Canada QSO Party",
   "shortName": "ACQP",
-  "version": "0.2.11",
+  "version": "0.2.12",
   "description": "Work stations in NB, NL, NS and PE.",
   "category": "contest",
   "icon": "leaf-maple",
