@@ -322,25 +322,70 @@ export function exchangeInheritPrefix(party: Party): number {
 /// `lastLocation` fold). Offering it in the field means the operator confirms
 /// it rather than discovering after the fact that it was assumed.
 ///
-/// [qsos] is the operation's log, oldest first, so the LAST match wins — a
-/// rover who gave a new county on the last band sent that county, not the one
-/// they opened with.
+/// [history] is that station's contacts NEWEST first, as `getHistoryForCall`
+/// answers — so the first one carrying an exchange wins: a rover who gave a
+/// new county on the last band sent that county, not the one they opened
+/// with.
+///
+/// The callsign, the event markers and THIS party's ref are checked here
+/// again, because a host older than `getHistoryForCall`'s filters ignores them
+/// and answers the station's latest contacts of any kind (the SDK's contract).
+/// The operation cannot be checked — a contact's data does not carry it — so
+/// on such a host the answer may come from an earlier operation for this same
+/// event; the ref type is per event, so never from another party's.
+///
+/// [accept] narrows it further, for a history the operator did not just copy
+/// (`pastExchangeHolds`).
 export function loggedExchangeFor(
   party: Party,
-  qsos: Record<string, JSONValue>[],
+  history: Record<string, JSONValue>[],
   call: string,
+  accept: (location: string) => boolean = () => true,
 ): string {
   const wanted = call.trim().toUpperCase()
   if (!wanted) return ''
-  let found = ''
-  for (const qso of qsos) {
+  for (const qso of history) {
     if (qso.band === 'event') continue
     const their = (qso.their as Record<string, JSONValue>) ?? {}
     if (str(their.call).toUpperCase() !== wanted) continue
     const location = str(partyRefIn(party, qso as Record<string, unknown>)?.location).trim()
-    if (location) found = location
+    if (location && accept(location)) return location
   }
-  return found
+  return ''
+}
+
+/// Whether an exchange a station gave in an EARLIER running of this event is
+/// still worth offering them now.
+///
+/// The event's own ref type finds only its own runnings, but a station can
+/// have moved since, and a code can have left the event's list (a county
+/// split, a party that stopped counting a neighbour's). So every code must be
+/// one this event offers now, and — where the lookup knows their state — in
+/// that state: a county by the state it belongs to, a state or province as
+/// itself. A county from two years ago in another state is a wrong prefill
+/// the operator has to notice; the lookup's state is what they send.
+///
+/// An exchange from THIS operation is not checked at all: the operator copied
+/// it minutes ago, and a lookup that disagrees is more likely wrong than it.
+export function pastExchangeHolds(
+  party: Party,
+  options: { code: string }[],
+  guessedState: string,
+  location: string,
+): boolean {
+  const codes = splitLocations(location)
+  if (codes.length === 0) return false
+  const offered = new Set(options.map((option) => option.code))
+  return codes.every((code) =>
+    (options.length === 0 || offered.has(code)) &&
+    (!guessedState || stateOfCode(party, code) === guessedState))
+}
+
+/// The state (or province) an exchange code places a station in: a county by
+/// the state it belongs to, anything else as itself.
+function stateOfCode(party: Party, code: string): string {
+  const isCounty = party.counties[code] !== undefined || party.otherCounties[code] !== undefined
+  return isCounty ? stateForCounty(party, code) : code
 }
 
 /// The codes floated to the top of the suggestion list: the counties of the

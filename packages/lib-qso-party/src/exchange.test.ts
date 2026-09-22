@@ -21,6 +21,7 @@ import {
   exchangeOptionsFor,
   exchangeTransforms,
   loggedExchangeFor,
+  pastExchangeHolds,
   ourLocationForQso,
   preferredCodesFor,
   resolvedExchanges,
@@ -319,24 +320,30 @@ test('the party\'s own state is not an exchange anybody sends', () => {
 test('what this station sent us earlier is offered before any guess', () => {
   // Not a guess at all: an exchange the operator already copied from this same
   // station, and the one the scorer and both exports would silently fall back
-  // to for a blank second-band contact.
-  const entry = (call: string, location: string, band = '20m') =>
-    ({ their: { call }, band, refs: [{ type: NY.refType, location }] }) as Record<string, JSONValue>
-  const log = [entry('K1ABC', 'ERI'), entry('K2XYZ', 'ALB')]
-  assert.equal(loggedExchangeFor(ny, log, 'K1ABC'), 'ERI')
-  assert.equal(loggedExchangeFor(ny, log, 'k1abc'), 'ERI', 'the log is not case-sensitive')
-  assert.equal(loggedExchangeFor(ny, log, 'W9NEW'), '')
-  assert.equal(loggedExchangeFor(ny, log, ''), '')
+  // to for a blank second-band contact. Histories are NEWEST first, as
+  // `getHistoryForCall` answers.
+  const entry = (call: string, location: string, band = '20m', refType = NY.refType) =>
+    ({ their: { call }, band, refs: [{ type: refType, location }] }) as Record<string, JSONValue>
+  assert.equal(loggedExchangeFor(ny, [entry('K1ABC', 'ERI')], 'K1ABC'), 'ERI')
+  assert.equal(loggedExchangeFor(ny, [entry('K1ABC', 'ERI')], 'k1abc'), 'ERI', 'the log is not case-sensitive')
+  assert.equal(loggedExchangeFor(ny, [entry('K1ABC', 'ERI')], ''), '')
 
-  // The LAST county they gave, not the first: a rover who drove into the next
-  // county sends the new one, and offering the old one would re-log a county
-  // they have left.
-  assert.equal(loggedExchangeFor(ny, [...log, entry('K1ABC', 'CHA', '40m')], 'K1ABC'), 'CHA')
+  // The LATEST county they gave: a rover who drove into the next county sends
+  // the new one, and offering the old one would re-log a county they have left.
+  assert.equal(loggedExchangeFor(ny, [entry('K1ABC', 'CHA', '40m'), entry('K1ABC', 'ERI')], 'K1ABC'), 'CHA')
 
   // A contact whose exchange was never copied teaches this nothing, and an
   // event marker is not a contact.
-  const blanks = [entry('K1ABC', 'ERI'), entry('K1ABC', '', '15m'), entry('K1ABC', 'ZZZ', 'event')]
+  const blanks = [entry('K1ABC', 'ZZZ', 'event'), entry('K1ABC', '', '15m'), entry('K1ABC', 'ERI')]
   assert.equal(loggedExchangeFor(ny, blanks, 'K1ABC'), 'ERI')
+
+  // A host older than the history filters answers the station's latest
+  // contacts of any kind. Another station's are not theirs, and another
+  // party's county is not an exchange in this one — both are checked again
+  // here, since the filter that should have left them out may not have run.
+  assert.equal(loggedExchangeFor(ny, [entry('K2XYZ', 'ALB'), entry('K1ABC', 'ERI')], 'K1ABC'), 'ERI')
+  assert.equal(loggedExchangeFor(ny, [entry('K1ABC', 'ORDES', '20m', 'seven-qp'), entry('K1ABC', 'ERI')], 'K1ABC'), 'ERI')
+  assert.equal(loggedExchangeFor(ny, [entry('K1ABC', 'ORDES', '20m', 'seven-qp')], 'K1ABC'), '')
 })
 
 test('the hint is what the log will claim if nothing is typed', () => {
@@ -360,6 +367,33 @@ test('the hint is what the log will claim if nothing is typed', () => {
   // the suggestion shown in every empty entry row.
   assert.equal(defaultTheirLocation(ny, {}), '')
   assert.equal(defaultTheirLocation(ny, { their: { call: 'Q0ZZZ' } } as Record<string, JSONValue>), '')
+})
+
+test('an exchange from an earlier running of the event is offered only while it still holds', () => {
+  const us = exchangeOptionsFor(ny, qso({ entityPrefix: 'K' }))
+  const holds = (location: string, guessedState = '') => pastExchangeHolds(ny, us, guessedState, location)
+
+  // Their county from last year, and the lookup still puts them in New York.
+  assert.equal(holds('ALB', 'NY'), true)
+  assert.equal(holds('ALB'), true, 'nothing known about where they are now: the county is all there is')
+
+  // They moved. The lookup says Pennsylvania now, so last year's New York
+  // county is not what they will send — their state is.
+  assert.equal(holds('ALB', 'PA'), false)
+  assert.equal(holds('PA', 'PA'), true)
+  assert.equal(holds('NJ', 'PA'), false, 'a state they left is no better than a county they left')
+
+  // A code this event no longer offers, and the event's own state, which is
+  // not an exchange here whatever it was there.
+  assert.equal(holds('ZZZ'), false)
+  assert.equal(holds('NY', 'NY'), false)
+
+  // The check is what `loggedExchangeFor` is handed for past runnings: the
+  // first exchange that still holds wins, newest first.
+  const entry = (location: string) =>
+    ({ their: { call: 'K2ABC' }, band: '20m', refs: [{ type: NY.refType, location }] }) as Record<string, JSONValue>
+  assert.equal(loggedExchangeFor(ny, [entry('ALB')], 'K2ABC', (l) => pastExchangeHolds(ny, us, 'PA', l)), '')
+  assert.equal(loggedExchangeFor(ny, [entry('ALB')], 'K2ABC', (l) => pastExchangeHolds(ny, us, 'NY', l)), 'ALB')
 })
 
 test('the declared entry classes become the Cabrillo CATEGORY lines', () => {

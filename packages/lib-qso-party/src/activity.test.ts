@@ -364,6 +364,32 @@ test("the lookup fills in what the log would claim, and only hints at an in-part
   assert.equal(outside.placeholder, undefined)
 })
 
+test('with nothing from this operation, an earlier running of the event is asked', async () => {
+  // An in-state caller on their first contact: no lookup knows their county,
+  // and this operation has none yet — but last year's running does. Found by
+  // the event's ref type, which its operations carry, and never this
+  // operation's own contacts, which were asked first.
+  const asked: Record<string, unknown>[] = []
+  const lastYear = [{ their: { call: 'K2ABC' }, band: '40m', refs: [{ type: NY.refType, location: 'ALB' }] }]
+  const history: HookContext = {
+    online: false,
+    getHistoryForCall: (async (_call: string, options: Record<string, unknown>) => {
+      asked.push(options)
+      return options.excludeOperation ? lastYear : []
+    }) as never,
+  }
+  const { input } = await exchangeInput(
+    NY,
+    { their: { call: 'K2ABC', entityPrefix: 'K', guess: { state: 'NY' } } },
+    history,
+  )
+  assert.equal(input.suggestedValue, 'ALB')
+  assert.equal(asked.length, 2, 'this operation first, then earlier runnings')
+  assert.equal(asked[0].operation, 'op')
+  assert.equal(asked[1].refType, NY.refType)
+  assert.equal(asked[1].excludeOperation, 'op')
+})
+
 test('the exchange is mirrored into the field the rest of the app reads', async () => {
   const save = qsoPartyActivity(CA).processQsoBeforeSave!
   const patch = await save({

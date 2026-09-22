@@ -41,6 +41,7 @@ import {
   exchangeOptionsFor,
   exchangeTransforms,
   loggedExchangeFor,
+  pastExchangeHolds,
   preferredCodesFor,
 } from "./exchange.ts"
 import { COUNTY_LINE_SEPARATOR, defaultTheirLocation, guessedStateOf } from "./location.ts"
@@ -55,18 +56,52 @@ import type {
 } from "./params.ts"
 import { daysUntil, hasAlreadyRun, type Party, resolveLabel, resolveParty } from "./party.ts"
 
-/// The operation's log, or nothing to learn from.
+/// This station's contacts matching [options], newest first — or nothing to
+/// learn from.
+///
+/// Asked of the host with its filters rather than read off the whole log:
+/// the answer is a handful of rows from an indexed query instead of every
+/// contact in a multi-thousand-QSO contest log, on a path that runs for each
+/// lookup pass of each callsign. Enough rows to step past contacts whose
+/// exchange was left blank to the one that was not.
 ///
 /// A host with no log access is not an error here — the exchange field is
 /// still the operator's to type, and letting a refused read escape would take
 /// the whole control row down with it.
-async function operationLog(ctx: HookContext, uuid: string): Promise<Record<string, JSONValue>[]> {
-  if (!uuid || !ctx.getQsos) return []
+async function callHistory(
+  ctx: HookContext,
+  call: string,
+  options: Record<string, JSONValue>,
+): Promise<Record<string, JSONValue>[]> {
+  if (!ctx.getHistoryForCall) return []
   try {
-    return (await ctx.getQsos(uuid)) ?? []
+    return await ctx.getHistoryForCall(call, { limit: 10, ...options })
   } catch {
     return []
   }
+}
+
+/// What [call] sent us before: in this operation, else in an earlier running
+/// of this event.
+///
+/// This operation's comes first and is taken as it is — the operator copied
+/// it from this station minutes ago. An earlier running is found by the
+/// event's ref type, which its operations carry, and has to still hold
+/// (`pastExchangeHolds`): the station can have moved.
+async function priorExchange(
+  ctx: HookContext,
+  party: Party,
+  call: string,
+  operationUuid: string,
+  options: { code: string }[],
+  guessedState: string,
+): Promise<string> {
+  if (!operationUuid) return ''
+  const here = await callHistory(ctx, call, { operation: operationUuid, refType: party.refType })
+  const found = loggedExchangeFor(party, here, call)
+  if (found) return found
+  const before = await callHistory(ctx, call, { refType: party.refType, excludeOperation: operationUuid })
+  return loggedExchangeFor(party, before, call, (location) => pastExchangeHolds(party, options, guessedState, location))
 }
 
 /// The English an operator reads where the party's own translator says nothing.
@@ -475,12 +510,11 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
       const options = exchangeOptionsFor(party, qso)
       // What this station sent us earlier beats anything a lookup can offer: it
       // is not a guess but an exchange the operator already copied, and it is
-      // what the scorer and both exports would silently fall back to anyway. A
-      // whole-log read, so only when there is a callsign to look for: this hook
-      // is also called with no QSO at all, and none of those callers can use
-      // the answer.
+      // what the scorer and both exports would silently fall back to anyway.
+      // Only asked for when there is a callsign: this hook is also called with
+      // no QSO at all, and none of those callers can use the answer.
       const call = str((qso?.their as Record<string, JSONValue> | undefined)?.call)
-      const logged = call ? loggedExchangeFor(party, await operationLog(ctx, str(operation.uuid)), call) : ''
+      const logged = call ? await priorExchange(ctx, party, call, str(operation.uuid), options, guessedState) : ''
       // What they sent earlier wins — not a guess, but an exchange already
       // copied. Else the value an empty exchange is scored and filed as
       // anyway, so a prefill left alone changes nothing about the log.
