@@ -169,13 +169,17 @@ const REGIONS_ES = {
   "neqp": "nueva inglaterra",
 }
 
-/// The Spanish for a sponsor's own word for a county. The engine's default is
-/// `County`; a party that renames it (`District`) renames it in both languages
-/// or the translated keywords search for the wrong noun.
-const NOUNS_ES = {
-  county: ["condado", "condados"],
-  district: ["distrito", "distritos"],
-  parish: ["parroquia", "parroquias"],
+/// A sponsor's own word for its counties, keyed by the plural the party
+/// declares (`labelForCounties`): the singular an operator would search for,
+/// and both in Spanish. The engine's default is `Counties`; a party that
+/// renames them (`Districts`) is found by its own noun in both languages, or
+/// the keywords search for the wrong one. Spelled out rather than derived,
+/// because English plurals are not one rule — `counties`, `districts`,
+/// `parishes`.
+const NOUNS = {
+  counties: { singular: "county", es: ["condado", "condados"] },
+  districts: { singular: "district", es: ["distrito", "distritos"] },
+  parishes: { singular: "parish", es: ["parroquia", "parroquias"] },
 }
 
 function placeName(code) {
@@ -243,10 +247,11 @@ function manifestFor(code, key, party) {
   const states = party.state ? [party.state] : party.states
   if (!states?.length) throw new Error(`${code} names neither a state nor a list of them`)
 
-  const singular = (party.labelForCounty ?? "County").toLowerCase()
   const plural = (party.labelForCounties ?? "Counties").toLowerCase()
-  const nounsEs = NOUNS_ES[singular]
-  if (!nounsEs) throw new Error(`no Spanish for '${singular}' — add it to NOUNS_ES`)
+  const noun = NOUNS[plural]
+  if (!noun) throw new Error(`no nouns for '${plural}' — add it to NOUNS`)
+  const singular = noun.singular
+  const nounsEs = noun.es
 
   // What KIND of party it is, in the words an operator would search: a party
   // spanning several US states is regional; anything Canadian is provincial,

@@ -525,10 +525,9 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
       const hint = defaultTheirLocation(party, (qso ?? {}) as Record<string, JSONValue>)
       // Except an in-party caller's own state: it is not an exchange anyone
       // sends, so it is shown as a hint — which New York station this is —
-      // while the county goes in the field. Said as the party's own states,
-      // not as "not in the list": a Hawaiian's entity is not K, so their field
-      // is freeform with no list at all, and `HI` in the Hawaii QSO Party would
-      // otherwise go in as a value.
+      // while the county goes in the field. Ruled out by name rather than by
+      // "not in the list": a station with no list (DX, or Alaska and Hawaii
+      // where the party counts them as DX) has nothing to check it against.
       const hintIsExchange = !partyStates(party).has(hint) &&
         (options.length === 0 || options.some((option) => option.code === hint))
       const suggested = logged || (hintIsExchange ? hint : '')

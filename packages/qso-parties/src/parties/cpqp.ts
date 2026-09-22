@@ -40,7 +40,6 @@ export const PARTY: QsoPartyParams = {
   multsPerBand: true,
   countiesAreMultipliersInParty: false,
   labelForCounties: "Districts",
-  labelForCounty: "District",
   pointsByMode: { PHONE: 1, CW: 1 },
   entryClasses: {
     operator: ["SINGLE-OP", "MULTI-ONE"],

@@ -129,8 +129,8 @@ export interface QsoPartyLabels {
   /// Deliberately the engine's own words rather than the sponsor's noun: an
   /// operator reading a row of four-character fields needs to know WHICH of
   /// them the QSO party wants, and `County` is wrong anyway for everyone
-  /// sending a state or a province. `labelForCounty` names the sponsor's
-  /// county-equivalent for the prose that talks ABOUT one; it does not label
+  /// sending a state or a province. `labelForCounties` names the sponsor's
+  /// county-equivalent for the prose that talks ABOUT them; it does not label
   /// these two fields.
   ourLocation?: QsoPartyLabel
   /// The exchange row's location field — `QP Location`. As `ourLocation`.
@@ -393,9 +393,8 @@ export interface QsoPartyParams {
   /// Default false.
   removeCountySuffixes?: boolean
   /// What this party calls its subdivisions — CPQP's are Districts. Defaults
-  /// `Counties` and `County`.
+  /// `Counties`.
   labelForCounties?: string
-  labelForCounty?: string
   /// The once-per-log bonuses. Every field defaults as documented on
   /// `QsoPartyBonus`; omitting the block pays none of them.
   bonus?: QsoPartyBonus

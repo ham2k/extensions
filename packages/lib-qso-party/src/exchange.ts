@@ -29,6 +29,7 @@ import {
   nameForLocation,
   parseLocations,
   splitLocations,
+  stateForEntity,
   theirLocations,
 } from "./location.ts"
 import { CANADIAN_PROVINCES, US_STATES } from "./locations.ts"
@@ -234,7 +235,13 @@ export function exchangeOptionsFor(
   ])
   const provinces = notOurs(asOptions(CANADIAN_PROVINCES))
 
-  if (entity === 'K') {
+  // Alaska and Hawaii are US states whose stations do not sign `K`. They send
+  // a county or a state like any other US station — and in the Hawaii QSO
+  // Party a Hawaiian is the one station that sends one of its multipliers.
+  // Left to the DX path below, exactly they would get no list to pick from
+  // and no tint for a typo. Unless the party counts them as DX.
+  const usState = entity === 'K' || (stateForEntity(entity) !== '' && !party.alaskaAndHawaiiAreDX)
+  if (usState) {
     return party.entity === 'VE' ? states : [...ourCounties, ...states]
   }
   if (entity === 'VE') {

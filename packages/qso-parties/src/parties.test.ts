@@ -208,7 +208,6 @@ function optionsOf(raw: RawParty): ReferenceParty['options'] {
     pointsWhenTheyAreOutOfParty: num(o.pointsWhenTheyAreOutOfParty),
     removeCountySuffixes: bool(o.removeCountySuffixes),
     labelForCounties: str(o.labelForCounties) ?? 'Counties',
-    labelForCounty: str(o.labelForCounty) ?? 'County',
   }
 }
 
@@ -310,7 +309,6 @@ function resolvedOptions(params: QsoPartyParams): ReferenceParty['options'] {
     pointsWhenTheyAreOutOfParty: params.pointsWhenTheyAreOutOfParty,
     removeCountySuffixes: params.removeCountySuffixes ?? false,
     labelForCounties: params.labelForCounties ?? 'Counties',
-    labelForCounty: params.labelForCounty ?? 'County',
   }
 }
 
@@ -692,7 +690,6 @@ test('a party that runs two sessions publishes two periods', () => {
 
 test('a party names its subdivisions whatever the sponsor calls them', () => {
   assert.equal(party('CPQP').labelForCounties, 'Districts')
-  assert.equal(party('CPQP').labelForCounty, 'District')
   assert.equal(party('NY').labelForCounties, undefined)
 })
 

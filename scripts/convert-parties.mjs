@@ -327,7 +327,6 @@ function optionsOf(raw) {
     pointsWhenTheyAreOutOfParty: num(o.pointsWhenTheyAreOutOfParty),
     removeCountySuffixes: bool(o.removeCountySuffixes),
     labelForCounties: str(o.labelForCounties),
-    labelForCounty: str(o.labelForCounty),
   }
 }
 
@@ -509,9 +508,7 @@ function emitParty(raw, key) {
   ]) {
     if (options[value] !== undefined) rules.push([value, String(options[value])])
   }
-  for (const label of ["labelForCounties", "labelForCounty"]) {
-    if (options[label] !== undefined) rules.push([label, quote(options[label])])
-  }
+  if (options.labelForCounties !== undefined) rules.push(["labelForCounties", quote(options.labelForCounties)])
   lines.push(...objectLines(rules, 2))
 
   const defaultBonus = bonusOf({})

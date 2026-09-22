@@ -309,11 +309,11 @@ test('a party that supplies no translator reads exactly as it did before there w
   assert.match(markdown, /\*\*Status:\*\* Verified for 2026/)
   assert.match(markdown, /\*\*Period:\*\* 2026-10-17 14:00Z/)
 
-  // The sponsor's own noun does NOT reach this field. `labelForCounty` names
-  // the county-equivalent for prose that talks ABOUT one; the field itself says
-  // which activity wants it, because that is what an operator reading a row of
-  // four-character fields needs to know — and `District` would not tell them.
-  const districts = await setupForm({ ...NY, labelForCounty: 'District' }, {}, ES)
+  // The sponsor's own noun does NOT reach this field. `labelForCounties` names
+  // the county-equivalent for prose that talks ABOUT them; the field itself
+  // says which activity wants it, because that is what an operator reading a
+  // row of four-character fields needs to know — and `Districts` would not.
+  const districts = await setupForm({ ...NY, labelForCounties: 'Districts' }, {}, ES)
   assert.equal(labelOf(districts, 'location'), 'Our QP Location')
 })
 
@@ -421,6 +421,18 @@ test('a history the host could not answer offers nothing, not an earlier running
   } finally {
     console.warn = warn
   }
+})
+
+test('a Hawaiian picks from the party\'s list, like any other US station', async () => {
+  // KH6 is a US state that does not sign K. In the Hawaii QSO Party a Hawaiian
+  // is the one station that sends one of its multipliers — left to the DX path,
+  // exactly they would type it into a field with no list and no tint for a typo.
+  const HI = { ...NY, refType: 'hi-qso-party', short: 'HIQP', state: 'HI', countyLine: false, counties: { HIL: 'Hilo', MAU: 'Maui' } }
+  const { input } = await exchangeInput(HI, { their: { call: 'KH6ABC', entityPrefix: 'KH6' } })
+  const codes = input.options!.map((option) => option.code)
+  assert.ok(codes.includes('HIL'))
+  assert.equal(codes.includes('HI'), false, "the party's own state is not offered")
+  assert.equal(input.allowFreeform, false)
 })
 
 test('the exchange is mirrored into the field the rest of the app reads', async () => {
