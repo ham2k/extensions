@@ -54,7 +54,7 @@ import type {
   QsoPartyParams,
   StationClass,
 } from "./params.ts"
-import { daysUntil, hasAlreadyRun, type Party, resolveLabel, resolveParty } from "./party.ts"
+import { daysUntil, hasAlreadyRun, type Party, partyStates, resolveLabel, resolveParty } from "./party.ts"
 
 /// This station's contacts matching [options], newest first — or nothing to
 /// learn from.
@@ -520,10 +520,13 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
       // anyway, so a prefill left alone changes nothing about the log.
       const hint = defaultTheirLocation(party, (qso ?? {}) as Record<string, JSONValue>)
       // Except an in-party caller's own state: it is not an exchange anyone
-      // sends (`NY` in NYQP is not offered), so it is shown as a hint — which
-      // New York station this is — while the county goes in the field. A
-      // freeform field (a DX station's) has nothing to reject.
-      const hintIsExchange = options.length === 0 || options.some((option) => option.code === hint)
+      // sends, so it is shown as a hint — which New York station this is —
+      // while the county goes in the field. Said as the party's own states,
+      // not as "not in the list": a Hawaiian's entity is not K, so their field
+      // is freeform with no list at all, and `HI` in the Hawaii QSO Party would
+      // otherwise go in as a value.
+      const hintIsExchange = !partyStates(party).has(hint) &&
+        (options.length === 0 || options.some((option) => option.code === hint))
       const suggested = logged || (hintIsExchange ? hint : '')
       const placeholder = suggested ? '' : hint
       const inheritPrefix = exchangeInheritPrefix(party)

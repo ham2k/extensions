@@ -390,6 +390,17 @@ test('with nothing from this operation, an earlier running of the event is asked
   assert.equal(asked[1].excludeOperation, 'op')
 })
 
+test("a Hawaiian in the Hawaii QSO Party is hinted their state, not handed it", async () => {
+  // KH6 is not K, so a Hawaiian's field is freeform with no list to reject
+  // anything — and their fallback location is `HI`. Prefilled, `HI` would
+  // log them as an out-of-party state for a county nobody copied; it is the
+  // party's own state, so it is a hint like `NY` in NYQP.
+  const HI = { ...NY, refType: 'hi-qso-party', short: 'HIQP', state: 'HI', countyLine: false, counties: { HIL: 'Hilo', MAU: 'Maui' } }
+  const { input } = await exchangeInput(HI, { their: { call: 'KH6ABC', entityPrefix: 'KH6' } })
+  assert.equal(input.suggestedValue, undefined)
+  assert.equal(input.placeholder, 'HI')
+})
+
 test('the exchange is mirrored into the field the rest of the app reads', async () => {
   const save = qsoPartyActivity(CA).processQsoBeforeSave!
   const patch = await save({
