@@ -347,9 +347,10 @@ test('what this station sent us earlier is offered before any guess', () => {
 })
 
 test('the hint is what the log will claim if nothing is typed', () => {
-  // One function for the hint and the fallback, so the field cannot promise
-  // one thing and the score record another — and never a VALUE, because none
-  // of these is an exchange anybody copied.
+  // One function for the field's suggestion and the fallback, so the field
+  // cannot offer one thing while the score records another. It goes in as a
+  // value where it is an exchange (an out-of-party state, `DX`) and as a hint
+  // where it is not (the party's own state).
   const hint = (q: Record<string, JSONValue>) => defaultTheirLocation(ny, q)
 
   // Out of the party the state IS what they will send…

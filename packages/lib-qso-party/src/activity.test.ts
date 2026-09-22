@@ -401,6 +401,28 @@ test("a Hawaiian in the Hawaii QSO Party is hinted their state, not handed it", 
   assert.equal(input.placeholder, 'HI')
 })
 
+test('a history the host could not answer offers nothing, not an earlier running', async () => {
+  // "Could not ask about this operation" is not "never worked them here":
+  // read as the second, last year's county would answer over one the operator
+  // may have copied minutes ago.
+  const failing: HookContext = {
+    online: false,
+    getHistoryForCall: (async (_call: string, options: Record<string, unknown>) => {
+      if (options.operation) throw new Error('history unavailable')
+      return [{ their: { call: 'K2ABC' }, band: '40m', refs: [{ type: NY.refType, location: 'ALB' }] }]
+    }) as never,
+  }
+  const warn = console.warn
+  console.warn = () => {}
+  try {
+    const { input } = await exchangeInput(NY, { their: { call: 'K2ABC', entityPrefix: 'K', guess: { state: 'NY' } } }, failing)
+    assert.equal(input.suggestedValue, undefined)
+    assert.equal(input.placeholder, 'NY', 'the field still comes up, hint and all')
+  } finally {
+    console.warn = warn
+  }
+})
+
 test('the exchange is mirrored into the field the rest of the app reads', async () => {
   const save = qsoPartyActivity(CA).processQsoBeforeSave!
   const patch = await save({

@@ -56,8 +56,8 @@ import type {
 } from "./params.ts"
 import { daysUntil, hasAlreadyRun, type Party, partyStates, resolveLabel, resolveParty } from "./party.ts"
 
-/// This station's contacts matching [options], newest first — or nothing to
-/// learn from.
+/// This station's contacts matching [options], newest first — or `null` when
+/// the host could not answer.
 ///
 /// Asked of the host with its filters rather than read off the whole log:
 /// the answer is a handful of rows from an indexed query instead of every
@@ -65,19 +65,24 @@ import { daysUntil, hasAlreadyRun, type Party, partyStates, resolveLabel, resolv
 /// lookup pass of each callsign. Enough rows to step past contacts whose
 /// exchange was left blank to the one that was not.
 ///
-/// A host with no log access is not an error here — the exchange field is
-/// still the operator's to type, and letting a refused read escape would take
-/// the whole control row down with it.
+/// A host with no log access answers `[]` and is no failure. A rejection is:
+/// a malformed option, a database error, a bridge failure. It is reported and
+/// answered as `null` rather than thrown, because a throw fails this whole
+/// hook and freezes every extension's per-QSO controls on the panel — and
+/// kept apart from `[]`, because "could not ask" must not read as "never
+/// worked them", which would let an earlier running answer over what the
+/// operator copied minutes ago.
 async function callHistory(
   ctx: HookContext,
   call: string,
   options: Record<string, JSONValue>,
-): Promise<Record<string, JSONValue>[]> {
+): Promise<Record<string, JSONValue>[] | null> {
   if (!ctx.getHistoryForCall) return []
   try {
     return await ctx.getHistoryForCall(call, { limit: 10, ...options })
-  } catch {
-    return []
+  } catch (e) {
+    console.warn(`[qso-party] call history unavailable, no earlier exchange offered:`, e)
+    return null
   }
 }
 
@@ -98,10 +103,13 @@ async function priorExchange(
 ): Promise<string> {
   if (!operationUuid) return ''
   const here = await callHistory(ctx, call, { operation: operationUuid, refType: party.refType })
+  // Could not ask about this operation: an earlier running must not answer
+  // over what may be in it.
+  if (here === null) return ''
   const found = loggedExchangeFor(party, here, call)
   if (found) return found
   const before = await callHistory(ctx, call, { refType: party.refType, excludeOperation: operationUuid })
-  return loggedExchangeFor(party, before, call, (location) => pastExchangeHolds(party, options, guessedState, location))
+  return loggedExchangeFor(party, before ?? [], call, (location) => pastExchangeHolds(party, options, guessedState, location))
 }
 
 /// The English an operator reads where the party's own translator says nothing.
@@ -508,16 +516,12 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
 
       const guessedState = qso ? guessedStateOf(qso as Record<string, unknown>) : ''
       const options = exchangeOptionsFor(party, qso)
-      // What this station sent us earlier beats anything a lookup can offer: it
-      // is not a guess but an exchange the operator already copied, and it is
-      // what the scorer and both exports would silently fall back to anyway.
       // Only asked for when there is a callsign: this hook is also called with
       // no QSO at all, and none of those callers can use the answer.
       const call = str((qso?.their as Record<string, JSONValue> | undefined)?.call)
       const logged = call ? await priorExchange(ctx, party, call, str(operation.uuid), options, guessedState) : ''
-      // What they sent earlier wins — not a guess, but an exchange already
-      // copied. Else the value an empty exchange is scored and filed as
-      // anyway, so a prefill left alone changes nothing about the log.
+      // Otherwise the value an empty exchange is scored and filed as anyway,
+      // so a prefill left alone changes nothing about the log.
       const hint = defaultTheirLocation(party, (qso ?? {}) as Record<string, JSONValue>)
       // Except an in-party caller's own state: it is not an exchange anyone
       // sends, so it is shown as a hint — which New York station this is —
