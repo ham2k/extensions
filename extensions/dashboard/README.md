@@ -10,10 +10,13 @@ live here rather than being bundled into HaLo:
   Its manifest declares `requiresRadioWrite`: the host refuses the radio
   calls to an extension that does not, and names the claim at install.
 
-Their keys follow the `<callsign>-<name>` convention, so they install from a
-file like any other extension; manage them under Features & Extensions. The
-prototype's placements do not carry over, since a placement is keyed by
-extension.
+All three are published to the extension catalog at
+[catalog.ham2k.net](https://catalog.ham2k.net). Their keys follow the
+`<callsign>-<name>` convention, so a packed `.h2kext` also installs from a file
+like any other extension; manage them under Features & Extensions. They need
+Ham2K Logger 26.9.0 (170) or later; on older hosts the panels show an
+unavailable message. The prototype's placements do not carry over, since a
+placement is keyed by extension.
 
 ## Development
 
@@ -29,6 +32,6 @@ npm run pack --workspace @ham2k/ext-ki2d-radio-panel
 ```
 
 The same three scripts exist for `@ham2k/ext-ki2d-weather-panel` and
-`@ham2k/ext-ki2d-solar-panel`. Do not publish these examples until a host with
-compatible support is available. On older hosts the panels show an unavailable
-message.
+`@ham2k/ext-ki2d-solar-panel`. A new release goes to the catalog with
+`h2kext-publish`, under a new version: a version's bundle is frozen once the
+catalog approves it.
