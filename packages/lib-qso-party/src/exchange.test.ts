@@ -127,12 +127,15 @@ test('a serial and a name are columns only for the parties that exchange them', 
     their: { call: 'K1ABC', entityPrefix: 'K' },
     band: '20m',
     mode: 'CW',
-    refs: [{ type: CA.refType, location: 'BUTT', ourSerial: '12', theirSerial: '34' }],
+    // `ourSerial` is a number because that is how the host allocates it;
+    // typed text, `theirSerial` is a string. A reader that only takes strings
+    // writes every sent serial as 0.
+    refs: [{ type: CA.refType, location: 'BUTT', ourSerial: 12, theirSerial: '34' }],
   }
+  // The serial is exchanged INSTEAD of a report, so there is no RST column —
+  // a checker reading one column late takes the 599 for the serial.
   const rows = cabrilloRowsFor(resolveParty(CA), caQso, ca, 'N0DEV')
-  assert.equal(rows[0].length, 8)
-  assert.equal(rows[0][2].trim(), '12')
-  assert.equal(rows[0][6].trim(), '34')
+  assert.deepEqual(rows[0].map((cell) => cell.trim()), ['N0DEV', '12', 'ALAM', 'K1ABC', '34', 'BUTT'])
 
   // And the party that trades NAMES gets its own column, from the operation for
   // ours and the contact for theirs.

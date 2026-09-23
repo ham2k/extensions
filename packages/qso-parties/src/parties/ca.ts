@@ -27,6 +27,8 @@ export const PARTY: QsoPartyParams = {
   countyLine: true,
   dcCountsAsMaryland: true,
   stateCountsForInState: true,
+  countiesAreMultipliersInParty: false,
+  inStateMultiplierMax: 58,
   pointsByMode: { PHONE: 3, CW: 3 },
   exchange: { number: true },
   entryClasses: {

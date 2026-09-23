@@ -21,6 +21,7 @@ import {
   ourPowerClass,
   ourStationClass,
   partyRefIn,
+  serial,
   str,
 } from "./entry.ts"
 import {
@@ -176,22 +177,25 @@ export function cabrilloRowsFor(
     lastLocation[call] = locations.map((location) => location.code).join(COUNTY_LINE_SEPARATOR)
   }
 
+  // A party that numbers its contacts exchanges the number INSTEAD of a
+  // report, and its template has no RST column — a checker reading one
+  // column late takes the 599 for the serial.
   const isCw = str(qso.mode) === 'CW' || str(qso.mode) === 'RTTY'
-  const report = isCw ? '599' : '59'
-  const ourSerial = str(qsoRef?.ourSerial)
-  const theirSerial = str(qsoRef?.theirSerial)
+  const report = party.exchange.number ? [] : [(isCw ? '599' : '59').padEnd(3, ' ')]
+  const ourSerial = serial(qsoRef?.ourSerial)
+  const theirSerial = serial(qsoRef?.theirSerial)
   const ourOwnName = ourName(party, operation as Record<string, unknown>)
   const theirName = str(qsoRef?.theirName).toUpperCase()
 
   const rows: string[][] = []
   for (const ourCode of ourLocations.map((location) => location.sent)) {
     for (const theirCode of locations.map((location) => location.sent)) {
-      const row = [(ourCall || '-').padEnd(13, ' '), report.padEnd(3, ' ')]
-      if (party.exchange.number) row.push((ourSerial || '0').padEnd(6, ' '))
+      const row = [(ourCall || '-').padEnd(13, ' '), ...report]
+      if (party.exchange.number) row.push((ourSerial || '0').padEnd(4, ' '))
       if (party.exchange.name) row.push((ourOwnName || '-').padEnd(10, ' '))
       row.push(ourCode.padEnd(6, ' '))
-      row.push((theirCall || '-').padEnd(13, ' '), report.padEnd(3, ' '))
-      if (party.exchange.number) row.push((theirSerial || '-').padEnd(6, ' '))
+      row.push((theirCall || '-').padEnd(13, ' '), ...report)
+      if (party.exchange.number) row.push((theirSerial || '-').padEnd(4, ' '))
       if (party.exchange.name) row.push((theirName || '-').padEnd(10, ' '))
       row.push(theirCode.padEnd(6, ' '))
       rows.push(row)

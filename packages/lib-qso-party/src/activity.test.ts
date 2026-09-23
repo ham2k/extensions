@@ -213,7 +213,7 @@ function localized(en: string, es: string) {
 const SPANISH: QsoPartyLabels = {
   ourLocation: localized('Our County', 'Nuestro Condado'),
   theirLocation: localized('County', 'Condado'),
-  countyLineHelp: localized('On a county line, send both:', 'En una línea de condados, envía ambos:'),
+  countyLineHelp: localized('On a county line, send every county:', 'En una línea de condados, envía todos los condados:'),
   mobileHelp: localized('Roving?', '¿En movimiento?'),
   ourName: localized('Our Name', 'Nuestro nombre'),
   ourEmail: localized('E-mail', 'Correo para enviar el log'),
@@ -277,7 +277,7 @@ test("a party's own translator answers for every label the form asks", async () 
   const markdown = markdownOf(form)
   // The instruction is the party's; the EXAMPLE is its own county codes, which
   // the engine appends — a translation states the words and no more.
-  assert.match(markdown, /En una línea de condados, envía ambos: ALB\/ALL/)
+  assert.match(markdown, /En una línea de condados, envía todos los condados: ALB\/ALL/)
   assert.match(markdown, /¿En movimiento\?/)
   // The headings translate; the dates, the status note and the sponsor's URL do
   // not, because they are the party's own data rather than the engine's words.
@@ -304,7 +304,7 @@ test('a party that supplies no translator reads exactly as it did before there w
   assert.equal(labelOf(form, 'operator'), 'Entry Class')
   assert.deepEqual(optionLabels(form, 'operator').slice(0, 2), ['Not declared', 'Single Operator'])
   const markdown = markdownOf(form)
-  assert.match(markdown, /On a county line, send both: ALB\/ALL/)
+  assert.match(markdown, /On a county line, send every county: ALB\/ALL/)
   assert.match(markdown, /Roving\? Type BREAK/)
   assert.match(markdown, /\*\*Status:\*\* Verified for 2026/)
   assert.match(markdown, /\*\*Period:\*\* 2026-10-17 14:00Z/)
@@ -329,9 +329,10 @@ test('the exchange field asks for a serial only where the sponsor does', async (
 })
 
 test('the exchange field is as long as the exchange can be', async () => {
-  // A county line is two codes and a separator; a party without them has one
-  // code, and a field long enough for two invites an exchange it cannot score.
-  assert.equal((await exchangeInput(NY)).input.maxLength, 13)
+  // A county line can run through a corner: room for three five-character
+  // codes and their separators, at least. A party without lines has one code,
+  // and a field long enough for two invites an exchange it cannot score.
+  assert.ok(((await exchangeInput(NY)).input.maxLength as number) >= 'ORDES/ORJEF/ORLIN'.length)
   assert.equal((await exchangeInput(WI)).input.maxLength, 6)
 })
 

@@ -24,7 +24,8 @@ import type { QsoPartyScoresheet } from "./index.ts"
 import type { QsoPartyParams } from "./params.ts"
 import { resolveParty } from "./party.ts"
 import { multiplierPrefix, qsoPartyScorer } from "./scorer.ts"
-import { ACQP, AZ, CO, DE, ID, IL, MD, ME, NC, NEQP, NH, NV, NY, OH, PA, SC, SEVEN_QP, TN, WI, WV } from "./testFixtures.ts"
+import { CANADIAN_PROVINCES, US_STATES } from './locations.ts'
+import { ACQP, AZ, CA, CO, DE, ID, IL, MD, ME, NC, NEQP, NH, NV, NY, OH, PA, SC, SEVEN_QP, TN, WI, WV } from "./testFixtures.ts"
 
 const ctx = { online: false } as never
 
@@ -103,6 +104,44 @@ test('a county line is worth every pairing of counties', () => {
   const { scores, sheet } = run([qso({ location: 'ERI/CHA' })], { ourLocation: 'ALB/REN' })
   assert.equal(scores[0].value, 2 * 2 * 2)
   assert.deepEqual(Object.keys(sheet.mults).sort(), ['CHA', 'ERI', 'NY'])
+})
+
+test('a county line may run through more than two counties', () => {
+  // Three-way county corners exist and CQP says to send them all. Each of our
+  // counties pairs with each of theirs: 3×2 contacts.
+  const { scores, sheet } = run([qso({ location: 'ERI/CHA' })], { ourLocation: 'ALB/REN/ALL' })
+  assert.equal(scores[0].value, 3 * 2 * 2)
+  assert.deepEqual(Object.keys(sheet.mults).sort(), ['CHA', 'ERI', 'NY'])
+})
+
+test('CA: an in-state contact multiplies as California, never as its county', () => {
+  // CQP's in-state entrants chase states and provinces; a California county
+  // is worth the CA multiplier and nothing more. Out of state, the counties
+  // ARE the multipliers.
+  const caQso = (spec: QsoSpec) => qso({ ...spec, refType: CA.refType })
+  const inside = run([caQso({ location: 'LASS' }), caQso({ call: 'K6XYZ', location: 'BUTT' })], { params: CA, ourLocation: 'ALAM' })
+  assert.deepEqual(Object.keys(inside.sheet.mults), ['CA'])
+  const outside = run([caQso({ location: 'LASS' })], { params: CA, ourLocation: 'NY' })
+  assert.deepEqual(Object.keys(outside.sheet.mults), ['LASS'])
+})
+
+test('CA: an in-state entrant′s score counts 58 multipliers, and every one worked is still struck', () => {
+  // 63 are workable from inside California — the 50 states and 13 provinces
+  // and territories — and the sponsor counts 58. Capping what is RECORDED
+  // instead would leave the chase list showing worked ones as still needed.
+  const codes = [...Object.keys(US_STATES), ...Object.keys(CANADIAN_PROVINCES)].filter((code) => code !== 'DC')
+  assert.equal(codes.length, 63)
+  // California itself is worked by working any county in it.
+  const sent = (code: string) => (code === 'CA' ? 'LASS' : code)
+  const qsos = codes.map((code, index) =>
+    qso({ call: `K${index}ABC`, location: sent(code), entityPrefix: CANADIAN_PROVINCES[code] ? 'VE' : 'K', refType: CA.refType }))
+  const { sheet, summary } = run(qsos, { params: CA, ourLocation: 'ALAM' })
+  assert.equal(Object.keys(sheet.mults).length, 63)
+  assert.equal(summary().mults, 58)
+  assert.equal(summary().total, 63 * 3 * 58)
+  for (const code of codes) assert.ok((summary().longSummary as string).includes(`~~${code}~~`), `${code} is struck`)
+  // Out of state the cap does not apply: it is the in-state rule alone.
+  assert.equal(run([qso({ location: 'LASS', refType: CA.refType })], { params: CA, ourLocation: 'NY' }).summary().mults, 1)
 })
 
 test('the WARC bands do not count, and neither does a QSO with no band', () => {

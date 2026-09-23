@@ -22,7 +22,7 @@ import type {
   JSONValue,
 } from "@ham2k/extension-sdk"
 
-import { ourLocationText, ourName, partyRefIn, str } from "./entry.ts"
+import { ourLocationText, ourName, partyRefIn, serial, str } from "./entry.ts"
 import {
   cabrilloFor,
   RESOLVED_MARKER,
@@ -62,8 +62,8 @@ export function qsoPartyAdifFields(params: QsoPartyParams): AdifFieldsHook {
       // core generator resolves it), so our county is simply the operation's.
       const ours = ourLocationText(party, operation as Record<string, unknown>)
       const weAreInParty = allInParty(parseLocations(party, ours))
-      const ourSerial = str(qsoRef?.ourSerial)
-      const theirSerial = str(qsoRef?.theirSerial)
+      const ourSerial = serial(qsoRef?.ourSerial)
+      const theirSerial = serial(qsoRef?.theirSerial)
       const theirName = str(qsoRef?.theirName)
       const ourOwnName = ourName(party, operation as Record<string, unknown>)
 

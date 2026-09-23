@@ -33,6 +33,13 @@ export function str(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
 
+/// A serial off a QSO ref, as text. The host allocates `ourSerial` as a
+/// NUMBER while `theirSerial` is typed text, so [str] alone reads every sent
+/// serial as blank.
+export function serial(value: unknown): string {
+  return typeof value === 'number' ? String(value) : str(value).trim()
+}
+
 /// A ref of exactly [type] on an operation (or on a QSO), if it has one.
 export function refOfType(
   record: Record<string, unknown> | undefined,

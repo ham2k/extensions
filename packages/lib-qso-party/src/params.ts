@@ -358,6 +358,10 @@ export interface QsoPartyParams {
   /// cap LIMITS the multiplier; it never erases it. Default undefined,
   /// meaning uncapped.
   dxEntityMultiplierMax?: number
+  /// Caps the multipliers an in-party entrant's score counts (CA: 58 of the
+  /// 63 it can work). Every one worked is still recorded and struck off.
+  /// Default undefined, meaning uncapped.
+  inStateMultiplierMax?: number
   /// A DX station's logged location is its entity prefix rather than the plain
   /// string `DX`. Default false.
   dxLocationIsPrefix?: boolean

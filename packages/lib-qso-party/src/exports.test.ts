@@ -150,7 +150,7 @@ test('the Cabrillo is the sponsor′s file, headers and all', async () => {
       refs: [{ type: CA.refType, location: 'ALAM', operator: 'SINGLE-OP', power: 'LOW' }],
     },
     qsos: [contact('BUTT', CA, {
-      refs: [{ type: CA.refType, location: 'BUTT', ourSerial: '1', theirSerial: '7' }],
+      refs: [{ type: CA.refType, location: 'BUTT', ourSerial: 1, theirSerial: '7' }],
     })],
   }, ctx)
 
@@ -158,7 +158,7 @@ test('the Cabrillo is the sponsor′s file, headers and all', async () => {
   const lines = result.content.split('\n')
   assert.ok(lines.includes('CONTEST: CA-QSO-PARTY'))
   assert.ok(lines.includes('CATEGORY-OPERATOR: SINGLE-OP'))
-  assert.match(lines.find((line) => line.startsWith('QSO:'))!, /1\s+ALAM\s+K1ABC\s+599\s+7\s+BUTT/)
+  assert.match(lines.find((line) => line.startsWith('QSO:'))!, /N0DEV\s+1\s+ALAM\s+K1ABC\s+7\s+BUTT\s*$/)
 })
 
 test('an exportType this hook never offered is refused', async () => {
@@ -205,7 +205,7 @@ test('the ADIF export tells the per-QSO hook what the Cabrillo already knows', a
 test('one contact′s ADIF fields are the exchange as it was sent and received', async () => {
   const fields = await defineQsoParty(CA).adifFields.fieldsForOneQSO({
     qso: contact('BUTT', CA, {
-      refs: [{ type: CA.refType, location: 'BUTT', ourSerial: '1', theirSerial: '7' }],
+      refs: [{ type: CA.refType, location: 'BUTT', ourSerial: 1, theirSerial: '7' }],
     }),
     operation: operation(CA, 'ALAM'),
   }, ctx)

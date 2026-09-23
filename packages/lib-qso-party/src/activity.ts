@@ -34,6 +34,7 @@ import {
   ourPowerClass,
   ourStationClass,
   partyRefIn,
+  serial as serialOf,
   str,
 } from "./entry.ts"
 import {
@@ -117,7 +118,7 @@ async function priorExchange(
 /// party overrides one, and the reason no default is written down twice.
 const LABELS = {
   classNone: 'Not declared',
-  countyLineHelp: 'On a county line, send both:',
+  countyLineHelp: 'On a county line, send every county:',
   lastUpdated: '**Data last updated:**',
   mobileHelp: 'Roving? Type BREAK and change your county each time you move.',
   mode: 'Mode',
@@ -548,9 +549,10 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
           // or five, and on one character every callsign lookup would paint a
           // slice of the whole county list.
           minCharsForSuggestions: 2,
-          // A county line is two codes and a separator, so the field is longer
-          // than any one of them — and DX entity prefixes can be four.
-          maxLength: party.countyLine ? 13 : 6,
+          // A county line is up to four codes and their separators, so the
+          // field is longer than any one of them — and DX entity prefixes can
+          // be four.
+          maxLength: party.countyLine ? 23 : 6,
           // The guessed state's counties float up for the caller who sends one
           // of those — a county is never guessed, only ranked.
           preferredCodes: preferredCodesFor(party, guessedState),
@@ -588,7 +590,7 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
     ): Promise<Record<string, JSONValue> | null> {
       const qsoRef = partyRefIn(party, qso as Record<string, unknown>)
       const location = str(qsoRef?.location).trim().toUpperCase()
-      const serial = str(qsoRef?.theirSerial).trim()
+      const serial = serialOf(qsoRef?.theirSerial)
       const name = str(qsoRef?.theirName).trim().toUpperCase()
       const ours = ourLocationText(party, operation as Record<string, unknown>)
 
@@ -608,7 +610,7 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
       // not the one they have driven to. (An `ourLocation` stamp an earlier
       // build left on the ref is not read — the segment is the record.)
       const ourExchange = [
-        str(qsoRef?.ourSerial),
+        serialOf(qsoRef?.ourSerial),
         ourName(party, operation as Record<string, unknown>),
         ours,
       ].filter((part) => part).join(' ')

@@ -294,9 +294,11 @@ export const CA = party({
   countyLine: true,
   dcCountsAsMaryland: true,
   stateCountsForInState: true,
+  countiesAreMultipliersInParty: false,
+  inStateMultiplierMax: 58,
   exchange: { number: true },
-  pointsByMode: { PHONE: 2, CW: 3 },
-  counties: { ALAM: 'Alameda', BUTT: 'Butte' },
+  pointsByMode: { PHONE: 3, CW: 3 },
+  counties: { ALAM: 'Alameda', BUTT: 'Butte', LASS: 'Lassen' },
   entryClasses: {
     operator: ['SINGLE-OP', 'SINGLE-OP-ASSISTED', 'MULTI-ONE', 'MULTI-TWO', 'MULTI-UNLIMITED'],
     station: ['FIXED', 'MOBILE', 'EXPEDITION', 'COUNTY-LINE'],

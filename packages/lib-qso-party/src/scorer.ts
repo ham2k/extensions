@@ -404,7 +404,9 @@ export function qsoPartyScorer(params: QsoPartyParams): ContestScorer<QsoPartySc
     },
 
     summarizeScore({ scoresheet: sheet, scope }): Record<string, ScoreTally> {
-      const mult = Object.keys(sheet.mults).length || 1
+      const workedMults = Object.keys(sheet.mults).length
+      const max = sheet.weAreInParty ? party.inStateMultiplierMax : undefined
+      const mult = Math.min(workedMults, max ?? workedMults) || 1
       const points = sheet.points
       const bonusPoints = oneTimeBonuses(party, sheet)
       const power = sheet.powerMult ?? 1

@@ -312,6 +312,7 @@ function optionsOf(raw) {
     dxIsMultiplier: bool(o.dxIsMultiplier),
     dxEntityIsMultiplier: bool(o.dxEntityIsMultiplier),
     dxEntityMultiplierMax: num(o.dxEntityMultiplierMax),
+    inStateMultiplierMax: num(o.inStateMultiplierMax),
     dxLocationIsPrefix: bool(o.dxLocationIsPrefix),
     multsPerBandMode: bool(o.multsPerBandMode),
     multsPerBand: bool(o.multsPerBand),
@@ -504,7 +505,7 @@ function emitParty(raw, key) {
   // default is that counties multiply.
   if (!options.countiesAreMultipliersInParty) rules.push(["countiesAreMultipliersInParty", "false"])
   for (const value of [
-    "dxEntityMultiplierMax", "bonusStationInStateMult", "bonusStationOutOfStateMult",
+    "dxEntityMultiplierMax", "inStateMultiplierMax", "bonusStationInStateMult", "bonusStationOutOfStateMult",
     "pointsWhenTheyAreOutOfParty",
   ]) {
     if (options[value] !== undefined) rules.push([value, String(options[value])])
