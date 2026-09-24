@@ -2,7 +2,7 @@
   "key": "ham2k-ohspota",
   "name": "OSPOTA: Ohio State Parks On The Air",
   "shortName": "OSPOTA",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Ohio State Parks On The Air — PCARS's September contest, with the park-identifier exchange and the Cabrillo the sponsor takes",
   "category": "contest",
   "icon": "flag-checkered",

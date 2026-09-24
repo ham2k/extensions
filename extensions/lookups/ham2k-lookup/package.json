@@ -18,8 +18,8 @@
     "bare specifier here either — only the toolchain that builds the bundle."
   ],
   "devDependencies": {
-    "@ham2k/extension-sdk": "^0.4.0",
-    "@ham2k/extension-tools": "^0.3.0",
+    "@ham2k/extension-sdk": "^0.6.0",
+    "@ham2k/extension-tools": "^0.5.0",
     "esbuild": "^0.25.5"
   },
   "engines": {

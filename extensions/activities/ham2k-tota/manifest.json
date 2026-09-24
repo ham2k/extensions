@@ -2,7 +2,7 @@
   "key": "ham2k-tota",
   "name": "TOTA: Towers on the Air",
   "shortName": "TOTA",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Lookout tower references, activation and hunting, and spots",
   "category": "activity",
   "icon": "tower-fire",

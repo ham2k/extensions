@@ -2,7 +2,7 @@
   "key": "ham2k-ela",
   "name": "ELA: English Lighthouse Awards",
   "shortName": "ELA",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "English lighthouse references, activation logging, and self-spotting",
   "category": "activity",
   "icon": "lighthouse",

@@ -2,7 +2,7 @@
   "key": "ham2k-arrl-dx",
   "name": "ARRL DX: ARRL International DX Contest",
   "shortName": "ARRL DX",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "W/VE stations work DX and vice versa: states and provinces against power",
   "category": "contest",
   "icon": "flag-variant",
