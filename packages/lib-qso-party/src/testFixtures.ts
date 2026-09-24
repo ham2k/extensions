@@ -383,8 +383,9 @@ export const AZ = party({
 })
 
 /// Pennsylvania: every DX station together is ONE multiplier, the bonus
-/// station pays on each band and mode, after the multiplier, and the exchange
-/// carries a serial number.
+/// station pays on each band and mode, after the multiplier, the exchange
+/// carries a serial number, and each county worked from inside the state also
+/// earns its section.
 export const PA = party({
   refType: 'pa-qso-party',
   name: 'Pennsylvania QSO Party',
@@ -401,5 +402,6 @@ export const PA = party({
   powerMultipliers: { QRP: 2 },
   exchange: { number: true },
   entryClasses: { power: ['QRP', 'LOW', 'HIGH'] },
-  counties: { ELK: 'Elk', MGY: 'Montgomery' },
+  counties: { ALL: 'Allegheny', BUX: 'Bucks', CAR: 'Carbon', ELK: 'Elk', LEH: 'Lehigh', MGY: 'Montgomery' },
+  countySections: { ALL: 'WPA', BUX: 'EPA', CAR: 'EPA', ELK: 'WPA', LEH: 'EPA', MGY: 'EPA' },
 })

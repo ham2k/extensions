@@ -748,10 +748,52 @@ test('Pennsylvania counts all DX as one multiplier, and its bonus station per ba
     qso({ call: 'K3ZMC', location: 'MGY', band: '40m', refType: PA.refType }),
   ], { params: PA, ourLocation: 'ELK' })
   assert.equal(bonus.sheet.bonusStations.K3ZMC, 400)
-  // Two CW QSOs at 2 points, one multiplier (the county), then the bonus.
+  // Two CW QSOs at 2 points, two multipliers (the county and its section),
+  // then the bonus.
   assert.equal(bonus.sheet.points, 4)
-  assert.equal(multsOf(bonus), 1)
-  assert.equal(bonus.summary().total, 4 * 1 + 400)
+  assert.equal(multsOf(bonus), 2)
+  assert.equal(bonus.summary().total, 4 * 2 + 400)
+})
+
+test('Pennsylvania: the summary lists the band/mode slots each bonus station has paid in', () => {
+  // K3ZMC pays again on every band and mode, so a callsign struck after the
+  // first contact reads as "done" while most of its 200s are still open.
+  const { summary } = run([
+    qso({ call: 'K3ZMC', location: 'MGY', band: '40m', mode: 'SSB', refType: PA.refType }),
+    qso({ call: 'K3ZMC', location: 'MGY', band: '80m', refType: PA.refType }),
+  ], { params: PA, ourLocation: 'ELK' })
+  assert.match(summary().longSummary as string, /\*\*~~K3ZMC~~\*\* \(80m CW, 40m SSB\)/)
+
+  // Where a bonus pays once, there are no slots to list.
+  const az = run([qso({ call: 'K7A', location: 'MCP', refType: AZ.refType })], { params: AZ, ourLocation: 'NY' })
+    .summary().longSummary as string
+  assert.match(az, /\*\*~~K7A~~\*\*(?! \()/)
+})
+
+test('Pennsylvania: an in-state entrant earns each county\'s section, EPA or WPA, as well as the county', () => {
+  // Rule 12.d: the sponsor adds EPA and WPA when rescoring. Missing them
+  // under-reports every in-state score by up to two multipliers.
+  const inside = run([
+    qso({ call: 'K3AAA', location: 'MGY', refType: PA.refType }),
+    qso({ call: 'K3BBB', location: 'BUX', refType: PA.refType }),
+    qso({ call: 'K3CCC', location: 'ALL', refType: PA.refType }),
+  ], { params: PA, ourLocation: 'ELK' })
+  assert.deepEqual(Object.keys(inside.sheet.mults).sort(), ['ALL', 'BUX', 'EPA', 'MGY', 'WPA'])
+  assert.match(inside.summary().longSummary as string, /\*\*~~EPA~~\*\*/)
+
+  // Out of state the multipliers are the 67 counties alone (rule 10.b).
+  const outside = run([qso({ location: 'MGY', refType: PA.refType })], { params: PA, ourLocation: 'EMA' })
+  assert.deepEqual(Object.keys(outside.sheet.mults), ['MGY'])
+
+  // Our own county earns nothing without working anyone: ELK sits in WPA, and
+  // a log that only worked EPA must not claim it.
+  const eastOnly = run([qso({ location: 'MGY', refType: PA.refType })], { params: PA, ourLocation: 'ELK' })
+  assert.deepEqual(Object.keys(eastOnly.sheet.mults).sort(), ['EPA', 'MGY'])
+
+  // A county line on the far side is two counties, and one section when both
+  // lie in it.
+  const line = run([qso({ location: 'CAR/LEH', refType: PA.refType })], { params: PA, ourLocation: 'ELK' })
+  assert.deepEqual(Object.keys(line.sheet.mults).sort(), ['CAR', 'EPA', 'LEH'])
 })
 
 test('Pennsylvania: a station outside the state is worth its SECTION, and a state is not one', () => {
@@ -806,21 +848,29 @@ test('Pennsylvania: an entrant outside the state enters from a section, and QRP 
   // Rule 10.d multiplies QSO POINTS, so the 200 K3ZMC pays stays 200. Folding
   // the power factor over the bonus as well would hand a QRP entrant 400.
   const qrp = run([qso({ refType: PA.refType, call: 'K3ZMC', location: 'MGY' })], { params: PA, ourLocation: 'ELK', power: 'QRP' })
-  assert.equal(qrp.summary().total, 2 * 1 * 2 + 200)
+  assert.equal(qrp.summary().total, 2 * 2 * 2 + 200)
   const low = run([qso({ refType: PA.refType, call: 'K3ZMC', location: 'MGY' })], { params: PA, ourLocation: 'ELK', power: 'LOW' })
-  assert.equal(low.summary().total, 2 * 1 + 200)
+  assert.equal(low.summary().total, 2 * 2 + 200)
 })
 
 test('the chase list leaves out multipliers the party itself puts out of reach', () => {
-  // A Pennsylvania station sends a county and never its own section, so `EPA`
-  // and `WPA` are two entries an operator could hunt forever.
+  // A Maryland station sends one of its counties and never `MD`, so `MD` is
+  // an entry an operator could hunt forever. Only the party's OWN ground goes:
+  // every other state is there to be chased, and so are the counties.
+  const md = run([qso({ refType: MD.refType, location: 'ALLE' })], { params: MD, ourLocation: 'ANNE' })
+    .summary().longSummary as string
+  assert.doesNotMatch(md, /\bMD\b/)
+  assert.match(md, /\bVA\b/)
+  assert.match(md, /\bALLE\b/)
+
+  // Nobody sends PA's `EPA` or `WPA` either, but working a county earns one
+  // (`countySections`), so an in-state entrant chases them like any other.
   const pa = run([qso({ refType: PA.refType, location: 'MGY' })], { params: PA, ourLocation: 'ELK' })
     .summary().longSummary as string
-  assert.doesNotMatch(pa, /\bEPA\b/)
-  assert.doesNotMatch(pa, /\bWPA\b/)
+  assert.match(pa, /\*\*~~EPA~~\*\*/)
+  assert.match(pa, /\bWPA\b/)
+  assert.doesNotMatch(pa, /~~WPA~~/)
   assert.match(pa, /\bEMA\b/)
-  assert.match(pa, /\bMDC\b/)
-  assert.match(pa, /\bELK\b/)
 
   // But where the party's own ground IS a multiplier, it is exactly what the
   // list exists to show as still needed. NEQP scores an in-party contact by
@@ -829,13 +879,6 @@ test('the chase list leaves out multipliers the party itself puts out of reach',
   const neqp = run([qso({ refType: NEQP.refType, location: 'MAWOR' })], { params: NEQP, ourLocation: 'MABAR' })
     .summary().longSummary as string
   for (const code of ['CT', 'ME', 'NH', 'RI', 'VT']) assert.match(neqp, new RegExp(`\\b${code}\\b`), `NEQP hides ${code}`)
-
-  // The same with plain states: Maryland's entrants work counties, so nobody
-  // sends `MD` and it is no part of the chase list.
-  const md = run([qso({ refType: MD.refType, location: 'ALLE' })], { params: MD, ourLocation: 'ANNE' })
-    .summary().longSummary as string
-  assert.doesNotMatch(md, /\bMD\b/)
-  assert.match(md, /\bVA\b/)
 })
 
 test('a code inside the party is refused as a copied exchange, and only as one', () => {
@@ -862,12 +905,10 @@ test('a code inside the party is refused as a copied exchange, and only as one',
 
 test('the chase list shows every code the scoresheet counted, reachable or not', () => {
   // The heading counts `sheet.states` while the list comes from the party's
-  // table, so a code the sheet holds and the table hides prints "1 ARRL
-  // Sections" above a line with nothing struck in it. An in-party station's own
-  // state reaches the sheet exactly that way, from an exchange never copied.
-  const { sheet, summary } = run([qso({ refType: PA.refType, location: 'MGY' })], { params: PA, ourLocation: 'ELK' })
-  sheet.states.EPA = 1
-  const detail = summary().longSummary as string
-  assert.match(detail, /\*\*~~EPA~~\*\*/)
-  assert.doesNotMatch(detail, /\bWPA\b/)
+  // table, so a code the sheet holds and the table hides prints "1 US States"
+  // above a line with nothing struck in it. An in-party station's own state
+  // reaches the sheet exactly that way, from an exchange never copied.
+  const { sheet, summary } = run([qso({ refType: MD.refType, location: 'ALLE' })], { params: MD, ourLocation: 'ANNE' })
+  sheet.states.MD = 1
+  assert.match(summary().longSummary as string, /\*\*~~MD~~\*\*/)
 })

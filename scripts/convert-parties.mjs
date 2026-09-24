@@ -117,6 +117,25 @@ function mapOf(value) {
   return out
 }
 
+/// `{ EPA: ["ADA", …], WPA: […] }` → county → section: the file lists it the
+/// way a sponsor's map reads, the engine looks a county up. A county listed
+/// twice or naming no county of the party stops the run — either one scores a
+/// contact under the wrong section, or none, with nothing to show for it.
+function countySectionsOf(value, counties, key) {
+  if (!value || typeof value !== "object") return {}
+  const out = {}
+  for (const [section, listed] of Object.entries(value)) {
+    if (!Array.isArray(listed)) throw new Error(`${key}: countySections.${section} is not a list of counties`)
+    for (const county of listed) {
+      const code = normalizeCode(String(county))
+      if (!counties[code]) throw new Error(`${key}: countySections.${section} names ${code}, which is not one of its counties`)
+      if (out[code]) throw new Error(`${key}: countySections lists ${code} under both ${out[code]} and ${section}`)
+      out[code] = normalizeCode(section)
+    }
+  }
+  return out
+}
+
 function numbersOf(value) {
   if (!value || typeof value !== "object") return {}
   const out = {}
@@ -394,6 +413,7 @@ function emitParty(raw, key) {
   const points = pointsByModeOf(raw)
   const bonusStations = numbersOf(raw.bonusStations)
   const rareCountyMultipliers = numbersOf(raw.rareCountyQSOMultiplier)
+  const countySections = countySectionsOf(raw.countySections, counties, key)
   const powerMultipliers = powerMultipliersOf(raw)
   const entryClasses = entryClassesOf(raw)
   const exchange = exchangeOf(raw)
@@ -413,6 +433,10 @@ function emitParty(raw, key) {
   if (Object.keys(countyStates).length > 0) {
     imports.push(`import countyStates from "./${slug}.county-states.json" with { type: "json" }`)
     jsonFile(join(PARTIES_DIR, `${slug}.county-states.json`), countyStates)
+  }
+  if (Object.keys(countySections).length > 0) {
+    imports.push(`import countySections from "./${slug}.county-sections.json" with { type: "json" }`)
+    jsonFile(join(PARTIES_DIR, `${slug}.county-sections.json`), countySections)
   }
 
   const lines = []
@@ -568,6 +592,7 @@ function emitParty(raw, key) {
 
   lines.push(`  counties,`)
   if (Object.keys(otherCounties).length > 0) lines.push(`  otherCounties,`)
+  if (Object.keys(countySections).length > 0) lines.push(`  countySections,`)
   if (Object.keys(countyStates).length > 0) {
     lines.push(`  stateOfCounty: (county) => COUNTY_STATES[county.toUpperCase()],`)
   }
@@ -713,6 +738,7 @@ const wanted = new Set(parties.flatMap((party) => [
   `${party.slug}.counties.json`,
   `${party.slug}.other-counties.json`,
   `${party.slug}.county-states.json`,
+  `${party.slug}.county-sections.json`,
 ]))
 for (const file of readdirSync(PARTIES_DIR)) {
   if (!wanted.has(file)) {

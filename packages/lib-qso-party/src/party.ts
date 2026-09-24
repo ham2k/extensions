@@ -52,6 +52,7 @@ export interface Party extends QsoPartyParams {
   pointsByMode: Record<string, number>
   bonusStations: Record<string, number>
   rareCountyMultipliers: Record<string, number>
+  countySections: Record<string, string>
   powerMultipliers: Partial<Record<PowerClass, number>>
   bonus: Required<QsoPartyBonus>
   entryClasses: {
@@ -123,6 +124,7 @@ export function resolveParty(params: QsoPartyParams): Party {
     pointsByMode: codeNumbers(params.pointsByMode),
     bonusStations: codeNumbers(params.bonusStations),
     rareCountyMultipliers: codeNumbers(params.rareCountyMultipliers),
+    countySections: Object.fromEntries(Object.entries(params.countySections ?? {}).map(([county, section]) => [normalizeCode(county), normalizeCode(section)])),
     powerMultipliers: params.powerMultipliers ?? {},
     bonus: {
       perActivatedCounty: bonus.perActivatedCounty ?? 0,

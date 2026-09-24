@@ -427,6 +427,10 @@ export interface QsoPartyParams {
   bonusStations?: Record<string, number>
   /// County → the factor a QSO with it is multiplied by (NC). Default `{}`.
   rareCountyMultipliers?: Record<string, number>
+  /// County → the ARRL section it lies in, where an in-party entrant earns that
+  /// section as a multiplier on top of the county (PA's `EPA`/`WPA`, rule
+  /// 12.d). Default `{}`.
+  countySections?: Record<string, string>
   /// Power class → score multiplier for an entrant who declared it. Default
   /// `{}`, and an undeclared class multiplies by 1.
   powerMultipliers?: Partial<Record<PowerClass, number>>

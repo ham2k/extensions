@@ -47,6 +47,7 @@ interface ReferenceParty {
   points: Record<string, number>
   bonusStations: Record<string, number>
   rareCountyMultipliers: Record<string, number>
+  countySections: Record<string, string>
   powerMultipliers: Record<string, number>
   bonus: Record<string, number | boolean>
   options: Record<string, string | number | boolean | undefined>
@@ -246,6 +247,11 @@ function normalizeParty(raw: RawParty): ReferenceParty {
     points: numbersOf(raw.points),
     bonusStations: numbersOf(raw.bonusStations),
     rareCountyMultipliers: numbersOf(raw.rareCountyQSOMultiplier),
+    // Written section → counties, read county → section.
+    countySections: Object.fromEntries(
+      Object.entries((raw.countySections ?? {}) as Record<string, string[]>)
+        .flatMap(([section, counties]) => counties.map((county) => [normalizeCode(county), normalizeCode(section)])),
+    ),
     powerMultipliers: powerMultipliersOf(raw),
     bonus: bonusOf(raw),
     options: optionsOf(raw),
@@ -442,6 +448,7 @@ for (const key of Object.keys(REFERENCE).sort()) {
     assert.deepEqual(
       params.rareCountyMultipliers ?? {}, reference.rareCountyMultipliers, 'rareCountyMultipliers',
     )
+    assert.deepEqual(params.countySections ?? {}, reference.countySections, 'countySections')
     assert.deepEqual(params.powerMultipliers ?? {}, reference.powerMultipliers, 'powerMultipliers')
     assert.deepEqual(resolvedEntryClasses(params), reference.entryClasses, 'entryClasses')
     assert.deepEqual(
@@ -712,4 +719,17 @@ test('a party carries its own county list, whatever another party calls the same
   // And its own counties name their state, because seven states' counties sit
   // in one list and two of them have a Lincoln.
   assert.equal(party('7QP').counties.ORDES, 'Deschutes OR')
+})
+
+test("a party's county-to-section table places every one of its counties", () => {
+  // Each county earns its section (PA's EPA/WPA, rule 12.d) and nothing else
+  // says so: a county left out costs an in-state entrant a multiplier with no
+  // symptom at all. The generator refuses a county listed twice or one the
+  // party does not have; a county missing from every list is only caught here.
+  for (const [key, params] of Object.entries(PARTIES)) {
+    const sections = params.countySections ?? {}
+    if (Object.keys(sections).length === 0) continue
+    for (const county of Object.keys(params.counties)) assert.ok(sections[county], `${key} places ${county} in no section`)
+  }
+  assert.deepEqual(new Set(Object.values(party('PA').countySections ?? {})), new Set(['EPA', 'WPA']))
 })
