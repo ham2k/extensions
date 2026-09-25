@@ -475,10 +475,18 @@ function emitParty(raw, key) {
   // not migrated, so the party reaches back for them instead.
   //
   // The key is the code, lower-cased and matched as a prefix: Nebraska is `NE`
-  // and New England `NEQP`, so `NEQP` matches both claims and the longer one
-  // decides. Getting that backwards hands every New England log to Nebraska.
-  lines.push(`  // The bundled extension's own pair for this party, which nothing rewrites.`)
-  lines.push(`  legacyRefs: [{ type: "qp", prefix: ${quote(key.toLowerCase())} }],`)
+  // and New England `NEQP`, so `NEQP` matches both claims. The kernel lets the
+  // longer one decide, but a party's own engine sees only its own claim
+  // (`partyRefIn`), so Nebraska's would answer for every New England log — its
+  // scorer, its exports and its ADIF fields. Nebraska therefore claims none:
+  // its own old logs go unanswered, and New England's are the more numerous.
+  if (key === "NE") {
+    lines.push(`  // No \`legacyRefs\`: \`ne\` is a prefix of New England's \`neqp\` — see`)
+    lines.push(`  // scripts/convert-parties.mjs.`)
+  } else {
+    lines.push(`  // The bundled extension's own pair for this party, which nothing rewrites.`)
+    lines.push(`  legacyRefs: [{ type: "qp", prefix: ${quote(key.toLowerCase())} }],`)
+  }
 
   // `state` answers what the bundled version's party KEY answered: the state a
   // county belongs to when its own abbreviation does not say. A party whose key

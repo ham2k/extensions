@@ -20,7 +20,10 @@ export interface QsoPartyIdentity {
   refType: string
   /// The lower-cased party code the bundled `qp` extension filed the party
   /// under, matched as a prefix of a `{type: 'qp', ref}` ref's `ref` — the
-  /// same claim the party's own `legacyRefs` makes.
+  /// same claim the party's own `legacyRefs` makes, except Nebraska's, whose
+  /// extension makes none (scripts/convert-parties.mjs). Here every party is
+  /// weighed at once and the longest prefix wins, so `ne` still names
+  /// Nebraska safely.
   legacyPrefix: string
   name: string
   short: string

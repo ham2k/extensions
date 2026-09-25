@@ -20,6 +20,8 @@ import { registerHooks } from "node:module"
 
 import type { ExportRequest, HookContext } from "@ham2k/extension-sdk"
 
+import type { QsoPartyParams } from "./params.ts"
+
 // The real SDK, with the host boundary swapped: `hooks.invokeOne` is what
 // reaches the core's ADIF generator, and here it echoes what it was handed
 // back as the file — the per-QSO resolution is the generator's job and is
@@ -59,6 +61,13 @@ const { CA, NY, WI } = await import("./testFixtures.ts")
 
 const ctx = {} as never
 
+/// The key an extension registers its hooks under. Deliberately not any
+/// party's refType: the kernel refuses a hook key other than the extension's
+/// own, so in a real extension the two never coincide, and a test that let
+/// them would pass an export that names the wrong one.
+const KEY = 'ham2k-party'
+const define = (params: QsoPartyParams) => defineQsoParty({ ...params, extensionKey: KEY })
+
 const operation = (params = NY, location = 'ALB') => ({
   uuid: 'op',
   stationCall: 'N0DEV',
@@ -76,7 +85,7 @@ const contact = (location: string, params = NY, extra: Record<string, unknown> =
 })
 
 test('one party registers one of each hook, scoped to its own ref type', () => {
-  const hooks = defineQsoParty(NY)
+  const hooks = define(NY)
   assert.deepEqual(Object.keys(hooks).sort(), [
     'activity', 'adifFields', 'export', 'refHandler', 'refType', 'scoring',
   ])
@@ -87,7 +96,7 @@ test('one party registers one of each hook, scoped to its own ref type', () => {
 })
 
 test('a Cabrillo is offered only by a party that names the contest', async () => {
-  const withName = await defineQsoParty(NY).export.suggestExportOptions!(
+  const withName = await define(NY).export.suggestExportOptions!(
     { operation: operation(), qsos: [] },
     ctx,
   )
@@ -97,7 +106,7 @@ test('a Cabrillo is offered only by a party that names the contest', async () =>
   // Without a `CONTEST:` line there is nothing to tell a checker which contest
   // the file is for, and inventing one produces a file that looks submittable
   // and is not.
-  const unnamed = await defineQsoParty(WI).export.suggestExportOptions!(
+  const unnamed = await define(WI).export.suggestExportOptions!(
     { operation: operation(WI, 'ADAM'), qsos: [] },
     ctx,
   )
@@ -106,7 +115,7 @@ test('a Cabrillo is offered only by a party that names the contest', async () =>
   // And nothing at all is offered for an operation that is not running this
   // party.
   assert.deepEqual(
-    await defineQsoParty(NY).export.suggestExportOptions!({ operation: { uuid: 'op', refs: [] }, qsos: [] }, ctx),
+    await define(NY).export.suggestExportOptions!({ operation: { uuid: 'op', refs: [] }, qsos: [] }, ctx),
     [],
   )
 })
@@ -127,7 +136,7 @@ test('the export sheet names the two files in the party′s own words', async ()
       ),
     },
   }
-  const spanish = await defineQsoParty(translated).export.suggestExportOptions!(
+  const spanish = await define(translated).export.suggestExportOptions!(
     { operation: operation(translated), qsos: [] },
     es,
   )
@@ -135,7 +144,7 @@ test('the export sheet names the two files in the party′s own words', async ()
 
   // A party that names neither reads as English in any locale: the seam costs
   // an event nothing until it uses it.
-  const plain = await defineQsoParty(NY).export.suggestExportOptions!(
+  const plain = await define(NY).export.suggestExportOptions!(
     { operation: operation(), qsos: [] },
     es,
   )
@@ -143,7 +152,7 @@ test('the export sheet names the two files in the party′s own words', async ()
 })
 
 test('the Cabrillo is the sponsor′s file, headers and all', async () => {
-  const result = await defineQsoParty(CA).export.generateExport({
+  const result = await define(CA).export.generateExport({
     exportType: `${CA.refType}-cabrillo`,
     operation: {
       ...operation(CA, 'ALAM'),
@@ -164,7 +173,7 @@ test('the Cabrillo is the sponsor′s file, headers and all', async () => {
 test('an exportType this hook never offered is refused', async () => {
   // A hook that answers for the plain ADIF makes the core's delegation recurse
   // into itself.
-  const result = await defineQsoParty(NY).export.generateExport(
+  const result = await define(NY).export.generateExport(
     { exportType: 'adif', operation: operation(), qsos: [contact('ERI')] },
     ctx,
   )
@@ -181,7 +190,7 @@ test('the ADIF export tells the per-QSO hook what the Cabrillo already knows', a
     { fromMillis: -1, operation: operation() },
     { fromMillis: 1000, operation: operation(NY, 'REN') },
   ]
-  const result = await defineQsoParty(NY).export.generateExport({
+  const result = await define(NY).export.generateExport({
     exportType: `${NY.refType}-adif`,
     operation: operation(),
     segments,
@@ -193,7 +202,10 @@ test('the ADIF export tells the per-QSO hook what the Cabrillo already knows', a
     refs: Record<string, unknown>[]
     segments: { fromMillis: number; operation: { refs: Record<string, unknown>[] } }[]
   }
-  assert.equal(handed.mainHandler, NY.refType, 'this file is the contest′s log')
+  // The contest's log, so its own `adifFields` hook alone is asked — by the key
+  // that hook is registered under. The refType names no hook, and the core
+  // exporter refuses a file whose main handler answers nothing.
+  assert.equal(handed.mainHandler, KEY)
   // The second contact typed no exchange and is resolved to what that station
   // sent the first time — the same fold the scorer and the Cabrillo make.
   assert.deepEqual(handed.refs[0][RESOLVED_MARKER], { q1: 'ERI', q2: 'ERI' })
@@ -202,8 +214,25 @@ test('the ADIF export tells the per-QSO hook what the Cabrillo already knows', a
   assert.deepEqual(handed.segments[1].operation.refs[0][RESOLVED_MARKER], { q1: 'ERI', q2: 'ERI' })
 })
 
+test('a log kept under the old combined extension is handed the resolved exchanges too', async () => {
+  // `adifFields` reads whichever ref `partyRefIn` finds, the old `qp` one
+  // included. Marking only refs of the party's own type leaves that one bare,
+  // and the ADIF then resolves each contact alone — so the second contact's
+  // SRX_STRING disagrees with the Cabrillo's for the same station.
+  const legacy = { ...NY, legacyRefs: [{ type: 'qp', prefix: 'ny' }] }
+  const old = (location: string) => [{ type: 'qp', ref: 'NY', location }]
+  const result = await define(legacy).export.generateExport({
+    exportType: `${NY.refType}-adif`,
+    operation: { uuid: 'op', stationCall: 'N0DEV', refs: old('ALB') },
+    qsos: [contact('', legacy, { refs: old('ERI') }), { ...contact('', legacy, { refs: old('') }), uuid: 'q2', band: '40m' }],
+  } as ExportRequest, ctx)
+
+  const handed = JSON.parse(result.content) as { refs: Record<string, unknown>[] }
+  assert.deepEqual(handed.refs[0][RESOLVED_MARKER], { q1: 'ERI', q2: 'ERI' })
+})
+
 test('one contact′s ADIF fields are the exchange as it was sent and received', async () => {
-  const fields = await defineQsoParty(CA).adifFields.fieldsForOneQSO({
+  const fields = await define(CA).adifFields.fieldsForOneQSO({
     qso: contact('BUTT', CA, {
       refs: [{ type: CA.refType, location: 'BUTT', ourSerial: 1, theirSerial: '7' }],
     }),
@@ -219,11 +248,37 @@ test('one contact′s ADIF fields are the exchange as it was sent and received',
   ])
 })
 
+test('a log that is not this party′s gets no ADIF fields from it', async () => {
+  // The full ADIF export asks every installed extension about every contact.
+  // A party that answers regardless stamps its CONTEST_ID — and an SRX_STRING
+  // made up from the other station's state — onto every POTA or SOTA log.
+  const fields = await define(CA).adifFields.fieldsForOneQSO({
+    qso: contact('', CA, { refs: [], their: { call: 'W6ABC', state: 'CA', entityPrefix: 'K' } }),
+    operation: { uuid: 'op', stationCall: 'N0DEV', refs: [{ type: 'potaActivation', ref: 'US-1234' }] },
+  }, ctx)
+
+  assert.deepEqual(fields, [])
+})
+
+test('a log kept under the old combined extension is still this party′s', async () => {
+  // `{type: 'qp', ref: 'CA'}` is how every party was stored when fifty were one
+  // extension. Checking for the party's own refType alone would read those
+  // logs as someone else's and drop their contest fields.
+  const legacy = { ...CA, legacyRefs: [{ type: 'qp', prefix: 'ca' }] }
+  const fields = await define(legacy).adifFields.fieldsForOneQSO({
+    qso: contact('', CA, { refs: [{ type: 'qp', ref: 'CA', location: 'BUTT' }] }),
+    operation: { uuid: 'op', stationCall: 'N0DEV', refs: [{ type: 'qp', ref: 'CA', location: 'ALAM' }] },
+  }, ctx)
+
+  assert.deepEqual(fields.find((field) => field.name === 'CONTEST_ID'), { name: 'CONTEST_ID', value: 'CA-QSO-PARTY' })
+  assert.deepEqual(fields.find((field) => field.name === 'STX_STRING'), { name: 'STX_STRING', value: 'ALAM' })
+})
+
 
 test('party registrations keep settings separate and reflect available formats', async () => {
-  const ny = await defineQsoParty(NY).export.getExportTypes!({}, ctx)
-  const ca = await defineQsoParty(CA).export.getExportTypes!({}, ctx)
-  const wi = await defineQsoParty(WI).export.getExportTypes!({}, ctx)
+  const ny = await define(NY).export.getExportTypes!({}, ctx)
+  const ca = await define(CA).export.getExportTypes!({}, ctx)
+  const wi = await define(WI).export.getExportTypes!({}, ctx)
   assert.deepEqual(ny.map((type) => type.exportType), [`${NY.refType}-adif`, `${NY.refType}-cabrillo`])
   assert.equal(ca[0].exportType, `${CA.refType}-adif`)
   assert.notEqual(ny[0].exportType, ca[0].exportType)
@@ -233,7 +288,7 @@ test('party registrations keep settings separate and reflect available formats',
 test('ADIF delegation preserves explicit privacy and template preferences', async () => {
   const exportSettings = { customTemplates: true, adifNotesTemplate: '', adifCommentTemplate: 'My comment' }
   const exportData = { activity: 'NYQP' }
-  const result = await defineQsoParty(NY).export.generateExport({
+  const result = await define(NY).export.generateExport({
     exportType: `${NY.refType}-adif`, operation: operation(), qsos: [contact('ERI')],
     includePrivateData: false, includeLookupData: false, exportSettings, exportData, exportTitle: 'My party log',
   }, ctx)

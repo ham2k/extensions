@@ -23,7 +23,7 @@ import type {
 import { qsoPartyActivity } from "./activity.ts"
 import { registerEntityLookup } from "./dxcc.ts"
 import { qsoPartyAdifFields, qsoPartyExport } from "./exports.ts"
-import type { QsoPartyParams } from "./params.ts"
+import type { QsoPartyExtensionParams } from "./params.ts"
 import { qsoPartyRefHandler } from "./refHandler.ts"
 import { qsoPartyScorer } from "./scorer.ts"
 
@@ -36,6 +36,7 @@ export type {
   QsoPartyBonus,
   QsoPartyEntryClasses,
   QsoPartyExchangeFields,
+  QsoPartyExtensionParams,
   QsoPartyLabel,
   QsoPartyLabels,
   QsoPartyLocation,
@@ -132,7 +133,7 @@ export interface QsoPartyHooks {
 /// scoreboard and the submitted file reading one set of rules: an extension that
 /// built its scorer from one set of options and its export from another would
 /// disagree with itself, contact by contact, and only in the file.
-export function defineQsoParty(params: QsoPartyParams): QsoPartyHooks {
+export function defineQsoParty(params: QsoPartyExtensionParams): QsoPartyHooks {
   return {
     refType: params.refType,
     activity: qsoPartyActivity(params),

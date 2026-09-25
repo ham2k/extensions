@@ -30,7 +30,7 @@ import {
   theirLocationForFile,
 } from "./exchange.ts"
 import { allInParty, parseLocations } from "./location.ts"
-import type { QsoPartyParams } from "./params.ts"
+import type { QsoPartyExtensionParams, QsoPartyParams } from "./params.ts"
 import { type Party, resolveLabel, resolveParty } from "./party.ts"
 
 function filenameFor(
@@ -57,15 +57,23 @@ export function qsoPartyAdifFields(params: QsoPartyParams): AdifFieldsHook {
       { qso, operation }: { qso: Record<string, JSONValue>; operation: Record<string, JSONValue> },
       _ctx: HookContext,
     ): Promise<{ name: string; value: string }[]> {
+      // The full ADIF export asks every installed extension about every
+      // contact, so an operation that is not this party's gets nothing here.
+      // Without this, every other log leaves stamped with this party's
+      // CONTEST_ID, and with an SRX_STRING made up from the other station's
+      // state.
+      const opRef = partyRefIn(party, operation as Record<string, unknown>)
+      if (!opRef) return []
+
       const qsoRef = partyRefIn(party, qso as Record<string, unknown>)
       // `operation` is already the segment-effective one for this contact (the
       // core generator resolves it), so our county is simply the operation's.
-      const ours = ourLocationText(party, operation as Record<string, unknown>)
+      const ours = ourLocationText(party, operation as Record<string, unknown>, opRef)
       const weAreInParty = allInParty(parseLocations(party, ours))
       const ourSerial = serial(qsoRef?.ourSerial)
       const theirSerial = serial(qsoRef?.theirSerial)
       const theirName = str(qsoRef?.theirName)
-      const ourOwnName = ourName(party, operation as Record<string, unknown>)
+      const ourOwnName = ourName(party, operation as Record<string, unknown>, opRef)
 
       // `CONTEST_ID` is the sponsor's published contest name — the same
       // vocabulary the Cabrillo's `CONTEST:` line uses, which is what ADIF's own
@@ -79,9 +87,7 @@ export function qsoPartyAdifFields(params: QsoPartyParams): AdifFieldsHook {
       // prefix would otherwise write the prefix here and `DX` there. Our own
       // export also hands over what it resolved for the whole log, which is the
       // only way this hook can know what a station sent on an earlier band.
-      const resolved = partyRefIn(party, operation as Record<string, unknown>)?.[RESOLVED_MARKER] as
-        | Record<string, string>
-        | undefined
+      const resolved = opRef[RESOLVED_MARKER] as Record<string, string> | undefined
       const theirsForFile = resolved?.[str(qso.uuid)]
         ?? theirLocationForFile(party, qso, { weAreInParty })
       const received = [theirSerial, theirName, theirsForFile].filter((part) => part).join(' ')
@@ -97,7 +103,7 @@ export function qsoPartyAdifFields(params: QsoPartyParams): AdifFieldsHook {
   }
 }
 
-export function qsoPartyExport(params: QsoPartyParams): ExportHook {
+export function qsoPartyExport(params: QsoPartyExtensionParams): ExportHook {
   const party = resolveParty(params)
 
   return {
@@ -162,12 +168,17 @@ export function qsoPartyExport(params: QsoPartyParams): ExportHook {
       // `adifFields` on a COPY of the operation — of every segment's operation
       // too, since the core generator hands the hook the segment-effective one
       // and would otherwise hand it an unmarked copy. Never the stored operation.
+      // The ref marked is the one `adifFields` reads (`partyRefIn`), so a log kept
+      // under the old combined extension's `qp` type is marked too.
       const resolved = resolvedExchanges(party, operation, args.qsos, segments)
-      const marked = (op: Record<string, JSONValue>): Record<string, JSONValue> => ({
-        ...op,
-        refs: ((op.refs as Record<string, JSONValue>[] | undefined) ?? []).map((r) =>
-          r?.type === party.refType ? { ...r, [RESOLVED_MARKER]: resolved } : r),
-      })
+      const marked = (op: Record<string, JSONValue>): Record<string, JSONValue> => {
+        const ours = partyRefIn(party, op as Record<string, unknown>)
+        return {
+          ...op,
+          refs: ((op.refs as Record<string, JSONValue>[] | undefined) ?? []).map((r) =>
+            r === ours ? { ...r, [RESOLVED_MARKER]: resolved } : r),
+        }
+      }
       const content = await adifForExport({
         operation: marked(operation),
         segments: segments?.map((segment) => ({ ...segment, operation: marked(segment.operation) })),
@@ -178,8 +189,9 @@ export function qsoPartyExport(params: QsoPartyParams): ExportHook {
         exportData: args.exportData,
         exportTitle: args.exportTitle,
         // This file is the CONTEST's log, so the core exporter asks this
-        // extension's `adifFields` hook and no other's.
-        mainHandler: party.refType,
+        // extension's `adifFields` hook and no other's — by the key it is
+        // registered under (`QsoPartyExtensionParams`).
+        mainHandler: params.extensionKey,
       })
       return {
         filename: filenameFor(party, operation, args.qsos, 'adi', args.compactFilenames),

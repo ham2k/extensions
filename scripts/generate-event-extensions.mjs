@@ -39,7 +39,7 @@ import { CANADIAN_PROVINCES, US_STATES } from "../packages/lib-qso-party/src/loc
 
 const EXTENSIONS_DIR = resolve(import.meta.dirname, "..", "extensions", "contests")
 
-const VERSION = "0.2.15"
+const VERSION = "0.2.17"
 
 /// The accent an event carries, by the flag of the country whose party it is.
 /// Two colors for the family rather than fifty — what tells two events apart
@@ -407,10 +407,11 @@ import { PARTY } from "@ham2k/qso-parties/${code.toLowerCase()}"
 
 import manifest from "../manifest.json" with { type: "json" }
 
-// The icon and the accent are the EXTENSION's, not the sponsor's rules: the
-// party data is generated from the sponsor's own file and carries no chrome,
-// and the manifest is where the Extensions panel reads them from already.
-const hooks = defineQsoParty({ ...PARTY, icon: manifest.icon, accentColor: manifest.accentColor })
+// The key, the icon and the accent are the EXTENSION's, not the sponsor's
+// rules: the party data is generated from the sponsor's own file and carries
+// none of them. The key has to be the one every hook below registers under —
+// the party's own ADIF export reaches its \`adifFields\` hook by it.
+const hooks = defineQsoParty({ ...PARTY, extensionKey: manifest.key, icon: manifest.icon, accentColor: manifest.accentColor })
 
 defineExtension({
   ...manifest,

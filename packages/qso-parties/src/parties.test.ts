@@ -549,6 +549,21 @@ test('a short name finds a party, but two parties publish NEQP', () => {
   assert.equal(collisions.length, 1, `short names collide beyond NEQP: ${JSON.stringify(collisions)}`)
 })
 
+test('no party′s claim on the old combined extension′s logs reaches another party′s', () => {
+  // A party's engine matches its old `qp` claim as a prefix and never sees the
+  // others', so nothing lets the longer claim win there. A claim that prefixes
+  // another answers for that party's logs too — Nebraska's `ne` took every New
+  // England `NEQP` log, which is why Nebraska makes none.
+  const claims = Object.entries(PARTIES).flatMap(([key, params]) =>
+    (params.legacyRefs ?? []).map((claim) => ({ key, code: `${claim.type}/${claim.prefix}` })))
+  for (const a of claims) {
+    for (const b of claims) {
+      if (a !== b) assert.ok(!b.code.startsWith(a.code), `${a.key}'s ${a.code} also claims ${b.key}'s ${b.code}`)
+    }
+  }
+  assert.equal(PARTIES.NE.legacyRefs, undefined)
+})
+
 // The named traps below are literal, not derived: the reference implementation
 // above is a transcription of the same rules the generator implements, so a
 // misreading shared by both would pass every comparison in this file. These

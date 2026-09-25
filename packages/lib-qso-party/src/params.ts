@@ -246,6 +246,18 @@ export interface QsoPartyPointsArgs {
   theyAreInParty: boolean
 }
 
+/// A party as ONE extension registers it: the party's data, and the key that
+/// extension registers its hooks under.
+///
+/// The key belongs to the extension, not to the party, which is why a party's
+/// data file cannot state it. It has no default because nothing else will do:
+/// the kernel accepts no hook key but the extension's own, and the party's own
+/// ADIF export reaches its `adifFields` hook by this key — naming the refType
+/// there names no hook, and the export fails outright.
+export interface QsoPartyExtensionParams extends QsoPartyParams {
+  extensionKey: string
+}
+
 export interface QsoPartyParams {
   // ---------------------------------------------------------------- identity
 

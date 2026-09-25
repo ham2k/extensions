@@ -267,7 +267,10 @@ Everything specific to one QSO party is data. Adding one is:
      anything, and `bundles.test.ts` holds the two to each other.
    - `package.json` — a private workspace with `build`, `typecheck` and `pack`.
    - `build.mjs` — `buildExtension(build, { dir: import.meta.dirname })`.
-   - `src/index.ts` — `defineQsoParty(PARTY)` and five `registerHook` calls.
+   - `src/index.ts` — `defineQsoParty({ ...PARTY, extensionKey: manifest.key, … })`
+     and five `registerHook` calls, each under that same `manifest.key`: the
+     party's own ADIF export reaches its `adifFields` hook by the key it is
+     given here.
 3. `npm install` (a new workspace has to reach the root lock), then `npm test`.
 
 **The key and the refType are two namespaces, and they do not match.** The key
