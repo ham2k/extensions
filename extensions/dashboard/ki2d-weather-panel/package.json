@@ -13,7 +13,7 @@
     "pack": "npm run build && h2kext-pack build"
   },
   "devDependencies": {
-    "@ham2k/extension-sdk": "^0.6.0",
+    "@ham2k/extension-sdk": "^0.8.1",
     "@ham2k/extension-tools": "^0.6.0",
     "esbuild": "^0.25.5",
     "@ham2k/lib-geo-tools": "^1.0.0"

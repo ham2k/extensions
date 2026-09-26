@@ -2,7 +2,7 @@
   "key": "ham2k-bca",
   "name": "BCA: Belgium Castles & Fortresses",
   "shortName": "BCA",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Belgian castle references, activation logging, and self-spotting",
   "category": "activity",
   "icon": "castle",

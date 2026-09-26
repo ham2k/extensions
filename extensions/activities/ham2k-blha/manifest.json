@@ -2,7 +2,7 @@
   "key": "ham2k-blha",
   "name": "BLHA: Belgian Lighthouses and Lightships",
   "shortName": "BLHA",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Belgian lighthouse references, activation logging, and self-spotting",
   "category": "activity",
   "icon": "lighthouse",

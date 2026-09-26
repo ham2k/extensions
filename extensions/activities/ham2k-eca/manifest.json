@@ -2,7 +2,7 @@
   "key": "ham2k-eca",
   "name": "ECA: English Castles Awards",
   "shortName": "ECA",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "English castle references, activation logging, and self-spotting",
   "category": "activity",
   "icon": "castle",
