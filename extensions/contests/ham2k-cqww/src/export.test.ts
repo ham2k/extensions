@@ -132,12 +132,11 @@ test("the RTTY Cabrillo carries a QTH on both sides, DX for a station that sends
   const result = (await contest.runHook('export', 'generateExport', { operation, qsos, exportType: 'cqww-cabrillo' })) as { content: string }
   assert.ok(result.content.split('\n').some((line) => line.trim() === 'LOCATION: MN'))
   const lines = result.content.split('\n').filter((line) => line.startsWith('QSO:')).map((line) => line.split(/\s+/).slice(5).join(' '))
-  assert.deepEqual(lines, ['N0DEV 599 4 MN W1AW 599 5 CT', 'N0DEV 599 4 MN DL1ABC 599 14 DX'])
+  assert.deepEqual(lines, ['N0DEV 599 04 MN W1AW 599 05 CT', 'N0DEV 599 04 MN DL1ABC 599 14 DX'])
 
-  // A W/VE station whose QTH is missing is a dash, never DX.
+  // Missing sent setup must be corrected before submission, never guessed as DX.
   const unset = { ...operation, refs: [{ type: 'cqww', mode: 'RTTY', zone: '4' }] }
-  const blank = (await contest.runHook('export', 'generateExport', { operation: unset, qsos, exportType: 'cqww-cabrillo' })) as { content: string }
-  assert.ok(blank.content.includes('N0DEV 599 4 - W1AW'))
+  await assert.rejects(contest.runHook('export', 'generateExport', { operation: unset, qsos, exportType: 'cqww-cabrillo' }), /Configure a valid CQ zone/)
 })
 
 test("the Cabrillo header carries the declared entry and our LOCATION", async () => {

@@ -76,13 +76,14 @@ test("on RTTY a W/VE station's QTH joins the exchange, and is recorded on the re
   assert.equal(typed?.their?.exchange, '5 CT')
   assert.deepEqual(typed?.refs, [{ type: 'cqww', theirZone: '5', theirQth: 'CT' }])
 
-  // Guessed from the call area when nothing was typed, like the zone.
+  // A call-area hint must not become a copied exchange without confirmation.
   const guessed = await decorate({ mode: 'RTTY', their: { call: 'VE3XYZ' } }, rtty)
-  assert.equal(guessed?.their?.exchange, '4 ON')
+  assert.equal(guessed?.their?.exchange, '4')
+  assert.equal((guessed?.refs as Record<string, unknown>[] | undefined)?.[0]?.theirQth, '')
 
-  // A DX station sends no QTH, whatever was typed.
+  // Keep an explicit correction visible, even when invalid for this country.
   const dx = await decorate({ mode: 'RTTY', their: { call: 'DL1ABC' }, refs: [{ type: 'cqww', theirQth: 'MA' }] }, rtty)
-  assert.equal(dx?.their?.exchange, '14')
+  assert.equal(dx?.their?.exchange, '14 MA')
 })
 
 test("setup asks for each part of the entry, undeclared until answered", async () => {
@@ -102,4 +103,14 @@ test("setup asks for each part of the entry, undeclared until answered", async (
 
   const spanish = await controls('es')
   assert.equal(spanish.find((element) => element.key === 'power')?.options?.[1]?.label, 'Alta (1500 W)')
+})
+
+
+test('setup seeds legacy preview categories without replacing an explicitly cleared new answer', async () => {
+  const ref = { type: 'cqww', mode: 'RTTY', categoryOperator: 'SINGLE-OP', categoryAssisted: 'ASSISTED', categoryBand: '20', categoryPower: 'LOW', power: '' }
+  const controls = await contest.runHook('activity', 'operationControls', { operation: { stationCall: 'N0DEV', refs: [ref] } }) as { input: { form: { elements: { key?: string; value?: string }[] } } }[]
+  const values = Object.fromEntries(controls[0].input.form.elements.filter((x) => x.key).map((x) => [x.key, x.value]))
+  assert.equal(values.operator, 'SINGLE-OP-ASSISTED')
+  assert.equal(values.band, '20M')
+  assert.equal(values.power, '')
 })

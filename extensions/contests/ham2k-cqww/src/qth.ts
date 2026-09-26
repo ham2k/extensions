@@ -7,16 +7,60 @@
 // contacted on each band", with Alaska and Hawaii counting "as country
 // multipliers only and not as state multipliers".
 
-import type { JSONValue } from "@ham2k/extension-sdk"
-import { annotateCallAgainstCountryFile } from "@ham2k/extension-sdk"
-import { parseCallsign } from "@ham2k/lib-callsigns"
+import type { JSONValue } from '@ham2k/extension-sdk'
+import { annotateCallAgainstCountryFile } from '@ham2k/extension-sdk'
+import { parseCallsign } from '@ham2k/lib-callsigns'
 
 /// The 48 continental states and DC, as US Postal Service abbreviations.
 const US_QTHS = [
-  'AL', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'ID', 'IL', 'IN',
-  'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT',
-  'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA',
-  'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+  'AL',
+  'AZ',
+  'AR',
+  'CA',
+  'CO',
+  'CT',
+  'DE',
+  'FL',
+  'GA',
+  'ID',
+  'IL',
+  'IN',
+  'IA',
+  'KS',
+  'KY',
+  'LA',
+  'ME',
+  'MD',
+  'MA',
+  'MI',
+  'MN',
+  'MS',
+  'MO',
+  'MT',
+  'NE',
+  'NV',
+  'NH',
+  'NJ',
+  'NM',
+  'NY',
+  'NC',
+  'ND',
+  'OH',
+  'OK',
+  'OR',
+  'PA',
+  'RI',
+  'SC',
+  'SD',
+  'TN',
+  'TX',
+  'UT',
+  'VT',
+  'VA',
+  'WA',
+  'WV',
+  'WI',
+  'WY',
   'DC',
 ]
 
@@ -26,10 +70,27 @@ const US_QTHS = [
 /// accepted as aliases below. Labrador (LB) is its own area per the rules,
 /// though the location list folds it into NL.
 const VE_QTH_BY_PREFIX: Record<string, string> = {
-  VE1: 'NS', VA1: 'NS', VE2: 'QC', VA2: 'QC', VE3: 'ON', VA3: 'ON',
-  VE4: 'MB', VA4: 'MB', VE5: 'SK', VA5: 'SK', VE6: 'AB', VA6: 'AB',
-  VE7: 'BC', VA7: 'BC', VE8: 'NT', VE9: 'NB', VO1: 'NL', VO2: 'LB',
-  VY0: 'NU', VY1: 'YT', VY2: 'PE',
+  VE1: 'NS',
+  VA1: 'NS',
+  VE2: 'QC',
+  VA2: 'QC',
+  VE3: 'ON',
+  VA3: 'ON',
+  VE4: 'MB',
+  VA4: 'MB',
+  VE5: 'SK',
+  VA5: 'SK',
+  VE6: 'AB',
+  VA6: 'AB',
+  VE7: 'BC',
+  VA7: 'BC',
+  VE8: 'NT',
+  VE9: 'NB',
+  VO1: 'NL',
+  VO2: 'LB',
+  VY0: 'NU',
+  VY1: 'YT',
+  VY2: 'PE',
 }
 const VE_QTHS = [...new Set(Object.values(VE_QTH_BY_PREFIX))]
 
@@ -87,7 +148,9 @@ const HAS_A_SECTION = ['K', 'VE', 'KL', 'KH6', 'KP4', 'KP2']
 /// and Canada. Blank for a US station that set none: claiming `DX` for it
 /// would be wrong, and the line is better left out.
 export function cabrilloLocation(call: string, typed: JSONValue | undefined): string {
-  const own = str(typed).toUpperCase().replace(/[^A-Z]/g, '')
+  const own = str(typed)
+    .toUpperCase()
+    .replace(/[^A-Z]/g, '')
   if (own) return own
   if (!call) return ''
   const entity = str(annotateCallAgainstCountryFile(call, { wae: true }).entityPrefix)

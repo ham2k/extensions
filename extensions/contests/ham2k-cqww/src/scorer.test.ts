@@ -12,6 +12,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 
 import { CQWWScorer, normalizeZone } from "./scorer.ts"
+import { contestScorer } from "@ham2k/extension-sdk"
 import type { JSONValue } from "@ham2k/extension-sdk"
 
 const ctx = { online: false } as never
@@ -194,11 +195,11 @@ test('a maritime mobile station counts only for its zone', () => {
 const rttyRef = { type: 'cqww', mode: 'RTTY' }
 
 function rttyQso(call: string, band = '20m', extra: Record<string, JSONValue> = {}): Record<string, JSONValue> {
-  return { their: { call }, band, mode: 'RTTY', refs: [{ type: 'cqww', ...extra }] }
+  return { their: { call }, band, mode: 'RTTY', refs: [{ type: 'cqww', theirZone: '5', ...extra }] }
 }
 
 test('RTTY points: 1 for our own country, 2 on our continent with no NA exception, 3 beyond', () => {
-  const { scores } = run([rttyQso('W1AW'), rttyQso('VE3XYZ'), rttyQso('DL1ABC')], usOperation, rttyRef)
+  const { scores } = run([rttyQso('W1AW', '20m', { theirQth: 'CT' }), rttyQso('VE3XYZ', '20m', { theirQth: 'ON' }), rttyQso('DL1ABC')], usOperation, rttyRef)
   assert.deepEqual(scores.map((s) => s.value), [1, 2, 3])
 
   const euOperation = { uuid: 'op', stationCall: 'DL0ABC' }
@@ -216,8 +217,8 @@ test('RTTY counts each W/VE QTH once per band, from W/VE stations only', () => {
   const { sheet } = run(
     [
       rttyQso('W1AW', '20m', { theirZone: '5', theirQth: 'CT' }),
-      // A Canadian call area guessed from the prefix when nothing was typed.
-      rttyQso('VE3XYZ', '20m'),
+      // The received Canadian call area is explicitly copied, never inferred.
+      rttyQso('VE3XYZ', '20m', { theirQth: 'ON' }),
       // The rules' spelling is the same multiplier as the log's.
       rttyQso('VE8ABC', '20m', { theirQth: 'NT' }),
       rttyQso('VE8XYZ', '40m', { theirQth: 'NWT' }),
@@ -229,7 +230,7 @@ test('RTTY counts each W/VE QTH once per band, from W/VE stations only', () => {
     rttyRef,
   )
   const qths = Object.keys(sheet.mults).filter((key) => key.includes('|Q')).sort()
-  assert.deepEqual(qths, ['20m|QCT', '20m|QNT', '20m|QON', '40m|QNT'])
+  assert.deepEqual(qths, ['20m|QCT', '20m|QNWT', '20m|QON', '40m|QNWT'])
 })
 
 test('the RTTY summary breaks out the QTH multipliers', () => {
@@ -241,4 +242,41 @@ test('the RTTY summary breaks out the QTH multipliers', () => {
 test('a QTH means nothing on the CW and SSB weekends', () => {
   const { sheet } = run([qso('W1AW', '20m', 'SSB', '5')].map((q) => ({ ...q, refs: [{ type: 'cqww', theirZone: '5', theirQth: 'CT' }] })))
   assert.ok(!Object.keys(sheet.mults).some((key) => key.includes('|Q')))
+})
+
+test('an incomplete call earns no points or multipliers until corrected', async () => {
+  const hook = contestScorer(CQWWScorer, { scope: { refTypes: ['cqww'] } })
+  const activeOperation = { ...usOperation, refs: [ssbRef] }
+  const incomplete = { ...qso('DL1A?', '20m', 'SSB', '14'), uuid: 'heard' }
+  const args = { operation: activeOperation, ref: ssbRef }
+  const pending = await hook.scoreQsos({ ...args, qsos: [incomplete] }, ctx)
+  assert.deepEqual(pending.qsoScores, {})
+  assert.partialDeepStrictEqual(pending.scoresheet, {
+    qsos: 0, points: 0, mults: {}, workedByCall: {},
+  })
+  const emptySheet = structuredClone(pending.scoresheet)
+
+  const corrected = { ...incomplete, their: { call: 'DL1ABC' } }
+  const preview = await hook.scoreQso?.({
+    ...args,
+    qso: corrected,
+    resumeFrom: pending.scoresheet,
+    resumeDay: pending.scoresheetDay,
+  }, ctx)
+  assert.ok(preview?.notices.includes('newMult'))
+  assert.equal(preview?.dupe, false)
+  assert.deepEqual(pending.scoresheet, emptySheet)
+
+  const saved = await hook.scoreQsos({ ...args, qsos: [corrected] }, ctx)
+  assert.equal(saved.qsoScores.heard.value, 3)
+  assert.equal(saved.operationSummary.cqww.qsos, 1)
+  assert.equal(saved.operationSummary.cqww.points, 3)
+  assert.equal(saved.operationSummary.cqww.total, 6)
+  const repeat = await hook.scoreQso?.({
+    ...args,
+    qso: corrected,
+    resumeFrom: saved.scoresheet,
+    resumeDay: saved.scoresheetDay,
+  }, ctx)
+  assert.equal(repeat?.dupe, true)
 })

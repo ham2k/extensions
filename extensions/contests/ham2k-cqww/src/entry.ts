@@ -12,15 +12,21 @@
 // guessed one. What the rules make follow from an answer — a multi-operator
 // entry is all-band and may use assistance — is written for it.
 
-import type { JSONValue } from "@ham2k/extension-sdk"
+import type { JSONValue } from '@ham2k/extension-sdk'
 
 /// The rules' entry categories (V.A, V.C, V.D). Operator and transmitter are
 /// one axis here, as the rules list them, and split into the two Cabrillo
 /// lines on the way out.
 export const OPERATOR_CLASSES = [
-  'SINGLE-OP', 'SINGLE-OP-ASSISTED', 'MULTI-ONE', 'MULTI-TWO', 'MULTI-MULTI', 'MULTI-DISTRIBUTED', 'CHECKLOG',
+  'SINGLE-OP',
+  'SINGLE-OP-ASSISTED',
+  'MULTI-ONE',
+  'MULTI-TWO',
+  'MULTI-MULTI',
+  'MULTI-DISTRIBUTED',
+  'CHECKLOG',
 ] as const
-export type OperatorClass = typeof OPERATOR_CLASSES[number]
+export type OperatorClass = (typeof OPERATOR_CLASSES)[number]
 
 /// `ALL` or one band — "All Band or Single Band" for the single operators.
 /// RTTY has no 160m.
@@ -31,7 +37,10 @@ export const POWER_CLASSES = ['HIGH', 'LOW', 'QRP'] as const
 /// The single-operator overlays (V.B), entered alongside the main category.
 export const OVERLAY_CLASSES = ['CLASSIC', 'ROOKIE', 'YOUTH'] as const
 
-function declared<T extends string>(value: JSONValue | undefined, allowed: readonly T[]): T | undefined {
+function declared<T extends string>(
+  value: JSONValue | undefined,
+  allowed: readonly T[],
+): T | undefined {
   const upper = typeof value === 'string' ? value.toUpperCase() : ''
   return allowed.find((option) => option === upper)
 }
@@ -42,10 +51,35 @@ const TRANSMITTER_FOR: Partial<Record<OperatorClass, string>> = {
   'MULTI-MULTI': 'UNLIMITED',
 }
 
+/// Read the temporary preview's saved category fields without rewriting logs.
+/// A new field, including an explicit blank, always wins over its old alias.
+export function compatibleEntry(
+  ref: Record<string, JSONValue> | undefined,
+): Record<string, JSONValue> | undefined {
+  if (!ref) return ref
+  const entry = { ...ref }
+  if (!('operator' in entry) && 'categoryOperator' in entry) {
+    entry.operator =
+      entry.categoryOperator === 'SINGLE-OP' && entry.categoryAssisted === 'ASSISTED'
+        ? 'SINGLE-OP-ASSISTED'
+        : entry.categoryOperator
+  }
+  if (!('band' in entry) && typeof entry.categoryBand === 'string') {
+    entry.band = /^\d+$/.test(entry.categoryBand)
+      ? `${entry.categoryBand}M`
+      : entry.categoryBand.toUpperCase()
+  }
+  if (!('power' in entry) && 'categoryPower' in entry) entry.power = entry.categoryPower
+  return entry
+}
+
 /// The `CATEGORY-` lines for the entry declared on [ref], in the order the
 /// sponsor's example header gives them. A line with no value is dropped by
 /// the Cabrillo writer.
-export function cabrilloCategories(ref: Record<string, JSONValue> | undefined): [string, string | undefined][] {
+export function cabrilloCategories(
+  ref: Record<string, JSONValue> | undefined,
+): [string, string | undefined][] {
+  ref = compatibleEntry(ref)
   const mode = typeof ref?.mode === 'string' ? ref.mode : ''
   const operator = declared(ref?.operator, OPERATOR_CLASSES)
   const single = operator === 'SINGLE-OP' || operator === 'SINGLE-OP-ASSISTED'
@@ -58,13 +92,24 @@ export function cabrilloCategories(ref: Record<string, JSONValue> | undefined): 
   // Overlays are for single operators only, and Classic not for an assisted
   // one; anything else would be a claim the robot rejects.
   const overlay = declared(ref?.overlay, OVERLAY_CLASSES)
-  const validOverlay = single && !(operator === 'SINGLE-OP-ASSISTED' && overlay === 'CLASSIC') ? overlay : undefined
+  const validOverlay =
+    single && !(operator === 'SINGLE-OP-ASSISTED' && overlay === 'CLASSIC') ? overlay : undefined
 
   return [
-    ['CATEGORY-OPERATOR', operator === 'CHECKLOG' ? 'CHECKLOG' : single ? 'SINGLE-OP' : multi ? 'MULTI-OP' : undefined],
+    [
+      'CATEGORY-OPERATOR',
+      operator === 'CHECKLOG' ? 'CHECKLOG' : single ? 'SINGLE-OP' : multi ? 'MULTI-OP' : undefined,
+    ],
     // Single Operator is defined as unassisted, and multi-operator entries
     // may use assistance, so each class answers this line itself.
-    ['CATEGORY-ASSISTED', operator === 'SINGLE-OP' ? 'NON-ASSISTED' : operator === 'SINGLE-OP-ASSISTED' || multi ? 'ASSISTED' : undefined],
+    [
+      'CATEGORY-ASSISTED',
+      operator === 'SINGLE-OP'
+        ? 'NON-ASSISTED'
+        : operator === 'SINGLE-OP-ASSISTED' || multi
+          ? 'ASSISTED'
+          : undefined,
+    ],
     ['CATEGORY-BAND', validBand],
     ['CATEGORY-POWER', declared(ref?.power, POWER_CLASSES)],
     ['CATEGORY-MODE', mode || undefined],
@@ -80,7 +125,11 @@ export function cabrilloCategories(ref: Record<string, JSONValue> | undefined): 
 /// was typed, so the caller can fall back to the app's operator call.
 export function declaredOperators(ref: Record<string, JSONValue> | undefined): string {
   const typed = typeof ref?.operators === 'string' ? ref.operators : ''
-  return typed.toUpperCase().split(/[\s,;]+/).filter((call) => call).join(' ')
+  return typed
+    .toUpperCase()
+    .split(/[\s,;]+/)
+    .filter((call) => call)
+    .join(' ')
 }
 
 /// `CLUB`: the club name as typed — spelled out in full, which only the

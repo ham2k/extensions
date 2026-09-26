@@ -7,11 +7,11 @@
 // exchange, and per-band
 // multipliers accumulated from two different axes (zone and country).
 
-import { exportTypeDefinition } from "@ham2k/extension-sdk"
-import { qsonToCabrillo } from "@ham2k/lib-qson-cabrillo"
-import { adifForExport, contestScorer, defineExtension, exportFilename, host, startMillisOf } from "@ham2k/extension-sdk"
 import type {
+  ActivityHook as ActivityHookContract,
   ActivitySuggestion,
+  AdifFieldsHook as AdifFieldsHookContract,
+  ExportHook as ExportHookContract,
   ExportOption,
   ExportOptionsRequest,
   ExportRequest,
@@ -22,15 +22,41 @@ import type {
   Ref,
   RefLink,
   SuggestArgs,
-} from "@ham2k/extension-sdk"
-
-import { tFor } from "./i18n.ts"
-import { MODES, nearestMode, nextContestDate, relevanceFor } from "./schedule.ts"
-import { CQWWScorer, ZONE_PATTERN, contestTitle, cqwwCallInfo, normalizeZone } from "./scorer.ts"
-import { QTH_PATTERN, cabrilloLocation, guessedQth, normalizeQth, sendsQth } from "./qth.ts"
-import { BAND_CLASSES, OPERATOR_CLASSES, OVERLAY_CLASSES, POWER_CLASSES, cabrilloCategories, declaredClub, declaredOperators } from "./entry.ts"
-
-import manifest from "../manifest.json" with { type: "json" }
+} from '@ham2k/extension-sdk'
+import {
+  adifForExport,
+  contestScorer,
+  defineExtension,
+  exportFilename,
+  exportTypeDefinition,
+  host,
+  startMillisOf,
+} from '@ham2k/extension-sdk'
+import { qsonToCabrillo } from '@ham2k/lib-qson-cabrillo'
+import manifest from '../manifest.json' with { type: 'json' }
+import {
+  BAND_CLASSES,
+  cabrilloCategories,
+  compatibleEntry,
+  declaredClub,
+  declaredOperators,
+  OPERATOR_CLASSES,
+  OVERLAY_CLASSES,
+  POWER_CLASSES,
+} from './entry.ts'
+import { tFor } from './i18n.ts'
+import { cabrilloLocation } from './qth.ts'
+import {
+  isRtty,
+  normalizeQth,
+  QTH_OPTIONS,
+  QTH_PATTERN,
+  qthForCall,
+  qthIsValid,
+  suggestedQth,
+} from './rtty.ts'
+import { MODES, nearestMode, nextContestDate, relevanceFor } from './schedule.ts'
+import { CQWWScorer, contestTitle, cqwwCallInfo, normalizeZone, ZONE_PATTERN } from './scorer.ts'
 
 /// The ref type an operation stores. It is data in the operator's log, so it
 /// stays what the app's own built-in wrote there whatever this package is
@@ -42,8 +68,13 @@ const TYPE = 'cqww'
 /// decides which running comes first.
 const ALIASES = ['CQWW', 'CQ WW', 'CQ WORLD WIDE', 'WORLD WIDE DX', 'WWDX']
 
-function refOfType(container: Record<string, JSONValue>, type: string): Record<string, JSONValue> | undefined {
-  return (((container.refs as Record<string, JSONValue>[] | undefined) ?? [])).find((r) => r?.type === type)
+function refOfType(
+  container: Record<string, JSONValue>,
+  type: string,
+): Record<string, JSONValue> | undefined {
+  return ((container.refs as Record<string, JSONValue>[] | undefined) ?? []).find(
+    (r) => r?.type === type,
+  )
 }
 
 function str(value: JSONValue | undefined): string {
@@ -54,19 +85,17 @@ function str(value: JSONValue | undefined): string {
 /// our station call — right for the great majority of operators, and better
 /// than exporting an empty exchange.
 function ourZone(operation: Record<string, JSONValue>): string {
-  const configured = normalizeZone(refOfType(operation, TYPE)?.zone)
-  if (configured) return configured
+  const ref = refOfType(operation, TYPE)
+  if (ref && 'zone' in ref) return normalizeZone(ref.zone)
   return normalizeZone(cqwwCallInfo(str(operation.stationCall)).cqZone)
 }
 
-/// Our QTH as part of the exchange — sent on the RTTY weekend only, by a
-/// continental W/VE station: whatever was set at setup, else the call area our
-/// own call names (for Canada; a US state can't be told from the call).
 function ourQth(operation: Record<string, JSONValue>): string {
-  const ref = refOfType(operation, TYPE)
-  const call = str(operation.stationCall)
-  if (str(ref?.mode) !== 'RTTY' || !call || !sendsQth(call)) return ''
-  return normalizeQth(ref?.qth) || guessedQth({ call })
+  return qthForCall(str(operation.stationCall), refOfType(operation, TYPE)?.qth)
+}
+
+function exchangeText(zone: string, qth: string): string {
+  return [zone, qth].filter(Boolean).join(' ')
 }
 
 /// The operator's name, email and club from their profile, for the Cabrillo
@@ -76,28 +105,29 @@ async function profileDetails(): Promise<{ name: string; email: string; club: st
   try {
     const settings = (await host.getSettings()) as Record<string, JSONValue> | undefined
     const line = (value: JSONValue | undefined) => str(value).replace(/\s+/g, ' ').trim()
-    return { name: line(settings?.operatorName), email: line(settings?.operatorEmail), club: line(settings?.operatorClub) }
+    return {
+      name: line(settings?.operatorName),
+      email: line(settings?.operatorEmail),
+      club: line(settings?.operatorClub),
+    }
   } catch (e) {
-    console.warn(`[cqww] profile settings unavailable, exporting without name, email and profile club:`, e)
+    host.log(`[cqww] profile settings unavailable; exporting without profile fields: ${String(e)}`)
     return { name: '', email: '', club: '' }
   }
 }
 
-/// The zone, and on RTTY the QTH, as one exchange — `05 MA` — the way it is
-/// sent, shown and exported.
-function exchangeOf(zone: string, qth: string): string {
-  return [zone, qth].filter((part) => part).join(' ')
-}
-
 /// One select per axis of the entry, "Not declared" first.
-function entrySelects(t: (key: string) => string) {
+function entrySelects(t: (key: string) => string, ref: Record<string, JSONValue> | undefined) {
   const select = (key: string, options: readonly string[]) => ({
     type: 'field' as const,
     fieldType: 'select' as const,
     key,
     label: t(`${key}Label`),
-    value: '',
-    options: [{ value: '', label: t('notDeclared') }, ...options.map((value) => ({ value, label: t(`${key}_${value}`) }))],
+    value: str(compatibleEntry(ref)?.[key]),
+    options: [
+      { value: '', label: t('notDeclared') },
+      ...options.map((value) => ({ value, label: t(`${key}_${value}`) })),
+    ],
   })
   return [
     select('operator', OPERATOR_CLASSES),
@@ -107,7 +137,7 @@ function entrySelects(t: (key: string) => string) {
   ]
 }
 
-const ActivityHook = {
+const ActivityHook: ActivityHookContract = {
   /// Offered in the activity search by NAME and by NEARNESS — all three
   /// runnings, each ranked by its own weekend, so in October SSB leads and in
   /// November CW.
@@ -117,7 +147,10 @@ const ActivityHook = {
   /// only fires for a suggestion with a `ref` — so a tapped suggestion would
   /// REPLACE the configured ref, silently losing its zone. Changing the mode
   /// goes through the existing setup instead.
-  async suggest({ operation, searchTerm }: SuggestArgs, ctx: HookContext): Promise<ActivitySuggestion[]> {
+  async suggest(
+    { operation, searchTerm }: SuggestArgs,
+    ctx: HookContext,
+  ): Promise<ActivitySuggestion[]> {
     if (refOfType(operation ?? {}, TYPE)) return []
     const t = tFor(ctx)
     const term = (searchTerm ?? '').trim().toUpperCase()
@@ -131,8 +164,6 @@ const ActivityHook = {
       // `decorateRef`, so everything the operation row reads has to be here,
       // and the labels must match what `decorateRef` composes.
       program: 'Contest',
-      // The date is what tells the three runnings apart at a glance — the
-      // same `description • date` line the QSO parties show.
       name: `${t('activityDescription')} • ${nextContestDate(now, mode)}`,
       label: `CQ WW ${mode}`,
       shortLabel: `CQ WW ${mode}`,
@@ -169,7 +200,11 @@ const ActivityHook = {
                 // Seeds a new setup only; a configured ref keeps its own mode.
                 value: nearestMode(Date.now()),
                 // CQ WW runs these as separate contests on separate weekends.
-                options: [{ value: 'CW', label: 'CW' }, { value: 'SSB', label: 'SSB' }, { value: 'RTTY', label: 'RTTY' }],
+                options: [
+                  { value: 'CW', label: 'CW' },
+                  { value: 'SSB', label: 'SSB' },
+                  { value: 'RTTY', label: 'RTTY' },
+                ],
               },
               {
                 type: 'field',
@@ -178,6 +213,7 @@ const ActivityHook = {
                 label: t('ourZoneLabel'),
                 placeholder: t('ourZonePlaceholder'),
               },
+              { type: 'markdown', text: t('rttyGuidance') },
               {
                 type: 'field',
                 fieldType: 'text',
@@ -190,7 +226,7 @@ const ActivityHook = {
               },
               // The entry we are making, for the Cabrillo header. Each starts
               // undeclared: see entry.ts.
-              ...entrySelects(t),
+              ...entrySelects(t, refOfType(_args.operation, TYPE)),
               {
                 type: 'field',
                 fieldType: 'text',
@@ -228,15 +264,13 @@ const ActivityHook = {
     // multiplied by every contest extension the user happens to have enabled.
     if (!refOfType(args.operation, TYPE)) return []
 
-    const their = ((args.qso?.their as Record<string, JSONValue>) ?? {})
+    const their = (args.qso?.their as Record<string, JSONValue>) ?? {}
     const guess = (their.guess as Record<string, JSONValue>) ?? {}
     const call = str(their.call)
     const suggested =
       normalizeZone(guess.cqZone) || (call ? normalizeZone(cqwwCallInfo(call).cqZone) : '')
-    const rtty = str(refOfType(args.operation, TYPE)?.mode) === 'RTTY'
-    const suggestedQth = rtty ? guessedQth(their) : ''
 
-    return [
+    const controls: LoggingControlDescriptor[] = [
       {
         key: 'cqww/zone',
         label: tFor(ctx)('zoneLabel'),
@@ -257,28 +291,29 @@ const ActivityHook = {
           suggestedValue: suggested || undefined,
         },
       },
-      // RTTY's second field: the state or call area a W/VE station sends. A
-      // DX station sends none, so it is simply left empty for them.
-      ...(rtty
-        ? [{
-            key: 'cqww/qth',
-            label: tFor(ctx)('qthLabel'),
-            icon: manifest.icon,
-            color: manifest.accentColor,
-            order: 20,
-            input: {
-              kind: 'text' as const,
-              refType: TYPE,
-              field: 'theirQth',
-              maxLength: 3,
-              uppercase: true,
-              pattern: QTH_PATTERN,
-              placeholder: suggestedQth || undefined,
-              suggestedValue: suggestedQth || undefined,
-            },
-          }]
-        : []),
     ]
+    if (refOfType(args.operation, TYPE)?.mode === 'RTTY') {
+      const qth = suggestedQth(call, guess)
+      controls.push({
+        key: 'cqww/qth',
+        label: tFor(ctx)('qthLabel'),
+        icon: manifest.icon,
+        color: manifest.accentColor,
+        order: 20,
+        input: {
+          kind: 'options',
+          refType: TYPE,
+          field: 'theirQth',
+          options: QTH_OPTIONS,
+          pattern: QTH_PATTERN,
+          maxLength: 3,
+          allowFreeform: true,
+          suggestedValue: qth || undefined,
+          placeholder: qth || undefined,
+        },
+      })
+    }
+    return controls
   },
 
   /// Records the zone they sent, and mirrors it where the rest of the app can
@@ -300,7 +335,7 @@ const ActivityHook = {
   ): Promise<Record<string, JSONValue> | null> {
     if (!refOfType(args.operation, TYPE)) return null
 
-    const their = ((args.qso.their as Record<string, JSONValue>) ?? {})
+    const their = (args.qso.their as Record<string, JSONValue>) ?? {}
     const guess = (their.guess as Record<string, JSONValue>) ?? {}
     const call = str(their.call)
     const qsoRef = refOfType(args.qso, TYPE)
@@ -310,26 +345,28 @@ const ActivityHook = {
     // entirely when it was simply never filled in — so a present key, blank or
     // not, is a decision, and guessing over it would put back what they just
     // removed.
-    const zone = qsoRef && 'theirZone' in qsoRef
-      ? normalizeZone(qsoRef.theirZone)
-      : normalizeZone(guess.cqZone) || (call ? normalizeZone(cqwwCallInfo(call).cqZone) : '')
-    // RTTY's QTH, by the same presence rule, and only from a W/VE station.
-    const rtty = str(refOfType(args.operation, TYPE)?.mode) === 'RTTY'
-    const qth = !rtty || !call || !sendsQth(call)
-      ? ''
-      : qsoRef && 'theirQth' in qsoRef ? normalizeQth(qsoRef.theirQth) : guessedQth(their)
-    const exchange = exchangeOf(zone, qth)
-    const decided = Boolean(qsoRef && ('theirZone' in qsoRef || 'theirQth' in qsoRef))
+    const exchange =
+      qsoRef && 'theirZone' in qsoRef
+        ? normalizeZone(qsoRef.theirZone)
+        : normalizeZone(guess.cqZone) || (call ? normalizeZone(cqwwCallInfo(call).cqZone) : '')
+
+    if (refOfType(args.operation, TYPE)?.mode === 'RTTY') {
+      const qth = qthForCall(call, qsoRef?.theirQth)
+      return {
+        refs: [{ type: TYPE, theirZone: exchange, theirQth: qth }],
+        their: { exchange: exchangeText(exchange, qth) },
+      }
+    }
 
     // A deliberate blank still projects, so clearing an exchange on an edit
     // clears the QSO row's column too instead of leaving the old value there.
     if (!exchange) {
-      return decided ? { their: { exchange: '' } } : null
+      return qsoRef && 'theirZone' in qsoRef ? { their: { exchange: '' } } : null
     }
 
     return {
       // Field-wise into our own ref; the core allows this extension no other.
-      refs: [{ type: TYPE, ...(zone ? { theirZone: zone } : {}), ...(qth ? { theirQth: qth } : {}) }],
+      refs: [{ type: TYPE, theirZone: exchange }],
       their: { exchange },
     }
   },
@@ -343,15 +380,20 @@ const RefHandler = {
   async decorateRef({ ref }: { ref: Ref }, ctx: HookContext): Promise<Ref> {
     const mode = str((ref as Record<string, JSONValue>).mode)
     const label = mode ? `CQ WW ${mode}` : tFor(ctx)('unconfigured')
-    const zone = exchangeOf(
-      normalizeZone((ref as Record<string, JSONValue>).zone),
-      mode === 'RTTY' ? normalizeQth((ref as Record<string, JSONValue>).qth) : '',
-    )
+    const zone = normalizeZone((ref as Record<string, JSONValue>).zone)
     const t = tFor(ctx)
     // `ourZoneSubtitle`, not a hardcoded `Zone ${zone}`: the two halves of
     // this line have to speak the same language, and the key already exists
     // for `suggestOperationTitle`.
-    return { ...ref, program: 'Contest', label, shortLabel: label, name: zone ? t('ourZoneSubtitle', { zone }) : t('notConfigured') }
+    return {
+      ...ref,
+      program: 'Contest',
+      label,
+      shortLabel: label,
+      name: zone
+        ? exchangeText(t('ourZoneSubtitle', { zone }), mode === 'RTTY' ? normalizeQth(ref.qth) : '')
+        : t('notConfigured'),
+    }
   },
 
   /// "KI2D for CQWW CW" with "Zone 8" beneath it: the sent exchange is the one
@@ -361,21 +403,28 @@ const RefHandler = {
     { ref, operation }: { ref: Ref; operation: Record<string, JSONValue> },
     ctx: HookContext,
   ) {
-    const zone = exchangeOf(ourZone(operation), ourQth(operation))
+    const zone = ourZone(operation)
     return {
       for: contestTitle(ref as Record<string, JSONValue>),
-      subtitle: zone ? tFor(ctx)('ourZoneSubtitle', { zone }) : undefined,
+      subtitle: zone
+        ? exchangeText(
+            tFor(ctx)('ourZoneSubtitle', { zone }),
+            ref.mode === 'RTTY' ? ourQth(operation) : '',
+          )
+        : undefined,
     }
   },
 
   /// The contest's published rules — a reference here names an event, not a
   /// place, so what there is to read about it is the rules it is run under.
-  async linkForRef(_args: { ref: Ref }, _ctx: HookContext): Promise<RefLink | null> {
-    return { url: 'https://www.cqww.com/rules.htm', label: 'CQ WW' }
+  async linkForRef({ ref }: { ref: Ref }, _ctx: HookContext): Promise<RefLink | null> {
+    return ref.mode === 'RTTY'
+      ? { url: 'https://cqwwrtty.com/rules.htm', label: 'CQ WW RTTY' }
+      : { url: 'https://www.cqww.com/rules.htm', label: 'CQ WW' }
   },
 }
 
-const AdifFieldsHook = {
+const AdifFieldsHook: AdifFieldsHookContract = {
   async fieldsForOneQSO(
     { qso, operation }: { qso: Record<string, JSONValue>; operation: Record<string, JSONValue> },
     _ctx: HookContext,
@@ -387,9 +436,20 @@ const AdifFieldsHook = {
     const fields: { name: string; value: string }[] = [
       { name: 'CONTEST_ID', value: mode ? `CQ-WW-${mode}` : 'CQ-WW' },
     ]
-    const sent = exchangeOf(ourZone(operation), ourQth(operation))
-    const qsoRef = refOfType(qso, TYPE)
-    const received = exchangeOf(normalizeZone(qsoRef?.theirZone), mode === 'RTTY' ? normalizeQth(qsoRef?.theirQth) : '')
+    const zone = normalizeZone(refOfType(qso, TYPE)?.theirZone)
+    const sent =
+      mode === 'RTTY' ? exchangeText(ourZone(operation), ourQth(operation)) : ourZone(operation)
+    const received =
+      mode === 'RTTY'
+        ? exchangeText(
+            zone,
+            qthForCall(
+              str((qso.their as Record<string, JSONValue>)?.call),
+              refOfType(qso, TYPE)?.theirQth,
+            ),
+          )
+        : zone
+    if (mode === 'RTTY' && isRtty(qso.mode)) fields.push({ name: 'MODE', value: 'RTTY' })
     if (sent) fields.push({ name: 'STX_STRING', value: sent })
     if (received) fields.push({ name: 'SRX_STRING', value: received })
     return fields
@@ -400,7 +460,7 @@ function reportFor(qso: Record<string, JSONValue>, side: 'our' | 'their'): strin
   const sideData = (qso[side] as Record<string, JSONValue>) ?? {}
   const sent = str(sideData.sent)
   if (sent) return sent
-  return str(qso.mode) === 'CW' || str(qso.mode) === 'RTTY' ? '599' : '59'
+  return str(qso.mode) === 'CW' || isRtty(qso.mode) ? '599' : '59'
 }
 
 /// The contest's own name for this operation's file — the mode is part of
@@ -426,11 +486,17 @@ function filenameFor(
   })
 }
 
-const ExportHook = {
+const ExportHook: ExportHookContract = {
   async getExportTypes() {
-    return [exportTypeDefinition(TYPE, 'adif', manifest.shortName), exportTypeDefinition(TYPE, 'cabrillo', manifest.shortName)]
+    return [
+      exportTypeDefinition(TYPE, 'adif', manifest.shortName),
+      exportTypeDefinition(TYPE, 'cabrillo', manifest.shortName),
+    ]
   },
-  async suggestExportOptions(args: ExportOptionsRequest, ctx: HookContext): Promise<ExportOption[]> {
+  async suggestExportOptions(
+    args: ExportOptionsRequest,
+    ctx: HookContext,
+  ): Promise<ExportOption[]> {
     if (!refOfType(args.operation, TYPE)) return []
     const t = tFor(ctx)
     const named = (extension: string) =>
@@ -470,43 +536,58 @@ const ExportHook = {
     const mode = str(refOfType(operation, TYPE)?.mode)
     const ourCall = str(operation.stationCall)
     const sentZone = ourZone(operation)
-    // The RTTY log carries a QTH column on both sides: `DX` for a station
-    // that sends none, and a dash for a W/VE one whose QTH is missing — `DX`
-    // there would claim the station sent none.
+    const opRef = refOfType(operation, TYPE)
     const rtty = mode === 'RTTY'
-    const qthColumn = (call: string, qth: string) => (call && sendsQth(call) ? qth || '-' : 'DX')
-    const sentQth = qthColumn(ourCall, ourQth(operation))
+    const sentQth = rtty ? ourQth(operation) : ''
 
     if (args.exportType === `${TYPE}-cabrillo`) {
+      if (rtty && (!sentZone || !qthIsValid(sentQth, cqwwCallInfo(ourCall).entityPrefix))) {
+        throw new Error(tFor(ctx)('setupRequired'))
+      }
+      // The shared writer (1.2) emits all digital modes as DG. Restrict the
+      // RTTY file to RTTY contacts, then adapt just its QSO mode column to RY.
+      // Keep off-band RTTY contacts in single-band submissions as required.
+      const qsos = rtty ? args.qsos.filter((qso) => isRtty(qso.mode)) : args.qsos
       const profile = await profileDetails()
-      const content = qsonToCabrillo(args.qsos, {
+      let content = qsonToCabrillo(qsos, {
         headers: [
           ['CONTEST', mode ? `CQ-WW-${mode}` : 'CQ-WW'],
           ['CALLSIGN', ourCall],
-          // The calls listed at setup — required for a multi-operator entry —
-          // else the app's own operator call.
-          ['OPERATORS', declaredOperators(refOfType(operation, TYPE)) || str((operation.local as Record<string, JSONValue>)?.operatorCall)],
-          ['LOCATION', cabrilloLocation(ourCall, refOfType(operation, TYPE)?.qth)],
-          ...cabrilloCategories(refOfType(operation, TYPE)),
+          [
+            'OPERATORS',
+            declaredOperators(opRef) ||
+              str((operation.local as Record<string, JSONValue>)?.operatorCall),
+          ],
+          ['LOCATION', rtty ? sentQth : cabrilloLocation(ourCall, opRef?.qth)],
+          ...cabrilloCategories(opRef),
           ['GRID-LOCATOR', str(operation.grid)],
-          // The club typed at setup, else the profile's.
-          ['CLUB', declaredClub(refOfType(operation, TYPE)) || profile.club],
+          ['CLUB', declaredClub(opRef) || profile.club],
           ['NAME', profile.name],
           ['EMAIL', profile.email],
         ],
         qsoParts: (qso) => [
           ourCall || '-',
           reportFor(qso, 'our'),
-          sentZone || '-',
+          sentZone ? (rtty ? sentZone.padStart(2, '0') : sentZone) : '-',
           ...(rtty ? [sentQth] : []),
-          str(((qso.their as Record<string, JSONValue>) ?? {}).call) || '-',
+          str((qso.their as Record<string, JSONValue>)?.call) || '-',
           reportFor(qso, 'their'),
-          normalizeZone(refOfType(qso, TYPE)?.theirZone) || '-',
+          normalizeZone(refOfType(qso, TYPE)?.theirZone)
+            ? rtty
+              ? normalizeZone(refOfType(qso, TYPE)?.theirZone).padStart(2, '0')
+              : normalizeZone(refOfType(qso, TYPE)?.theirZone)
+            : '-',
           ...(rtty
-            ? [qthColumn(str(((qso.their as Record<string, JSONValue>) ?? {}).call), normalizeQth(refOfType(qso, TYPE)?.theirQth))]
+            ? [
+                qthForCall(
+                  str((qso.their as Record<string, JSONValue>)?.call),
+                  refOfType(qso, TYPE)?.theirQth,
+                ) || '-',
+              ]
             : []),
         ],
       })
+      if (rtty) content = content.replace(/^(QSO:\s+\S+\s+)DG(?=\s)/gm, '$1RY')
       return {
         filename: filenameFor(operation, args.qsos, 'log', args.compactFilenames),
         mimeType: 'text/plain',

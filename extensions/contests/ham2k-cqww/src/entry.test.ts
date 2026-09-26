@@ -75,3 +75,14 @@ test("operators are listed as the sponsor asks, and the club on one line", async
   assert.equal(declaredOperators({}), '')
   assert.equal(declaredClub({ club: '  Yankee  Clipper\nContest Club ' }), 'Yankee Clipper Contest Club')
 })
+
+
+test('saved preview categories survive switching providers, with new answers taking precedence', () => {
+  const legacy = { mode: 'RTTY', categoryOperator: 'SINGLE-OP', categoryAssisted: 'ASSISTED', categoryBand: '20', categoryPower: 'LOW' }
+  assert.deepEqual(lines(legacy), {
+    'CATEGORY-OPERATOR': 'SINGLE-OP', 'CATEGORY-ASSISTED': 'ASSISTED',
+    'CATEGORY-BAND': '20M', 'CATEGORY-POWER': 'LOW', 'CATEGORY-MODE': 'RTTY',
+  })
+  assert.deepEqual(lines({ ...legacy, operator: '', band: '', power: '' }), { 'CATEGORY-MODE': 'RTTY' })
+  assert.equal(lines({ ...legacy, operator: 'MULTI-TWO', band: '40M' })['CATEGORY-BAND'], 'ALL')
+})
