@@ -8,9 +8,8 @@
 // multipliers accumulated from two different axes (zone and country).
 
 import type {
-  ActivitySuggestion,
-  SuggestArgs,
   ActivityHook as ActivityHookContract,
+  ActivitySuggestion,
   AdifFieldsHook as AdifFieldsHookContract,
   ExportHook as ExportHookContract,
   ExportOption,
@@ -23,6 +22,7 @@ import type {
   LoggingControlDescriptor,
   Ref,
   RefLink,
+  SuggestArgs,
 } from '@ham2k/extension-sdk'
 import {
   adifForExport,
@@ -36,8 +36,6 @@ import {
 import { qsonToCabrillo } from '@ham2k/lib-qson-cabrillo'
 import manifest from '../manifest.json' with { type: 'json' }
 import { tFor } from './i18n.ts'
-import { MODES, nearestMode, relevanceFor } from './schedule.ts'
-
 import {
   isRtty,
   normalizeQth,
@@ -48,6 +46,7 @@ import {
   RTTY_BANDS,
   suggestedQth,
 } from './rtty.ts'
+import { MODES, nearestMode, relevanceFor } from './schedule.ts'
 import { CQWWScorer, contestTitle, normalizeZone, ZONE_PATTERN } from './scorer.ts'
 
 /// The ref type an operation stores. It is data in the operator's log, so it
@@ -152,7 +151,10 @@ const ActivityHook: ActivityHookContract = {
   /// only fires for a suggestion with a `ref` — so a tapped suggestion would
   /// REPLACE the configured ref, silently losing its zone. Changing the mode
   /// goes through the existing setup instead.
-  async suggest({ operation, searchTerm }: SuggestArgs, ctx: HookContext): Promise<ActivitySuggestion[]> {
+  async suggest(
+    { operation, searchTerm }: SuggestArgs,
+    ctx: HookContext,
+  ): Promise<ActivitySuggestion[]> {
     if (refOfType(operation ?? {}, TYPE)) return []
     const t = tFor(ctx)
     const term = (searchTerm ?? '').trim().toUpperCase()

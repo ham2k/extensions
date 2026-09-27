@@ -14,8 +14,8 @@ const DAY = 24 * 60 * 60 * 1000
 
 /// The three runnings, each its own contest: separate weekends, separate logs,
 /// separate submissions. In calendar order.
-export type CQWWMode = "RTTY" | "SSB" | "CW"
-export const MODES: CQWWMode[] = ["RTTY", "SSB", "CW"]
+export type CQWWMode = 'RTTY' | 'SSB' | 'CW'
+export const MODES: CQWWMode[] = ['RTTY', 'SSB', 'CW']
 
 /// September for RTTY, October for SSB, November for CW (0-based).
 const MONTH_FOR: Record<CQWWMode, number> = { RTTY: 8, SSB: 9, CW: 10 }
@@ -85,5 +85,7 @@ export function relevanceFor(nowMillis: number, mode: CQWWMode): number {
 /// The running nearest on the calendar, for the setup form's default — the
 /// day after RTTY that is SSB, in December next September's RTTY.
 export function nearestMode(nowMillis: number): CQWWMode {
-  return MODES.reduce((best, mode) => (relevanceFor(nowMillis, mode) > relevanceFor(nowMillis, best) ? mode : best))
+  return MODES.reduce((best, mode) =>
+    relevanceFor(nowMillis, mode) > relevanceFor(nowMillis, best) ? mode : best,
+  )
 }
