@@ -101,3 +101,31 @@ test('offers no per-day summary', () => {
   const { sheet } = run([qso('W1AW', '20m')])
   assert.deepEqual(CWTScorer.summarizeScore({ scoresheet: sheet, operation, ref: sessionRef, scope: 'day' }, ctx), {})
 })
+
+
+test('the shared summary preserves cross-band multipliers, band details and translations', () => {
+  const { sheet } = run([
+    qso('W1AW', '20m'), qso('W1AW', '40m'), qso('K5XYZ', '20m'), qso('W1AW', '20m'),
+  ])
+  for (const [locale, unit] of [['en', 'points'], ['es', 'puntos']]) {
+    const summary = CWTScorer.summarizeScore(
+      { scoresheet: sheet, operation, ref: sessionRef, scope: 'operation' },
+      { online: false, locale },
+    ).cwt
+    assert.equal(summary.total, 6)
+    assert.equal(summary.summary, '6')
+    assert.equal(summary.label, `CWT 1300z: 6 ${unit}`)
+    assert.ok(summary.longSummary?.startsWith('3 QSOs, 3 pts × 2 mults\n\n'))
+    assert.ok(summary.longSummary?.includes('**20m**: 2 QSOs'))
+    assert.ok(summary.longSummary?.includes('**40m**: 1 QSOs'))
+  }
+})
+
+test('a saved checkpoint with legacy day counters keeps the operation total only', () => {
+  const { sheet } = run([qso('W1AW'), qso('K5XYZ')])
+  const scoresheet = { ...sheet, dayPoints: 1, dayQsos: 1 }
+  assert.equal(total(scoresheet), 4)
+  assert.deepEqual(CWTScorer.summarizeScore(
+    { scoresheet, operation, ref: sessionRef, scope: 'day' }, ctx,
+  ), {})
+})
