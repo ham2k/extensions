@@ -1,11 +1,18 @@
 # Call-history spot filter
 
 Enable the RBN extension to supply reports to Ham2K's native Spots panel.
-CWT contributes the **CWT call-history file** filter, selected by default in
-RBN settings. Download the CWT data file first; a selected filter with no
-file yields no spots. Failed updates retain the last good file. Select
-**All calls** explicitly in RBN settings to disable membership filtering.
-An earlier explicit CWT opt-out is retained as a default-selection hint.
+CWT contributes the optional **CWT call-history file** filter; it does not
+select that filter automatically. New RBN settings use **All calls**. To opt in:
+
+1. Download **CWops CWT call history** under
+   **Settings → Accounts, Services & Data Sources** (called **Data Files**
+   in earlier app builds).
+2. Open **Settings → RBN → Spots — Who I might hear → Call-history filter**
+   and select **CWT call-history file**.
+3. Select **All calls** in the same selector to disable call-history filtering.
+
+Existing saved filter choices are preserved. A selected filter with no data
+file yields no spots. Failed updates retain the last good file.
 
 The filter includes all file entries, including nonmembers and calls with
 no exchange. Exact calls and unambiguous base-call matches are accepted:
@@ -21,9 +28,9 @@ automatically. Choose the desired filter in the supplying extension.
 ## Native integration verification
 
 On September 23, 2026, the equivalent personal CWT and RBN candidates were
-installed in Ham2K Next 26.9.0 build 170 on macOS. RBN discovered and selected
-**CWT call-history file** by default, and its native Spots source returned
-31 reports with the loaded CWT history. Selecting **All calls** broadened
+installed in Ham2K Next 26.9.0 build 170 on macOS. At that time, RBN discovered
+and selected **CWT call-history file** by default, and its native Spots source
+returned 31 reports with the loaded CWT history. Selecting **All calls** broadened
 the results in a later live snapshot. Restoring CWT filtering and restarting
 the app retained the selection and again supplied filtered reports.
 

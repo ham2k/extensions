@@ -195,4 +195,12 @@ and copyright remain intact.
 
 ## Spots
 
-See [RBN spots](SPOTS.md) for the native Spots source and its default call-history filter.
+Enable RBN to supply reports to the native Spots panel. CWT call-history
+filtering is optional: first download **CWops CWT call history** under
+**Settings → Accounts, Services & Data Sources** (called **Data Files**
+in earlier app builds). Then open
+**Settings → RBN → Spots — Who I might hear → Call-history filter** and
+select **CWT call-history file**. Choose **All calls** in the same selector
+to disable call-history filtering. Existing saved choices are preserved.
+
+See [RBN spots](SPOTS.md) for matching behavior and verification.
