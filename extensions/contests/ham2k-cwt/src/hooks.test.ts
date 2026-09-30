@@ -143,21 +143,48 @@ test('the registered prefill stays scoped to CWT and preserves scoring', async (
 })
 
 
-test('CWT exposes a default call-history filter without fetching reports', async (t) => {
-  const fetched = t.mock.method(host, 'fetch', async () => { throw new Error('No network expected') })
+test('CWT exposes an opt-in call-history filter without fetching reports', async (t) => {
+  const fetched = t.mock.method(host, 'fetch', async () => {
+    throw new Error('No network expected')
+  })
   for (const locale of ['en', 'es']) {
     const descriptor = await cwt.runHook('spotCallFilter:v1', 'describe', {}, { ctx: { locale } })
-    assert.partialDeepStrictEqual(descriptor, { version: 1, available: true, defaultSelected: true })
+    assert.partialDeepStrictEqual(descriptor, {
+      version: 1,
+      available: true,
+      defaultSelected: false,
+    })
     assert.ok(!JSON.stringify(descriptor).includes('{{'))
   }
-  assert.deepEqual(await cwt.runHook('spotCallFilter:v1', 'matchCalls', {
-    version: 1, calls: ['K1ABC/P', 'W9NEW'],
-  }), { version: 1, available: true, calls: ['K1ABC/P'] })
+  assert.deepEqual(
+    await cwt.runHook('spotCallFilter:v1', 'matchCalls', {
+      version: 1,
+      calls: ['K1ABC/P', 'W9NEW'],
+    }),
+    { version: 1, available: true, calls: ['K1ABC/P'] },
+  )
   await cwt.runHook('dataFile', 'onRemoveRawData', {})
-  assert.partialDeepStrictEqual(await cwt.runHook('spotCallFilter:v1', 'matchCalls', {
-    version: 1, calls: ['K1ABC'],
-  }), { available: false, calls: [] })
-  t.mock.method(host, 'getSettings', async () => ({ extensions: { 'extension_ham2k-cwt': { spotsHistoryOnly: false } } }))
-  assert.partialDeepStrictEqual(await cwt.runHook('spotCallFilter:v1', 'describe', {}), { defaultSelected: false })
+  assert.partialDeepStrictEqual(
+    await cwt.runHook('spotCallFilter:v1', 'matchCalls', {
+      version: 1,
+      calls: ['K1ABC'],
+    }),
+    { available: false, calls: [] },
+  )
+  const settings = t.mock.method(host, 'getSettings', async () => ({
+    extensions: { 'extension_ham2k-cwt': { spotsHistoryOnly: false } },
+  }))
+  const saved = t.mock.method(host, 'setSettings', async () => {
+    throw new Error('Filter discovery must not change settings')
+  })
+  for (const spotsHistoryOnly of [false, true]) {
+    settings.mock.mockImplementation(async () => ({
+      extensions: { 'extension_ham2k-cwt': { spotsHistoryOnly } },
+    }))
+    assert.partialDeepStrictEqual(await cwt.runHook('spotCallFilter:v1', 'describe', {}), {
+      defaultSelected: false,
+    })
+  }
+  assert.equal(saved.mock.callCount(), 0)
   assert.equal(fetched.mock.callCount(), 0)
 })
