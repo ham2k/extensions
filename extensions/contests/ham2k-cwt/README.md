@@ -86,7 +86,8 @@ an HTTPS entry or direct text URL on `n1mm.hamdocs.com` or
 not supported.
 
 Typing a callsign uses downloaded data and local history; it does not download
-the file for every contact. Failed refreshes leave the last valid snapshot
+the file for every contact. N1MM requests allow slower responses within a
+bounded refresh. Timed-out or failed refreshes leave the last valid snapshot
 available. The native data-file manager persists that snapshot for offline
 use and replays it when the app starts. Runtime KV is only a secondary
 in-memory cache, not the durable storage mechanism.
@@ -182,8 +183,10 @@ npm run pack -w @ham2k/ext-cwt
 ```
 
 Tests cover parsing, field precedence, portable calls, offline cache replay,
-failed refreshes and races, edited/deleted history, native-shaped operation
-arguments, and the registered controls through saved/exported exchanges.
+failed refreshes and races, the shared eight-second real-time discovery/download
+timer, downloads slower than 3.5 seconds, frozen developer clocks, late
+responses, older hosts without timers, edited/deleted history, native-shaped
+operation arguments, and the registered controls through saved/exported exchanges.
 The repository's bundle test builds, validates, packs, and loads every
 extension against a stub kernel. These are automated checks, not a native
 Ham2K UI test. See the root README for the reserved `ham2k-` installation rule:
