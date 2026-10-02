@@ -1,0 +1,65 @@
+# CQ WW RTTY support
+
+Activity search offers RTTY, SSB, and CW, ranked by their next contest
+weekend. New setup defaults to the nearest upcoming mode; existing CQ WW
+operations are not offered another suggestion that could replace their
+configured exchange. Confirm RTTY when setting up an RTTY operation.
+
+Select **RTTY** in CQ WW setup. Configure the sent CQ zone, state / Canadian
+call area / DX, and the single-operator or checklog entry category. Set the
+logging mode to RTTY; rig-reported RTTY-LSB, RTTY-USB and RTTY-R are also
+recognized. Generic DATA, DATA-USB and FT8 are not treated as RTTY.
+
+The received exchange is RST, CQ zone, and (for continental US/Canada)
+state or Canadian call area. RST uses the host's existing report controls.
+The extra State / Province field appears only for RTTY. DX is filled for
+identified stations outside continental US/Canada, including Alaska and
+Hawaii. Copy and verify the actual exchange: zone and lookup-state suggestions
+can be corrected or deliberately cleared. No call-history download is needed.
+
+Use the contest's Canadian abbreviations: NB, NS, QC, ON, MB, SK, AB, BC,
+NWT, NF, LB, NU, YT, PEI. NT and PE normalize to NWT and PEI. NL is left
+unresolved because Newfoundland (NF) and Labrador (LB) score separately.
+
+Scoring follows the [CQ WW RTTY rules](https://cqwwrtty.com/rules.htm):
+1/2/3 points for same country/same continent/other continent, three multiplier
+groups per band, and one contact per station per band across the whole
+operation. Only 80, 40, 20, 15 and 10m count. Countries use the shared country
+file's CQ/WAE entities, including IG9/IH9. Maritime mobile contacts earn only
+a zone multiplier. Missing or invalid exchanges do not consume a dupe slot.
+A single-band entry scores only that band but retains other-band contacts
+in its Cabrillo submission. Use a separate operation for each annual event;
+the host's active activity segments define which contacts belong to it.
+
+The scoring hook also highlights potential new multipliers in the spots list
+and live logging entry, regardless of the spot source. Spots do not need to
+contain an exchange. Country-file CQ zones and countries provide the initial
+hints; a valid exchange already copied from that call supplies its zone and
+QTH on other bands. Available lookup-state hints can identify a QTH multiplier,
+but a callsign digit never supplies a state. Explicit exchange corrections and
+clearing override these hints. Unknown QTHs remain unknown. These notices do
+not award points or consume multipliers: incomplete logged exchanges still
+score zero until completed.
+
+The operation summary uses the standard contest title and score, followed by
+QSO/point arithmetic with separate zone, country, and state/province counts.
+Multipliers run across the whole contest, so no separate daily score is shown.
+
+Cabrillo uses `CQ-WW-RTTY`, `CATEGORY-MODE: RTTY`, `RY` QSO mode, and both
+zone/QTH columns. Sent exchange setup must be valid before export. A received
+field deliberately cleared stays missing (`-`) in the export. Inspect missing
+exchanges before submission. ADIF carries `STX_STRING` and `SRX_STRING`, and
+RTTY sideband spellings normalize to `MODE: RTTY` in contest ADIF fields.
+The [official Cabrillo guide](https://cqwwrtty.com/cabrillo.htm) describes
+submission metadata; verify your category and contact details during upload.
+
+This first RTTY implementation supports single-operator and checklog entries.
+Choose ASSISTED if you use spotting assistance. Multi-transmitter identifiers,
+band-change limits, Classic overlay operating-time accounting, modem/audio
+processing, and radio transmission are outside this implementation. It does
+not automatically submit logs. CW and SSB retain their existing exchanges
+and scoring rules.
+
+Automated tests cover pure scoring, registered hooks, exchange edits,
+CW/SSB regressions, and Cabrillo fields. These tests are not an on-air test
+or a native Ham2K UI test.
