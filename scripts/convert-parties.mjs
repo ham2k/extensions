@@ -86,6 +86,21 @@ const DIVERGENCE_NOTES = {
   ],
 }
 
+/// The parties whose pages at qsopartyhub.com are not named after their short,
+/// read off the hub's own index in October 2026. Kept here rather than in the
+/// fixtures because a re-sync copies polo's files over them, and polo's
+/// `qsoPartyHubName` names one page for both, which these six do not have: four
+/// of them take a spot on a page named one way and list spots on a page named
+/// another.
+const HUB_PAGES = {
+  CA: { table: "caqp", spot: "cqp" },
+  FL: { table: "flqp", spot: "fqp" },
+  HI: { table: "hiqp", spot: "hqp" },
+  MD: { table: "mdcqp", spot: "mdcqp" },
+  NS: { table: "nsqp", spot: "nsqp" },
+  WA: { table: "waqp", spot: "wasr" },
+}
+
 // ---------------------------------------------------------------- normalizing
 
 function str(value) {
@@ -619,8 +634,9 @@ function emitParty(raw, key) {
 /// two parties can share a short and the tracker files by this token; the
 /// tracker's path is that same token for a party spanning states and the
 /// state itself otherwise, and the tracker carries no Canadian party at all.
-/// The hub page is the party's, lower-cased, unless several parties share one
-/// weekend and one page (`qsoPartyHubName`).
+/// The hub pages are the party's short, lower-cased, unless the hub names them
+/// otherwise (`HUB_PAGES`) or several parties share one weekend and one page
+/// (`qsoPartyHubName`).
 function identityOf(raw, key, short, states, options, periods) {
   const aprsShort = str(raw.aprsShort) ?? short
   return {
@@ -631,7 +647,8 @@ function identityOf(raw, key, short, states, options, periods) {
     states,
     aprsShort,
     trackerCode: str(raw.aprsShort) ?? (options.entity === "K" ? key : undefined),
-    hubPage: str(raw.qsoPartyHubName) ?? short.toLowerCase(),
+    hubTablePage: HUB_PAGES[key]?.table ?? str(raw.qsoPartyHubName) ?? short.toLowerCase(),
+    hubSpotPage: HUB_PAGES[key]?.spot ?? str(raw.qsoPartyHubName) ?? short.toLowerCase(),
     periods: periods.map(({ startMillis, endMillis }) => ({ startMillis, endMillis })),
   }
 }
@@ -694,7 +711,8 @@ function emitIdentities(parties) {
       ["aprsShort", quote(identity.aprsShort)],
     ]
     if (identity.trackerCode) fields.push(["trackerCode", quote(identity.trackerCode)])
-    fields.push(["hubPage", quote(identity.hubPage)])
+    fields.push(["hubTablePage", quote(identity.hubTablePage)])
+    fields.push(["hubSpotPage", quote(identity.hubSpotPage)])
     const periods = identity.periods.map((p) => `{ startMillis: ${p.startMillis}, endMillis: ${p.endMillis} }`)
     fields.push(["periods", `[${periods.join(", ")}]`])
     lines.push(`  {`)
