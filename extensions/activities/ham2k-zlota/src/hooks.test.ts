@@ -30,14 +30,13 @@ test("the end-anchored rules shape only the reference being typed", () => {
   assert.equal(applyRefTransforms("ZLP/OT-1234", transforms), "ZLP/OT-1234")
 })
 
-test("the reference list reads x as longitude and y as latitude", () => {
-  // The list is drawn from a map layer, so its coordinates are named for
-  // screen axes — swapped, every reference lands in the wrong ocean. `name`
-  // is the field the live list publishes; reading any other leaves every
-  // reference nameless.
+test("the reference list reads its coordinates and names from the fields the live list publishes", () => {
+  // Shaped like a row of ontheair.nz/assets/assets.json. A field the list
+  // does not carry reads as nothing, so every reference would be nameless,
+  // or — for the coordinates — off every map.
   const hook = zlota.hooks.find((h) => h.category === "dataFile" && h.key === "ham2k-zlota-all-references")!.hook
   const mapper = hook.jsonToLookupEntry as (entry: unknown) => any
-  const entries = [{ code: "ZLH/AA-001", name: "Angelus Hut", asset_type: "hut", x: 172.7, y: -41.8 }]
+  const entries = [{ id: 1, code: "ZLH/AA-001", name: "Angelus Hut", asset_type: "hut", latitude: -41.8, longitude: 172.7 }]
     .map((entry) => mapper(entry))
     .filter((entry) => entry !== null && entry !== undefined)
   assert.equal(entries.length, 1)

@@ -181,9 +181,8 @@ const zlotaDataFile: DataFileDefinition = {
     const ref = String(entry?.code ?? '').trim().toUpperCase()
     if (!ref) return null
 
-    // `x` is longitude and `y` latitude — the list is drawn from a map layer.
-    const lat = typeof entry?.y === 'number' ? entry.y : undefined
-    const lon = typeof entry?.x === 'number' ? entry.x : undefined
+    const lat = typeof entry?.latitude === 'number' ? entry.latitude : undefined
+    const lon = typeof entry?.longitude === 'number' ? entry.longitude : undefined
 
     return {
       // The kind of place, which is both how an operator narrows a search and
