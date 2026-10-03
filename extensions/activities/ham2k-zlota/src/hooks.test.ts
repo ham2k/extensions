@@ -93,3 +93,18 @@ test("ADIF import keeps a reference that does not match the pattern", async () =
     refs: [{ type: "zlotaActivation", ref: "NOT A REFERENCE", for: "operation" }],
   })
 })
+
+test("only a hut is circled: every other kind of place is activated by a rule no circle draws", async () => {
+  // A hut's rule is "within 100m". A lake's is measured from its shore and a
+  // park's is its boundary, so a circle around their point would be wrong.
+  const rows: Record<string, Record<string, unknown>> = {
+    "ZLH/AA-001": { key: "ZLH/AA-001", name: "Angelus Hut", lat: -41.8, lon: 172.7, data: { assetType: "hut" } },
+    "ZLL/0001": { key: "ZLL/0001", name: "A Lake", lat: -41.0, lon: 172.0, data: { assetType: "lake" } },
+  }
+  const withRows = await loadExtension(() => import("./index.ts"), { hostCalls: { dbLookupSelectOne: (params) => rows[params.key as string] ?? null } })
+  const radius = async (ref: string) =>
+    ((await withRows.runHook("ref:zlotaActivation", "decorateRef", { ref: { type: "zlotaActivation", ref } })) as Record<string, unknown>)
+      .activationRadiusInMeters
+  assert.equal(await radius("ZLH/AA-001"), 100)
+  assert.equal(await radius("ZLL/0001"), undefined)
+})

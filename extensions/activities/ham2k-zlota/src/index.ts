@@ -112,6 +112,11 @@ const { refHandler, activityHook, adifFieldsHook, adifImportHook } = referenceAc
   // Derived from the scorer's own rule, not a separate flag — the UI control
   // and the scorer can't disagree about whether this award allows n-fers.
   allowsMultiple: ZLOTA_SCORING.allowsMultipleReferences,
+  // Only a hut's rule is a distance from a point: "within 100m" (ZLOTA Rules,
+  // ontheair.nz). A lake's is from its shore and a park's or an island's is
+  // its boundary, which no circle draws; a lighthouse's or a volcano's
+  // differs per reference and is published only on the reference's own page.
+  activationRadius: (row) => (row.data?.assetType === 'hut' ? { activationRadiusInMeters: 100 } : undefined),
 })
 
 interface ZLOTAApiSpot {
