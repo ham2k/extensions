@@ -20,20 +20,20 @@ app-polo's `qp` extension carried inside it, and an APRS position beacon.
 
 ## What is here
 
-99 extensions, grouped by the manifest's own `category`:
+100 extensions, grouped by the manifest's own `category`:
 
 | directory | manifest `category` | n | of which |
 |---|---|--:|---|
-| `extensions/activities/` | `activity` | 19 | 18 ported built-ins, 1 new program |
+| `extensions/activities/` | `activity` | 20 | 18 ported built-ins, 2 new programs |
 | `extensions/contests/` | `contest` | 68 | 14 ported built-ins, 49 QSO party events, 5 park events |
 | `extensions/lookups/` | `lookup` | 5 | 5 ported built-ins |
 | `extensions/spots/` | `spots` | 3 | 1 ported built-in, 2 new spotting sources |
 | `extensions/dashboard/` | `dashboard` | 4 | 1 ported built-in, 3 SVG reference panels |
-| **total** | | **99** | **39 ported, 57 new, 3 SVG reference panels** |
+| **total** | | **100** | **39 ported, 58 new, 3 SVG reference panels** |
 
-The 39 are the app's own extensions, ported one for one. The 57 are new: events
+The 39 are the app's own extensions, ported one for one. The 58 are new: events
 the app has never shipped separately, five state-park events, two spotting
-sources, and one award program:
+sources, and two award programs:
 
 - **`ham2k-hota`** — [History on the Air](https://cqhota.app), historic sites
   over 200 years old, written for the catalog from cqhota.app's own
@@ -42,6 +42,14 @@ sources, and one award program:
   holding a HOTA operation carries from here on: never rename them. Posting a
   spot takes the operator's own integration key from cqhota.app, entered as an
   account; the reference list and the spot feed need none.
+
+- **`ham2k-ppota`** — [Pueblos y Parajes On The Air](https://ppota.app),
+  villages, hamlets and small rural localities, written for the catalog from
+  ppota.app's own rules and [API](https://ppota.app/api). Its ref types,
+  `ppota` and `ppotaActivation`, are new and permanent in the same way.
+  PPOTA issues its spot-posting key per integration, not per operator, so it
+  ships in the bundle as a constant (`PPOTA_API_KEY`), as WWFF's does; while
+  that is empty, the extension reads spots but offers no posting.
 
 - **The state-park events** — `ham2k-txspota`, `ham2k-flspota`,
   `ham2k-gaspota`, `ham2k-ohspota` and `ham2k-wispota` — are one extension
