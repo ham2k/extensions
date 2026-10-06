@@ -171,6 +171,15 @@ ordinary lookups use targeted callsign reads. The current host returns at most
 five recent matches per exact/base call, so older CWT history outside that
 window may be unavailable.
 
+## Export preferences
+
+CWT ADIF and Cabrillo have separate entries in Ham2K's export preferences.
+They inherit common defaults until customized; filename templates receive the
+selected CWT session. Generic `contest-adif` and `cabrillo` requests remain
+accepted for CWT operations, while the core `adif` type is never delegated back
+into this exporter. Preferences use the registered `cwt-adif` and
+`cwt-cabrillo` types; this does not move unrelated generic preferences.
+
 ## Verification
 
 From the repository root:
