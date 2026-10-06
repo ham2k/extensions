@@ -3,8 +3,8 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { hooks, host } from '@ham2k/extension-sdk'
-import type { ExportResult, JSONValue, LoggingControlDescriptor } from '@ham2k/extension-sdk'
+import { hooks, host, prepareExportOption, resolveExportSettings } from '@ham2k/extension-sdk'
+import type { ExportOption, ExportResult, ExportTypeDefinition, JSONValue, LoggingControlDescriptor } from '@ham2k/extension-sdk'
 import { fixtureOperation, fixtureQso, loadExtension } from './sdkGapTesting.ts'
 
 type Qson = Record<string, JSONValue>
@@ -128,6 +128,57 @@ test('ADIF delegates to the host using the official CWT handler', async (t) => {
   const [category, key, method, args] = invoke.mock.calls[0].arguments
   assert.deepEqual([category, key, method], ['export', 'adif', 'generateExport'])
   assert.partialDeepStrictEqual(args, { exportType: 'adif', mainHandler: 'ham2k-cwt' })
+})
+
+test('CWT export preferences and filename templates retain the selected session', async () => {
+  const definitions = await cwt.runHook('export', 'getExportTypes', {}) as ExportTypeDefinition[]
+  assert.deepEqual(definitions.map(({ exportType }) => exportType), ['cwt-adif', 'cwt-cabrillo'])
+  const qsos = [qso('K1ABC')]
+  for (const compact of [false, true]) {
+    const options = await cwt.runHook('export', 'suggestExportOptions', {
+      operation, qsos, compactFilenames: compact,
+    }) as ExportOption[]
+    assert.deepEqual(options.map(({ exportType }) => exportType), definitions.map(({ exportType }) => exportType))
+    for (const [index, option] of options.entries()) {
+      const definition = definitions[index]
+      assert.ok(definition)
+      assert.deepEqual(option.templateData, { activity: 'CWT-2026-09-16-1300' })
+      const prepared = prepareExportOption({
+        ...option,
+        exportSettings: resolveExportSettings(definition, {}, {
+          customTemplates: true,
+          filenameTemplate: '{{ log.activity }} {{ log.station }}',
+          compactFilenameTemplate: '{{ log.station }}-{{ log.activity }}',
+        }),
+      }, operation, qsos, compact)
+      const stem = compact ? `${operation.stationCall}-CWT-2026-09-16-1300` : `CWT-2026-09-16-1300 ${operation.stationCall}`
+      assert.equal(prepared.filename, `${stem}.${index ? 'log' : 'adi'}`)
+    }
+  }
+})
+
+test('legacy CWT export requests retain their files and unrelated types never delegate', async (t) => {
+  const invoke = t.mock.method(hooks, 'invokeOne', async () => [{
+    key: 'adif', ok: true, value: { content: '<eoh>\n<eor>' },
+  }])
+  const qsos = [qso('K1ABC')]
+  for (const [registered, legacy] of [
+    ['cwt-cabrillo', 'cabrillo'], ['cwt-adif', 'contest-adif'],
+  ]) {
+    assert.deepEqual(
+      await cwt.runHook('export', 'generateExport', { operation, qsos, exportType: registered }),
+      await cwt.runHook('export', 'generateExport', { operation, qsos, exportType: legacy }),
+    )
+  }
+  assert.equal(invoke.mock.callCount(), 2)
+  for (const args of [
+    { operation, qsos, exportType: 'adif' },
+    { operation, qsos, exportType: 'cqww-adif' },
+    { operation: {}, qsos, exportType: 'contest-adif' },
+  ]) {
+    assert.deepEqual(await cwt.runHook('export', 'generateExport', args), { filename: '', mimeType: '', content: '' })
+  }
+  assert.equal(invoke.mock.callCount(), 2)
 })
 
 test('the registered prefill stays scoped to CWT and preserves scoring', async () => {

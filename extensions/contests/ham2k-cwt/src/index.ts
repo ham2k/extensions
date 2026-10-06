@@ -429,10 +429,11 @@ const ExportHook = {
   },
 
   async generateExport(args: ExportRequest, ctx: HookContext): Promise<ExportResult> {
-    // Only the two exportTypes offered above. Belt and braces alongside the
-    // keyed delegation in `adifForExport`: a hook answering for an exportType it never
-    // offered makes the ADIF delegation recurse into itself.
-    if (args.exportType !== `${TYPE}-cabrillo` && args.exportType !== `${TYPE}-adif`) {
+    // Accept this contest's registered types and older generic requests only.
+    // The core ADIF type must never delegate back into this hook.
+    const cabrillo = args.exportType === `${TYPE}-cabrillo` || args.exportType === 'cabrillo'
+    const adif = args.exportType === `${TYPE}-adif` || args.exportType === 'contest-adif'
+    if (!refOfType(args.operation, TYPE) || (!cabrillo && !adif)) {
       return { filename: '', mimeType: '', content: '' }
     }
 
@@ -441,7 +442,7 @@ const ExportHook = {
     const ourCall = str(operation.stationCall)
     const ours = ourExchange(opRef)
 
-    if (args.exportType === `${TYPE}-cabrillo`) {
+    if (cabrillo) {
       const power = POWER_CLASSES.find((entry) => entry.value === str(opRef?.power))
       const content = qsonToCabrillo(args.qsos, {
         headers: [
