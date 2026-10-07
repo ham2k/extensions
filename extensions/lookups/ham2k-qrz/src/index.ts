@@ -217,13 +217,14 @@ async function lookupCall(
     const city = tag(xml, 'addr2')
     const state = tag(xml, 'state')
     const [lat, lon] = cleanLocationParams(tag(xml, 'lat'), tag(xml, 'lon'))
-    // `image`, `email`, `street`, `qslVia` and `url` ride along as extra fields
+    // `image`, `email`, `street`, `postal`, `qslVia` and `url` ride along as extra fields
     // CallInfoLookup's fixed shape doesn't declare (same widening pattern as
     // the app's `annotate` extension's `flag`). `image` is QRZ's
     // profile/QSL-card photo URL, shown in the call-info detail panel;
     // `street` is the street line of the mailing address alone (`addr1`), the
-    // town being `city`.
-    const result: CallInfoLookup & { image?: string; email?: string; street?: string; qslVia?: string; url?: string; online?: boolean } = {
+    // town being `city`; `postal` is its postal code. The app's ADIF export
+    // composes them into ADDRESS.
+    const result: CallInfoLookup & { image?: string; email?: string; street?: string; postal?: string; qslVia?: string; url?: string; online?: boolean } = {
       call: tag(xml, 'call') ?? call,
       source: 'qrz.com',
       scope: 'general',
@@ -240,6 +241,7 @@ async function lookupCall(
       street: tag(xml, 'addr1'),
       city,
       state,
+      postal: tag(xml, 'zip'),
       county: tag(xml, 'county'),
       country: tag(xml, 'country'),
       grid: tag(xml, 'grid'),

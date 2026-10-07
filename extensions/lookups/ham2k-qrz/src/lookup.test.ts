@@ -23,7 +23,7 @@ const record = (fields: string) =>
   `<?xml version="1.0" ?><QRZDatabase><Callsign><call>W1AW</call><fname>Hiram</fname><name>Maxim</name>${fields}</Callsign><Session><Key>test-session</Key></Session></QRZDatabase>`
 
 const SUBSCRIBER_FIELDS =
-  "<addr1>225 Main St</addr1><addr2>Newington</addr2><state>CT</state><county>Hartford</county>" +
+  "<addr1>225 Main St</addr1><addr2>Newington</addr2><state>CT</state><zip>06111</zip><county>Hartford</county>" +
   "<cqzone>5</cqzone><ituzone>8</ituzone><GMTOffset>-5</GMTOffset><DST>Y</DST>" +
   "<email>w1aw@example.org</email><qslmgr>via LoTW</qslmgr><url>https://www.arrl.org/w1aw</url>"
 
@@ -32,6 +32,8 @@ test("a subscriber record's station details land on the result", async () => {
   const result = await lookup("W1AW")
   assert.equal(result.email, "w1aw@example.org")
   assert.equal(result.street, "225 Main St")
+  // A string: a ZIP+4, a Canadian or UK postcode, and a leading zero are all postal codes.
+  assert.strictEqual(result.postal, "06111")
   assert.equal(result.county, "Hartford")
   assert.equal(result.qslVia, "via LoTW")
   assert.equal(result.url, "https://www.arrl.org/w1aw")
@@ -58,7 +60,7 @@ test("the UTC offset keeps its ordinary sign", async () => {
 test("a record without them — a free-tier answer, or a profile that hides them — carries none", async () => {
   answer = record("<email></email><cqzone></cqzone>")
   const result = await lookup("W1AW")
-  for (const field of ["email", "street", "county", "cqZone", "ituZone", "tz", "qslVia", "url"]) {
+  for (const field of ["email", "street", "postal", "county", "cqZone", "ituZone", "tz", "qslVia", "url"]) {
     assert.equal(result[field], undefined, field)
   }
 })
