@@ -108,8 +108,15 @@ or stop.
 - **publishing to the catalog** is a separate, explicit act, per extension:
 
   ```sh
-  cd extensions/<category>/<key> && npm run build && npx h2kext-publish build --notes "<what changed, for operators>"
+  cd extensions/<category>/<key> && npm run build && npx h2kext-publish build --force-name --notes "<what changed, for operators>"
   ```
+
+  `--force-name` is what lets a `ham2k-` key through: packing a build
+  directory checks the key against the third-party naming convention, which
+  reserves that prefix, and refuses it otherwise — the same waiver `npm run
+  pack` passes. A `ki2d-` key needs no waiver, so leave it off there and let
+  the check catch a misnamed one. `npm` is not on PATH outside a mise-activated
+  shell: `mise x -- npx …`.
 
   An agent runs this **only when the user asks for it**, never as part of
   `/merge` or `/finalize`, and only for a version that has merged to `main`.
