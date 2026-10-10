@@ -78,6 +78,9 @@ function stubSharedModules(): Record<string, Record<string, unknown>> {
     "@ham2k/lib-country-files": {
       useBuiltinCountryFile: () => {},
       annotateFromCountryFile: (info: unknown) => info,
+      // The SDK's `dxcc` module reads the file's sign convention off it on
+      // import (`BIGCTY.entities.K`), so an app of either age answers the same.
+      BIGCTY: { entities: {} },
     },
     "@ham2k/lib-dxcc-data": { CONTINENTS: {}, DXCC_BY_CODE: {}, DXCC_BY_PREFIX: {} },
     "@ham2k/lib-format-tools": {},

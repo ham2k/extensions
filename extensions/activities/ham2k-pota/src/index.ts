@@ -53,6 +53,15 @@ const ACTIVATION_TYPE = 'potaActivation'
 // the guess; elsewhere the area code isn't a useful "state", so we skip it.
 const COUNTRIES_WHERE_STATES_MATTER = new Set(['US', 'CA', 'AU'])
 
+/// Whether a park spans more than one `{country}-{state}` area — a trail, a
+/// forest across a state line. Its one published point stands for the whole
+/// of it, so it is `largeArea` (`Ref.largeArea`): the app draws it as usual
+/// but never places an operation there. app-polo makes the same call by
+/// withholding such a park's grid.
+function spansSeveralAreas(locationDesc: string | undefined): boolean {
+  return (locationDesc ?? '').split(',').filter((area) => area.trim() !== '').length > 1
+}
+
 // Nearby suggestions use a ~150km bounding box (dbLookupSelectByLocation is a
 // rectangular query, not a true radius); results are then given a real
 // Haversine distance and capped, same trade-off app-polo's own POTA
@@ -158,6 +167,7 @@ const RefHandler = {
       lon: undefined,
       location: undefined,
       retired: undefined,
+      largeArea: undefined,
     })
 
     if (!REFERENCE_REGEX.test(reference)) return undecorated(t('invalidReference'))
@@ -184,6 +194,9 @@ const RefHandler = {
       // unconditionally is also what lets a re-decoration CLEAR a stale mark
       // once POTA reinstates a park.
       retired: park.active === 0,
+      // Always a boolean, here and in `suggest`, for the same reason as
+      // `retired`: a re-decoration has to be able to clear it.
+      largeArea: spansSeveralAreas(park.locationDesc),
     }
   },
 
@@ -307,6 +320,7 @@ const ActivityHook = {
         lat: row.lat,
         lon: row.lon,
         location: data.locationDesc,
+        largeArea: spansSeveralAreas(data.locationDesc),
         program: 'POTA',
         label: `POTA ${row.key}: ${row.name ?? ''}`,
         shortLabel: `POTA ${row.key}`,
@@ -370,6 +384,7 @@ const ActivityHook = {
         lat: resolved?.lat,
         lon: resolved?.lon,
         location: resolved?.locationDesc,
+        largeArea: spansSeveralAreas(resolved?.locationDesc),
         program: 'POTA',
         label: `POTA ${typedSearch}: ${name}`,
         shortLabel: `POTA ${typedSearch}`,
