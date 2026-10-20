@@ -78,6 +78,8 @@ function stubSharedModules(): Record<string, Record<string, unknown>> {
     "@ham2k/lib-country-files": {
       useBuiltinCountryFile: () => {},
       annotateFromCountryFile: (info: unknown) => info,
+      // Newer SDKs inspect the country file's sign convention on import.
+      BIGCTY: { entities: {} },
     },
     "@ham2k/lib-dxcc-data": { CONTINENTS: {}, DXCC_BY_CODE: {}, DXCC_BY_PREFIX: {} },
     "@ham2k/lib-format-tools": {},
