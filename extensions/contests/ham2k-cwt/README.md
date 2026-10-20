@@ -137,10 +137,11 @@ multiplier. For example, 10 contacts with 8 different callsigns score
 **10 × 8 = 80**.
 
 Same-band duplicates, non-CW contacts, and contacts on other bands earn no
-points. The current CWT scorer does **not** independently exclude contacts
-outside the selected hour or reject incomplete exchanges. Keep the operation
-confined to its session and review the exchange fields before reporting; a
-displayed score is not a completed-log check.
+points. A logged callsign containing `?` earns no points or multiplier until
+the callsign is corrected. The current CWT scorer does **not** independently
+exclude contacts outside the selected hour or reject incomplete exchanges.
+Keep the operation confined to its session and review the exchange fields
+before reporting; a displayed score is not a completed-log check.
 
 ## Export and report your score
 
