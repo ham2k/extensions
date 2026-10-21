@@ -35,6 +35,7 @@ import { SSScorer, TYPE, contestTitle } from "./scorer.ts"
 import { ALL_SECTIONS } from "./sections.ts"
 import { normalizeSection, preferredSections } from "./exchange.ts"
 import { HISTORY_STEMS, historyFor, loadHistory, parseHistory, removeHistory } from "./history.ts"
+import { SSAdifImportHook } from "./adifImport.ts"
 import {
   CHECK_PATTERN,
   ENTRY_CLASSES,
@@ -395,6 +396,7 @@ const AdifFieldsHook = {
     add('PRECEDENCE', normalizePrecedence(qsoRef?.theirPrecedence))
     add('CHECK', normalizeCheck(qsoRef?.theirCheck))
     add('ARRL_SECT', normalizeSection(qsoRef?.theirSection))
+    add('MY_ARRL_SECT', normalizeSection(opRef.section))
     // And both whole, as sent and received.
     add('STX_STRING', [serial(qso, 'ourSerial'), ourExchange(opRef)].filter((part) => part).join(' '))
     add('SRX_STRING', theirExchange(qso))
@@ -556,6 +558,7 @@ defineExtension({
     registerHook('activity', { hook: ActivityHook, key: manifest.key })
     registerHook(`ref:${TYPE}`, { hook: RefHandler, key: manifest.key })
     registerHook('adifFields', { hook: AdifFieldsHook, key: manifest.key })
+    registerHook('adifImport', { hook: SSAdifImportHook, key: manifest.key })
     registerHook('export', { hook: ExportHook, key: manifest.key })
     registerHook('scoring', {
       hook: contestScorer(SSScorer, { scope: { refTypes: [TYPE] } }),

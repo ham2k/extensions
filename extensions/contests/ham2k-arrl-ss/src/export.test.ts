@@ -109,6 +109,7 @@ test("the ADIF fields carry the contest id and each part of the exchange", async
     PRECEDENCE: 'Q',
     CHECK: '92',
     ARRL_SECT: 'MI',
+    MY_ARRL_SECT: 'CT',
     STX_STRING: '1 B 72 CT',
     SRX_STRING: '1 Q 92 MI',
   })

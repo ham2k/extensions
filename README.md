@@ -81,6 +81,14 @@ checklist and a rate chart:
   only the manifest's `relevance.dates` need moving each year, and a test
   checks them against the schedule.
 
+  ADIF import recognizes `ARRL-SS-CW`, `ARRL-SS-SSB` and `ARRL-SS`, restoring
+  sent/received serials and the received precedence, check and section onto
+  each QSO. Dedicated ADIF fields win over exchange-string fallbacks, including
+  explicitly empty values. Add the Sweepstakes activity and configure its mode
+  and your own entry before scoring or exporting the imported log: a precedence
+  of `U` or `M` cannot determine the power category, so import does not guess
+  operation setup. The ADIF export also writes your section as `MY_ARRL_SECT`.
+
 - **`ki2d-qso-party-spots`** reads the [QSO Party Hub](http://qsopartyhub.com)
   and the [QSO Party APRS Tracker](https://mobiletracker.stateqso.com) for
   every party running that weekend, and posts self-spots to the Hub. app-polo
