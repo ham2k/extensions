@@ -11,7 +11,15 @@ import { fixtureOperation, loadExtension } from "./sdkGapTesting.ts"
 const contest = await loadExtension(() => import("./index.ts"), { hostCalls: { getSettings: () => ({ operatorSection: 'eny' }) } })
 
 type Suggestion = { mode?: string; name: string; label: string; shortLabel: string; relevance: number }
-type Control = { key: string; input: Record<string, unknown> & { form?: { elements: { key?: string; value?: unknown }[] } } }
+type FormElement = {
+  type: string
+  key?: string
+  value?: unknown
+  options?: { value: string; label: string }[]
+  suggestions?: { code: string; name?: string }[]
+  text?: string
+}
+type Control = { key: string; input: Record<string, unknown> & { form?: { elements: FormElement[] } } }
 
 const configured = fixtureOperation({
   stationCall: 'N0DEV',
@@ -42,11 +50,60 @@ test("an operation already running the contest is offered nothing, and unrelated
   assert.deepEqual(await contest.runHook("activity", "suggest", { searchTerm: "pota" }), [])
 })
 
+test("explicit mode searches offer only that weekend while general searches keep both", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: Date.UTC(2026, 9, 20) })
+  for (const searchTerm of ['CW', 'ss cw', 'Sweepstakes CW', 'CW Sweepstakes', 'Morse code']) {
+    const suggestions = await contest.runHook('activity', 'suggest', { searchTerm }) as Suggestion[]
+    assert.deepEqual(suggestions.map((s) => s.mode), ['CW'], searchTerm)
+  }
+  for (const searchTerm of ['Phone', 'SSB', 'SS Phone', 'Sweepstakes SSB', 'Phone Sweepstakes', 'voice']) {
+    const suggestions = await contest.runHook('activity', 'suggest', { searchTerm }) as Suggestion[]
+    assert.deepEqual(suggestions.map((s) => s.mode), ['SSB'], searchTerm)
+  }
+  for (const searchTerm of ['', 'ARRL', 'SS', 'Sweepstakes', 'November Sweepstakes']) {
+    const suggestions = await contest.runHook('activity', 'suggest', { searchTerm }) as Suggestion[]
+    assert.deepEqual(suggestions.map((s) => s.mode), ['CW', 'SSB'], searchTerm)
+  }
+})
+
 test("the setup seeds our section from the profile", async () => {
   const controls = (await contest.runHook("activity", "operationControls", { operation: fixtureOperation() })) as Control[]
   const elements = controls[0].input.form!.elements
-  assert.deepEqual(elements.map((e) => e.key), ['mode', 'entry', 'check', 'section', 'operators', 'club'])
+  assert.deepEqual(elements.filter((e) => e.type === 'field').map((e) => e.key), ['mode', 'entry', 'check', 'section', 'operators', 'club'])
   assert.equal(elements.find((e) => e.key === 'section')!.value, 'ENY')
+})
+
+test("setup explains the two modes and separate operations in both languages", async () => {
+  for (const [locale, labels, help] of [
+    ['en', ['CW', 'Phone'], /separate operation for each/],
+    ['es', ['CW', 'Fonía'], /operación para cada uno/],
+  ] as const) {
+    const controls = await contest.runHook('activity', 'operationControls', { operation: fixtureOperation() }, { ctx: { locale } }) as Control[]
+    const elements = controls[0].input.form!.elements
+    assert.deepEqual(elements.find((e) => e.key === 'mode')!.options, [
+      { value: 'CW', label: labels[0] }, { value: 'SSB', label: labels[1] },
+    ])
+    assert.match(elements.find((e) => e.type === 'markdown')!.text!, help)
+  }
+})
+
+test("our section setup offers the same named codes as the received section field", async () => {
+  const setup = await contest.runHook('activity', 'operationControls', { operation: configured }) as Control[]
+  const section = setup[0].input.form!.elements.find((e) => e.key === 'section')!
+  const logging = await contest.runHook('activity', 'loggingControls', { operation: configured }) as Control[]
+  assert.deepEqual(section.suggestions, logging.find((c) => c.key === 'arrl-ss/theirSection')!.input.options)
+  assert.equal(section.suggestions!.length, 85)
+  assert.ok(section.suggestions!.some((s) => s.code === 'TER' && s.name === 'Territories'))
+  assert.ok(!section.suggestions!.some((s) => ['YT', 'DX', 'MX'].includes(s.code)))
+})
+
+test("export option labels identify the configured contest mode", async () => {
+  for (const [mode, label] of [['CW', 'ARRL SS CW'], ['SSB', 'ARRL SS Phone'], ['', 'ARRL SS']]) {
+    const operation = fixtureOperation({ refs: [{ type: 'arrl-ss', mode }] })
+    const options = await contest.runHook('export', 'suggestExportOptions', { operation }) as { label: string }[]
+    assert.deepEqual(options.map((o) => o.label), [`ADIF for ${label}`, `Cabrillo for ${label}`])
+  }
+  assert.deepEqual(await contest.runHook('export', 'suggestExportOptions', { operation: fixtureOperation() }), [])
 })
 
 test("the operation shows the exchange we send", async () => {

@@ -89,6 +89,12 @@ checklist and a rate chart:
   of `U` or `M` cannot determine the power category, so import does not guess
   operation setup. The ADIF export also writes your section as `MY_ARRL_SECT`.
 
+  CW/Morse and Phone/SSB searches offer their respective weekends; a general
+  Sweepstakes search offers both. Setup and export labels identify the mode.
+  Use a separate operation for each weekend. The [CW keyer guide](extensions/contests/ham2k-arrl-ss/docs/keyer.md)
+  includes a copyable exchange preset that reads the displayed serial and your
+  saved entry settings.
+
 - **`ki2d-qso-party-spots`** reads the [QSO Party Hub](http://qsopartyhub.com)
   and the [QSO Party APRS Tracker](https://mobiletracker.stateqso.com) for
   every party running that weekend, and posts self-spots to the Hub. app-polo

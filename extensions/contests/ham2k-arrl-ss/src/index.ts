@@ -50,10 +50,23 @@ import {
 
 import manifest from "../manifest.json" with { type: "json" }
 
-/// What a search has to contain to offer these contests. Matched as "does the
-/// alias contain what was typed", so "arrl" finds them and the date ranking
-/// decides which running comes first.
-const ALIASES = ['ARRL SS', 'ARRL SWEEPSTAKES', 'SWEEPSTAKES', 'NOVEMBER SWEEPSTAKES', 'SS CW', 'SS PHONE', 'SS SSB']
+/// A general search offers both weekends; a mode in the search narrows it to
+/// that contest. Aliases match partial text, as before: "arrl" finds both and
+/// "ss cw" only CW. Build the combinations once, not per search keystroke.
+const CONTEST_ALIASES = ['ARRL SS', 'ARRL SWEEPSTAKES', 'SWEEPSTAKES', 'NOVEMBER SWEEPSTAKES', 'SS']
+
+function searchAliases(modes: string[]): string[] {
+  return [
+    ...CONTEST_ALIASES,
+    ...modes,
+    ...CONTEST_ALIASES.flatMap((contest) => modes.flatMap((mode) => [`${contest} ${mode}`, `${mode} ${contest}`])),
+  ]
+}
+
+const ALIASES: Record<SSMode, string[]> = {
+  CW: searchAliases(['CW', 'MORSE', 'MORSE CODE']),
+  SSB: searchAliases(['PHONE', 'SSB', 'VOICE']),
+}
 
 /// Every section as a selectable option, with its name — what the operator
 /// searches. Built once: the list is static.
@@ -156,10 +169,10 @@ const ActivityHook = {
     if (refOfType(operation ?? {}, TYPE)) return []
     const t = tFor(ctx)
     const term = (searchTerm ?? '').trim().toUpperCase()
-    if (term && !ALIASES.some((alias) => alias.includes(term))) return []
+    const modes = MODES.filter((mode) => !term || ALIASES[mode].some((alias) => alias.includes(term)))
 
     const now = Date.now()
-    return MODES.map((mode) => ({
+    return modes.map((mode) => ({
       type: TYPE,
       mode,
       // A suggestion is persisted VERBATIM and never runs through
@@ -201,6 +214,7 @@ const ActivityHook = {
                 value: nearestMode(Date.now()),
                 options: MODES.map((mode: SSMode) => ({ value: mode, label: t(`mode_${mode}`) })),
               },
+              { type: 'markdown', text: t('setupHelp') },
               // The entry IS the precedence we send, so it is asked first and
               // named for that. "Not declared" first: see entry.ts.
               {
@@ -229,6 +243,7 @@ const ActivityHook = {
                 placeholder: t('ourSectionPlaceholder'),
                 uppercase: true,
                 value: profileSection,
+                suggestions: SECTION_OPTIONS,
               },
               {
                 type: 'field',
@@ -425,15 +440,17 @@ const ExportHook = {
   },
 
   async suggestExportOptions(args: ExportOptionsRequest, ctx: HookContext): Promise<ExportOption[]> {
-    if (!refOfType(args.operation, TYPE)) return []
+    const opRef = refOfType(args.operation, TYPE)
+    if (!opRef) return []
     const t = tFor(ctx)
+    const contest = contestTitle(opRef)
     const named = (extension: string) => filenameFor(args.operation, args.qsos ?? [], extension, args.compactFilenames)
     return [
       {
         exportType: `${TYPE}-adif`,
         templateData: { activity: contestId(args.operation) },
         format: 'adif',
-        label: t('adifExport', { contest: manifest.shortName }),
+        label: t('adifExport', { contest }),
         filename: named('adi'),
         selectedByDefault: true,
         refType: TYPE,
@@ -442,7 +459,7 @@ const ExportHook = {
         exportType: `${TYPE}-cabrillo`,
         templateData: { activity: contestId(args.operation) },
         format: 'cabrillo',
-        label: t('cabrilloExport', { contest: manifest.shortName }),
+        label: t('cabrilloExport', { contest }),
         filename: named('log'),
         selectedByDefault: true,
         refType: TYPE,
