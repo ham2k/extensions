@@ -79,11 +79,15 @@ Ham2K checks data-file freshness when it loads the extension and when it
 reconnects, downloading a missing file or refreshing one older than 24 hours.
 The one-day setting is a freshness threshold checked at those times, not a
 timer that runs exactly once every 24 hours. You can also refresh manually.
-**CWT Prefill** settings show the source, file date, download time, record
-count, and warnings. Leave the source blank for automatic discovery, or select
+**Settings → Activities → CWT Prefill** shows the source, file date, download
+time, record count, and warnings. Leave the source blank for automatic discovery, or select
 an HTTPS entry or direct text URL on `n1mm.hamdocs.com` or
 `n1mmwp.hamdocs.com`; refresh after changing the source. Local file paths are
 not supported.
+
+The same dialog is available from the data-files screen. On app versions
+without an Activities settings section, CWT Prefill remains a separate
+settings entry.
 
 Typing a callsign uses downloaded data and local history; it does not download
 the file for every contact. N1MM requests allow slower responses within a
@@ -212,7 +216,7 @@ Enable RBN to supply reports to the native Spots panel. CWT call-history
 filtering is optional: first download **CWops CWT call history** under
 **Settings → Accounts, Services & Data Sources** (called **Data Files**
 in earlier app builds). Then open
-**Settings → RBN → Spots — Who I might hear → Call-history filter** and
+**Settings → Spotting → RBN → Spots — Who I might hear → Call-history filter** and
 select **CWT call-history file**. Choose **All calls** in the same selector
 to disable call-history filtering. Existing saved choices are preserved.
 

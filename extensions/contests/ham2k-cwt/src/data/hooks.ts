@@ -55,7 +55,7 @@ export const DataFile: DataFileDefinition = {
 export const Settings: DynamicSettingsPanel = {
   kind: 'dynamic',
   async getPanels(_args, ctx) {
-    return [{ key: manifest.key, title: tFor(ctx)('prefillTitle'), icon: 'clock-fast', dataFilesSection: true }]
+    return [{ key: manifest.key, title: tFor(ctx)('prefillTitle'), icon: 'clock-fast', section: 'activities', dataFilesSection: true }]
   },
   async getDefinition(_args, ctx) {
     const t = tFor(ctx)
