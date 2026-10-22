@@ -67,7 +67,7 @@ UI using the published GitHub bundle, not installation of the reserved
 
 ## Where the call history comes from
 
-The default source is the public
+The source is the public
 [N1MM call-history collection](https://n1mmwp.hamdocs.com/mmfiles/categories/callhistory/).
 The extension discovers the latest listed `CWOPS_*.txt` entry and submits its
 current download form. No dated filename or download token is pinned. These
@@ -79,15 +79,11 @@ Ham2K checks data-file freshness when it loads the extension and when it
 reconnects, downloading a missing file or refreshing one older than 24 hours.
 The one-day setting is a freshness threshold checked at those times, not a
 timer that runs exactly once every 24 hours. You can also refresh manually.
-**Settings → Activities → CWT Prefill** shows the source, file date, download
-time, record count, and warnings. Leave the source blank for automatic discovery, or select
-an HTTPS entry or direct text URL on `n1mm.hamdocs.com` or
-`n1mmwp.hamdocs.com`; refresh after changing the source. Local file paths are
-not supported.
-
-The same dialog is available from the data-files screen. On app versions
-without an Activities settings section, CWT Prefill remains a separate
-settings entry.
+Use **Settings → Accounts, Services & Data Sources → CWops CWT call history**
+(**Data Files** in earlier app builds) for the native download, refresh, and
+remove controls. The extension always discovers the latest CWOPS file
+automatically; there is no source-override settings page. Source changes are
+maintained in extension updates, and previously saved overrides are ignored.
 
 Typing a callsign uses downloaded data and local history; it does not download
 the file for every contact. N1MM requests allow slower responses within a

@@ -55,7 +55,7 @@ import {
   sessionsFrom,
 } from "./schedule.ts"
 import { CWTScorer, contestTitle } from "./scorer.ts"
-import { DataFile, fileCache, Settings } from "./data/hooks.ts"
+import { DataFile, fileCache } from "./data/hooks.ts"
 import { createPrefill } from "./integration/prefill.ts"
 import { callFilterCategory } from '../../../../packages/spot-filters/src/index.ts'
 import { callFilter } from './data/spot-filter.ts'
@@ -509,7 +509,6 @@ defineExtension({
     })
     registerHook('lookup', { hook: prefill.lookup, key: manifest.key })
     registerHook('dataFile', { hook: DataFile, key: DataFile.key })
-    registerHook('settingsPanel', { hook: Settings, key: manifest.key })
     registerHook(callFilterCategory, { hook: callFilter, key: manifest.key })
     void fileCache.load()
   },

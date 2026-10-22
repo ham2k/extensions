@@ -221,6 +221,11 @@ test("every extension builds, packs and loads", async (t) => {
       const { definition, registrations } = loadBundle(bundle)
       assert.equal(definition.key, manifest.key)
 
+      if (manifest.key === 'ham2k-cwt') {
+        assert.equal(registrations.some((hook) => hook.category === 'settingsPanel'), false,
+          'CWT discovers call history automatically without a source-override settings page')
+      }
+
       // An export must be configurable before an operation is open.
       for (const registration of registrations.filter((r) => r.category === 'export')) {
         assert.equal(typeof registration.hook.getExportTypes, 'function', `${name} must register its export types`)
