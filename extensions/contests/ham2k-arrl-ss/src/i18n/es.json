@@ -5,6 +5,7 @@
   "modeLabel": "Modo del concurso",
   "mode_CW": "CW",
   "mode_SSB": "Fonía",
+  "setupHelp": "CW y fonía son concursos separados en fines de semana distintos. Crea una operación para cada uno, con su propio modo, registro y puntuación.",
   "unconfigured": "ARRL SS (sin configurar)",
   "notConfigured": "¡Sin configurar!",
   "entryLabel": "Categoría (define tu precedencia)",

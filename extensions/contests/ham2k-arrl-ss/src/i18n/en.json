@@ -5,6 +5,7 @@
   "modeLabel": "Contest Mode",
   "mode_CW": "CW",
   "mode_SSB": "Phone",
+  "setupHelp": "CW and Phone are separate contests on different weekends. Use a separate operation for each, with its own mode, log and score.",
   "unconfigured": "ARRL SS (not set up)",
   "notConfigured": "Not configured!",
   "entryLabel": "Category (sets your precedence)",
