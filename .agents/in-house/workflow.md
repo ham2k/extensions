@@ -12,9 +12,9 @@ headings — the skills reference them by name.
   it stands, this file included. There is no private mirror or filtered branch.
 - **base branch**: `main` on `origin`, the only base. Branch off
   `origin/main`, never off local `main` or whatever is checked out.
-- **CI**: none. The repo has no `.github/`, so nothing runs on a push, to any
-  branch. The local gate is the only check `main` ever gets. Work stays
-  local; a push to `origin` is a backup, not a review request.
+- **CI**: `.github/workflows/ci.yml` runs the full gate on pushes to `main`
+  and pull requests to `main`, using Ubuntu and Node 24. Feature branch
+  pushes do not start a separate run alongside their pull request.
 - **session tag**: `[Extensions]`.
 
 ## Tracking
@@ -55,8 +55,7 @@ beneath it. Nothing else is gitignored and required.
 
 ## Gate
 
-The one command that decides whether the work is good. There is no CI at all,
-so this local run IS the gate.
+The same gate runs locally and in CI. Bootstrap with `npm ci` first.
 
 ```sh
 npm run typecheck && npm test
@@ -121,9 +120,8 @@ done
 
 ## Deploy and publishing
 
-- **what a push to `main` triggers**: nothing. No CI, no deploy, no catalog
-  release. `main` is public, so a push is publication of the SOURCE, nothing
-  more.
+- **what a push to `main` triggers**: the CI gate. It does not deploy or
+  publish to the catalog. `main` is public, so a push also publishes the source.
 - **publishing to the catalog** is a separate, explicit act, per extension:
 
   ```sh
