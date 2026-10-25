@@ -18,7 +18,11 @@ let reply = { status: 201, body: "{}" }
 const wwbota = await loadExtension(() => import("./index.ts"), {
   hostCalls: {
     fetch: (params) => {
-      sent.push(params as unknown as { url: string; method?: string; body?: string })
+      const request = params as unknown as { url: string; method?: string; body?: string }
+      sent.push(request)
+      if (request.method === "POST" && sent.some((item) => item.method === "PUT")) {
+        return { status: 201, body: '{"id":"404-fallback"}' }
+      }
       return reply
     },
   },
@@ -78,6 +82,39 @@ test("QRT is read out of the comment, and an unknown mode stays null", async () 
   })
   assert.equal(body.type, "QRT")
   assert.equal(body.mode, null)
+})
+
+test("a repeat self-spot edits the operation's existing spot", async () => {
+  sent = []
+  reply = { status: 200, body: '{"id":"42"}' }
+  const operation = {
+    stationCall: "G1ABC",
+    spotIds: { ["ham2k-wwbota"]: "42" },
+    refs: [{ type: "wwbotaActivation", ref: "B/G-0001" }],
+  }
+  const result = await wwbota.runHook("spots", "postSelfSpot", { operation, freq: 14285, mode: "SSB", comment: "QRT" }) as { ok: boolean }
+  assert.equal(result.ok, true)
+  assert.equal(sent.length, 1)
+  assert.equal(sent[0].method, "PUT")
+  assert.equal(sent[0].url, "https://api.wwbota.org/spots/42")
+  assert.equal(JSON.parse(sent[0].body ?? "{}").type, "QRT")
+})
+
+test("a stale self-spot id falls back to posting a new spot", async () => {
+  sent = []
+  reply = { status: 404, body: '{}' }
+  const operation = {
+    stationCall: "G1ABC",
+    spotIds: { ["ham2k-wwbota"]: "404" },
+    refs: [{ type: "wwbotaActivation", ref: "B/G-0001" }],
+  }
+  const first = await wwbota.runHook("spots", "postSelfSpot", { operation, freq: 14285 }) as { ok: boolean }
+  assert.equal(first.ok, true)
+  assert.equal(sent.length, 2)
+  assert.equal(sent[0].method, "PUT")
+  assert.equal(sent[0].url, "https://api.wwbota.org/spots/404")
+  assert.equal(sent[1].method, "POST")
+  assert.equal(operation.spotIds?.["ham2k-wwbota"], "404-fallback")
 })
 
 test("spotting somebody else names them, and us as the spotter", async () => {
