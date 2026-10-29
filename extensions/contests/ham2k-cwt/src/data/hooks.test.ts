@@ -60,6 +60,6 @@ it('keeps native snapshot replay and the last good file after failed refreshes',
   await assert.rejects(cwt.runHook('dataFile', 'rawToJSONData', {
     body: '<html><a href="https://n1mmwp.hamdocs.com/mmfiles/cwops_test-txt/">CWOPS</a></html>',
     url: DEFAULT_SOURCE,
-  }), /offline/)
+  }), /received HTML/)
   assert.deepEqual(fileCache.current()?.snapshot, snapshot)
 })

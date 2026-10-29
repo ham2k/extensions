@@ -510,6 +510,5 @@ defineExtension({
     registerHook('lookup', { hook: prefill.lookup, key: manifest.key })
     registerHook('dataFile', { hook: DataFile, key: DataFile.key })
     registerHook(callFilterCategory, { hook: callFilter, key: manifest.key })
-    void fileCache.load()
   },
 })
