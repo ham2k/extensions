@@ -39,7 +39,7 @@ const baseActivity: ActivityHook = {
 }
 
 async function setup(base = baseActivity) {
-  const cache = createFileCache({ read: async () => null, write: async () => {} })
+  const cache = createFileCache()
   await cache.replace({ schema: 1, body: file, url: 'file.txt', fetchedAt: '2026-09-19T15:00:00.000Z' })
   return createPrefill(cache, base)
 }

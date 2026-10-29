@@ -42,7 +42,6 @@ function locationHint(qso: Qson, placeholder: string | undefined): string | unde
 export function createPrefill(cache: FileCache, baseActivity: ActivityHook) {
   const history = createHistoryAdapter()
   async function resolve(operation: Qson, qso: Qson, ctx: HookContext) {
-    await cache.load()
     const tiers = await history.find(operation, qso, ctx)
     return resolveCwtExchange({
       call: text(object(qso.their).call),

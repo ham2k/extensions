@@ -69,11 +69,11 @@ UI using the published GitHub bundle, not installation of the reserved
 
 The source is the public
 [N1MM call-history collection](https://n1mmwp.hamdocs.com/mmfiles/categories/callhistory/).
-The extension discovers the latest listed `CWOPS_*.txt` entry and submits its
-current download form. No dated filename or download token is pinned. These
-community-maintained files supply suggestions, not a live membership check
-or a guarantee of today's exchange. See N1MM's
-[call-history explanation](https://n1mmwp.hamdocs.com/setup/call-history/).
+Ham2K API 11 or newer discovers and downloads the latest CWOPS history using
+`n1mm-history:CWOPS`. The host handles pagination, download forms and freshness;
+the extension validates the text and parses names and CWT exchanges. Native Data
+Files persist and replay snapshots offline, without storing a second full dataset
+in the host’s size-limited key-value storage.
 
 Ham2K checks data-file freshness when it loads the extension and when it
 reconnects, downloading a missing file or refreshing one older than 24 hours.
