@@ -9,6 +9,10 @@
 // Unlike `ki2d-discord-spotting`, there is no webhook URL to pass around: who
 // may post is each server's roles, checked by Spotterbot on every spot.
 //
+// The switches are Spotterbot's, shared with its website. The `excluded`
+// setting only holds a switch Spotterbot hasn't stored yet (all of them, for
+// an operator coming from 0.1.0), and every spot sends it along.
+//
 // A spots source that posts and never reads: `fetchSpots` answers nothing.
 
 import { defineExtension, host } from "@ham2k/extension-sdk"
@@ -46,8 +50,9 @@ async function loadSettings(): Promise<Record<string, JSONValue>> {
   return (extensions?.[`extension_${manifest.key}`] as Record<string, JSONValue> | undefined) ?? {}
 }
 
-/// Servers the operator switched off. Stored as exclusions so that a server
-/// that starts using Spotterbot later is on without the operator doing anything.
+/// Servers the operator switched off that Spotterbot doesn't know about yet.
+/// Stored as exclusions so that a server that starts using Spotterbot later
+/// is on without the operator doing anything.
 async function loadExcluded(): Promise<string[]> {
   const excluded = (await loadSettings()).excluded
   return Array.isArray(excluded) ? excluded.filter((id): id is string => typeof id === 'string') : []
@@ -82,12 +87,12 @@ const Hook: SpotsHook = {
       if (response.status !== 200) return { ok: false, message: t('rejected', { status: response.status }) }
       const parsed = JSON.parse(response.body) as Partial<SpotsAnswer>
       if (!Array.isArray(parsed.results)) return { ok: false, message: t('rejected', { status: response.status }) }
-      answer = { results: parsed.results, unchecked: Number(parsed.unchecked) || 0 }
+      answer = { results: parsed.results, unchecked: Number(parsed.unchecked) || 0, switchedOff: Number(parsed.switchedOff) || 0 }
     } catch (error) {
       return { ok: false, message: t('unreachable', { error: String(error) }) }
     }
 
-    const { results, unchecked } = answer
+    const { results, unchecked, switchedOff } = answer
     const failures = results.flatMap((result) => (result.status === 'failed' ? [`${result.name}: ${result.error}`] : []))
     // Possibly the operator's servers, not yet posted to: failing the spot is
     // what has the app try it again.
@@ -98,7 +103,7 @@ const Hook: SpotsHook = {
       // choice, and having no server yet is no fault of this spot. HaLo
       // starts auto-respotting only on a spot no source failed, so a failure
       // here would stop every other source's respots too.
-      return { ok: true, skipped: true, message: t(excluded.length ? 'allSwitchedOff' : 'noServers') }
+      return { ok: true, skipped: true, message: t(excluded.length || switchedOff ? 'allSwitchedOff' : 'noServers') }
     }
     if (!results.some((result) => result.status === 'sent')) return { ok: true, skipped: true, message: t('allSkipped') }
     return { ok: true }
@@ -161,13 +166,14 @@ async function serversFor(ctx: HookContext): Promise<ServerList | string> {
   if (!token) return t('signInFirst')
   if (serversCache?.token === token && Date.now() - serversCache.at < SERVERS_TTL_MS) return serversCache.list
   if (!ctx.online) return t('offline')
+  await storeLocalSwitches(token)
   try {
     const response = await host.fetch(`${SPOTTERBOT}/servers`, { headers: authorized(token) })
     if (response.status === 401) return t('signInAgain')
     if (response.status !== 200) return t('rejected', { status: response.status })
     const parsed = JSON.parse(response.body) as Partial<ServerList>
     if (!Array.isArray(parsed.servers)) return t('rejected', { status: response.status })
-    const list = { servers: parsed.servers, unchecked: Number(parsed.unchecked) || 0 }
+    const list = { servers: parsed.servers.map((server) => ({ ...server, on: server.on !== false })), unchecked: Number(parsed.unchecked) || 0 }
     // A list Discord answered only in part would hide servers for a minute.
     if (!list.unchecked) serversCache = { token, at: Date.now(), list }
     return list.servers.length || list.unchecked ? list : t('noServers')
@@ -176,20 +182,53 @@ async function serversFor(ctx: HookContext): Promise<ServerList | string> {
   }
 }
 
-/// Settings writes, one after another. Each reads the exclusions, changes one
+/// Settings writes, one after another. Each reads the exclusions, changes them
 /// and writes them back, and the app does not wait for one toggle's write
 /// before sending the next: run together, the second would undo the first.
 let settingsWrite: Promise<void> = Promise.resolve()
 
-async function setExcluded(serverId: string, excludedNow: boolean): Promise<void> {
-  const write = async () => {
-    const excluded = new Set(await loadExcluded())
-    if (excludedNow) excluded.add(serverId)
-    else excluded.delete(serverId)
-    await host.setSettings({ excluded: [...excluded] })
-  }
+function serially(write: () => Promise<void>): Promise<void> {
   settingsWrite = settingsWrite.then(write, write)
   return settingsWrite
+}
+
+/// Tells Spotterbot the operator's switch for one server; false when it didn't
+/// take it.
+async function storeSwitch(token: string, serverId: string, on: boolean): Promise<boolean> {
+  try {
+    const response = await host.fetch(`${SPOTTERBOT}/servers/${serverId}`, {
+      method: 'PUT',
+      headers: authorized(token, { 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ on }),
+    })
+    return response.status === 200
+  } catch {
+    return false
+  }
+}
+
+/// Hands Spotterbot the switches kept here, keeping only those it didn't take.
+function storeLocalSwitches(token: string): Promise<void> {
+  return serially(async () => {
+    const excluded = await loadExcluded()
+    if (!excluded.length) return
+    const stored = await Promise.all(excluded.map((id) => storeSwitch(token, id, false)))
+    await host.setSettings({ excluded: excluded.filter((_, i) => !stored[i]) })
+  })
+}
+
+/// One switch, stored by Spotterbot when it answers, and kept here for the
+/// spots to send when it doesn't.
+async function switchServer(token: string | undefined, serverId: string, on: boolean): Promise<void> {
+  const stored = token ? await storeSwitch(token, serverId, on) : false
+  await serially(async () => {
+    const excluded = new Set(await loadExcluded())
+    if (!stored && !on) excluded.add(serverId)
+    else excluded.delete(serverId)
+    await host.setSettings({ excluded: [...excluded] })
+  })
+  const cached = serversCache?.list.servers.find((server) => server.id === serverId)
+  if (cached) cached.on = on
 }
 
 const SettingsPanel: DynamicSettingsPanel = {
@@ -216,7 +255,7 @@ const SettingsPanel: DynamicSettingsPanel = {
                 fieldType: 'checkbox',
                 key: `server:${server.id}`,
                 label: server.name || server.id,
-                value: !excluded.has(server.id),
+                value: server.on && !excluded.has(server.id),
               }),
             ),
             ...(list.unchecked ? [{ type: 'markdown', text: t('serversUnchecked', { count: list.unchecked }) } as FormElement] : []),
@@ -230,9 +269,9 @@ const SettingsPanel: DynamicSettingsPanel = {
     }
   },
 
-  async onChangeField({ fieldKey, value }: { fieldKey: string; value: unknown }): Promise<void> {
+  async onChangeField({ fieldKey, value }: { fieldKey: string; value: unknown }, ctx: HookContext): Promise<void> {
     const match = SERVER_FIELD.exec(fieldKey)
-    if (match) await setExcluded(match[1], !value)
+    if (match) await switchServer(accessToken(ctx), match[1], Boolean(value))
   },
 }
 

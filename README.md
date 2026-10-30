@@ -180,8 +180,9 @@ DXCC checklists, a rate chart and a band map:
   may post), and the
   operator only signs in with Discord, through the app's account login with
   Spotterbot as the OIDC issuer. Settings list the servers the operator may post
-  in, each with a switch. What is stored is the servers switched OFF, so a
-  server that adds Spotterbot later gets spots without anyone visiting Settings.
+  in, each with a switch. Spotterbot stores the switches, shared with its
+  website, and what it stores is the servers switched OFF, so a server that
+  adds Spotterbot later gets spots without anyone visiting Settings.
   The bot itself, and the API this extension calls, live in the
   `spotterbot.ham2k.net` repository.
 - **`ki2d-hamalert`** puts the operator's [HamAlert](https://hamalert.org)

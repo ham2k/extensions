@@ -2,7 +2,7 @@
   "key": "ham2k-discord-spotterbot",
   "name": "Discord Spotterbot",
   "shortName": "Spotterbot",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "api": 1,
   "description": "Self-spots go to every Discord server that added Ham2K's Spotterbot and lets you post",
   "category": "spots",

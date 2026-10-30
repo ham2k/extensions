@@ -22,6 +22,8 @@ const freshSignIn = () => ({ ctx: { online: true, account: { credentials: { acce
 let settings: Record<string, unknown> = {}
 const requests: { url: string; method?: string; headers?: Record<string, string>; body?: string }[] = []
 let answer: { status: number; body: unknown } = { status: 200, body: {} }
+/// Answers by request instead of [answer], for a test that makes more than one.
+let route: ((request: (typeof requests)[number]) => { status: number; body: unknown }) | undefined
 
 const ext = await loadExtension(() => import("./index.ts"), {
   hostCalls: {
@@ -31,8 +33,10 @@ const ext = await loadExtension(() => import("./index.ts"), {
       return null
     },
     fetch: (params) => {
-      requests.push(params as (typeof requests)[number])
-      return { status: answer.status, body: JSON.stringify(answer.body) }
+      const request = params as (typeof requests)[number]
+      requests.push(request)
+      const { status, body } = route?.(request) ?? answer
+      return { status, body: JSON.stringify(body) }
     },
   },
 })
@@ -41,6 +45,7 @@ beforeEach(() => {
   settings = {}
   requests.length = 0
   answer = { status: 200, body: {} }
+  route = undefined
 })
 
 const operation = fixtureOperation({
@@ -136,11 +141,8 @@ test("a spot no server takes yet is skipped, not failed", async () => {
 })
 
 test("a spot with every server switched off is skipped, not failed", async () => {
-  settings = { excluded: ['11', '22'] }
-  respond([])
-  const result = await selfSpot()
-  assert.equal(result.ok, true)
-  assert.equal(result.skipped, true)
+  answer = { status: 200, body: { results: [], switchedOff: 2 } }
+  assert.deepEqual(await selfSpot(), { ok: true, skipped: true, message: 'Every Discord server you can post in is switched off' })
 })
 
 // Servers Discord didn't answer for may be the operator's, not yet posted
@@ -190,14 +192,13 @@ type Element = { type: string; key?: string; label?: string; value?: unknown; te
 const panel = async (options: { ctx: Record<string, unknown> } = freshSignIn()) =>
   ((await ext.runHook('settingsPanel', 'getDefinition', { panelKey: 'ham2k-discord-spotterbot' }, options)) as { elements: Element[] }).elements
 
-test("settings list each server the operator may post in, switched off only where they excluded it", async () => {
-  settings = { excluded: ['22'] }
+test("settings show each server's switch as Spotterbot stores it", async () => {
   answer = {
     status: 200,
     body: {
       servers: [
-        { id: '11', name: 'Club' },
-        { id: '22', name: 'Friends' },
+        { id: '11', name: 'Club', on: true },
+        { id: '22', name: 'Friends', on: false },
       ],
     },
   }
@@ -209,6 +210,49 @@ test("settings list each server the operator may post in, switched off only wher
       ['server:22', 'Friends', false],
     ],
   )
+})
+
+// Spotterbot holds the switch so its website, and every other install of the
+// app, see the same one.
+test("switching a server off tells Spotterbot, and keeps nothing here", async () => {
+  await ext.runHook('settingsPanel', 'onChangeField', { fieldKey: 'server:11', value: false }, signedIn)
+  assert.equal(requests[0].url, 'https://spotterbot.ham2k.net/servers/11')
+  assert.equal(requests[0].method, 'PUT')
+  assert.equal(requests[0].headers?.Authorization, `Bearer ${TOKEN}`)
+  assert.deepEqual(JSON.parse(requests[0].body ?? '{}'), { on: false })
+  assert.deepEqual(settings.excluded, [])
+})
+
+// Offline, or Spotterbot down: the switch must still hold for the next spot.
+test("a switch Spotterbot doesn't take is kept here, and every spot sends it", async () => {
+  answer = { status: 503, body: {} }
+  await ext.runHook('settingsPanel', 'onChangeField', { fieldKey: 'server:11', value: false }, signedIn)
+  assert.deepEqual(settings.excluded, ['11'])
+
+  requests.length = 0
+  respond([])
+  await selfSpot()
+  assert.deepEqual(JSON.parse(requests[0].body ?? '{}').exclude, ['11'])
+})
+
+// An operator coming from 0.1.0 kept every switch here; opening the panel
+// hands them to Spotterbot, so the website shows them too.
+test("switches kept here move to Spotterbot when the panel opens", async () => {
+  settings = { excluded: ['22', '33'] }
+  route = (request) => {
+    if (request.method === 'PUT') return request.url.endsWith('/33') ? { status: 503, body: {} } : { status: 200, body: {} }
+    return { status: 200, body: { servers: [{ id: '22', name: 'Friends', on: false }] } }
+  }
+  await panel()
+  assert.deepEqual(
+    requests.filter((r) => r.method === 'PUT').map((r) => [r.url, JSON.parse(r.body ?? '{}')]),
+    [
+      ['https://spotterbot.ham2k.net/servers/22', { on: false }],
+      ['https://spotterbot.ham2k.net/servers/33', { on: false }],
+    ],
+  )
+  // The one Spotterbot didn't take stays, to be sent with spots and tried again.
+  assert.deepEqual(settings.excluded, ['33'])
 })
 
 // The app rebuilds this panel after every settings change, for settings
@@ -229,22 +273,13 @@ test("offline, the panel asks nothing and says why", async () => {
 })
 
 // The app doesn't wait for one toggle's write before sending the next.
-test("two servers switched off together both stay off", async () => {
+test("two servers switched off together while Spotterbot is down both stay off", async () => {
+  answer = { status: 503, body: {} }
   await Promise.all([
-    ext.runHook('settingsPanel', 'onChangeField', { fieldKey: 'server:11', value: false }),
-    ext.runHook('settingsPanel', 'onChangeField', { fieldKey: 'server:22', value: false }),
+    ext.runHook('settingsPanel', 'onChangeField', { fieldKey: 'server:11', value: false }, signedIn),
+    ext.runHook('settingsPanel', 'onChangeField', { fieldKey: 'server:22', value: false }, signedIn),
   ])
-  assert.deepEqual(settings.excluded, ['11', '22'])
-})
-
-// Exclusions, not inclusions: a server the operator never saw here must still
-// get their spots once it adds Spotterbot.
-test("switching a server off and on again keeps only the exclusion", async () => {
-  await ext.runHook('settingsPanel', 'onChangeField', { fieldKey: 'server:11', value: false })
-  await ext.runHook('settingsPanel', 'onChangeField', { fieldKey: 'server:22', value: false })
-  assert.deepEqual(settings.excluded, ['11', '22'])
-  await ext.runHook('settingsPanel', 'onChangeField', { fieldKey: 'server:11', value: true })
-  assert.deepEqual(settings.excluded, ['22'])
+  assert.deepEqual([...(settings.excluded as string[])].sort(), ['11', '22'])
 })
 
 test("settings ask the operator to sign in before listing servers", async () => {

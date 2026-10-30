@@ -75,10 +75,15 @@ export type ServerResult =
 export interface Server {
   id: string
   name: string
+  /// The operator's switch for this server, which Spotterbot stores so the
+  /// website and every install of the app share it.
+  on: boolean
 }
 
 export interface SpotsAnswer {
   results: ServerResult[]
   /// Servers whose roles Discord didn't return: unknown, so not named.
   unchecked: number
+  /// Servers left out because the operator switched them off.
+  switchedOff: number
 }
