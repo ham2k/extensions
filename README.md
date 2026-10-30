@@ -23,7 +23,7 @@ webhooks, and HamAlert's alerts.
 
 ## What is here
 
-111 extensions, grouped by the manifest's own `category`:
+112 extensions, grouped by the manifest's own `category`:
 
 | directory | manifest `category` | n | of which |
 |---|---|--:|---|
@@ -31,13 +31,13 @@ webhooks, and HamAlert's alerts.
 | `extensions/contests/` | `contest` | 72 | 14 ported built-ins, 4 new contests, 49 QSO party events, 5 park events |
 | `extensions/awards/` | `award` | 2 | 2 new award checklists |
 | `extensions/lookups/` | `lookup` | 5 | 5 ported built-ins |
-| `extensions/spots/` | `spots` | 6 | 1 ported built-in, 5 new spotting sources |
+| `extensions/spots/` | `spots` | 7 | 1 ported built-in, 6 new spotting sources |
 | `extensions/dashboard/` | `dashboard` | 6 | 1 ported built-in, 2 new panels, 3 SVG reference panels |
-| **total** | | **111** | **39 ported, 69 new, 3 SVG reference panels** |
+| **total** | | **112** | **39 ported, 70 new, 3 SVG reference panels** |
 
-The 39 are the app's own extensions, ported one for one. The 69 are new: four
+The 39 are the app's own extensions, ported one for one. The 70 are new: four
 contests and events the app has never shipped separately, five state-park
-events, five spotting sources, two award programs, Worked All States and
+events, six spotting sources, two award programs, Worked All States and
 DXCC checklists, a rate chart and a band map:
 
 - **`ham2k-hota`** — [History on the Air](https://cqhota.app), historic sites
@@ -172,6 +172,18 @@ DXCC checklists, a rate chart and a band map:
   spot-discord names, lowercased, with PoLo's `qCode` and `qRest` working
   too — besides the app's `op`; the app's template editor
   does not know `spot` yet, so its preview shows those blank.
+- **`ham2k-discord-spotterbot`** posts each self-spot to every Discord server
+  that added Ham2K's Spotterbot ([spotterbot.ham2k.net](https://spotterbot.ham2k.net))
+  and gave the operator one of its poster roles. Unlike the webhooks above,
+  the server's admins hold all the setup (`/spotterbot setup`: the channel, a
+  role to mention, QRV/QRT only or every spot; `/spotterbot allow`: which roles
+  may post), and the
+  operator only signs in with Discord, through the app's account login with
+  Spotterbot as the OIDC issuer. Settings list the servers the operator may post
+  in, each with a switch. What is stored is the servers switched OFF, so a
+  server that adds Spotterbot later gets spots without anyone visiting Settings.
+  The bot itself, and the API this extension calls, live in the
+  `spotterbot.ham2k.net` repository.
 - **`ki2d-hamalert`** puts the operator's [HamAlert](https://hamalert.org)
   alerts on the spots board, under the spot `source` `hamalert`, each
   labelled with the comments of the triggers it matched. It polls
