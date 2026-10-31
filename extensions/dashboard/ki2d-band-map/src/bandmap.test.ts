@@ -247,6 +247,19 @@ test('the scope takes the waterfall and the panadapter as set, flowing away from
   assert.equal((await scopesFor(900, 220, { direction: 'inverted' })).falls.flow, 'up')
 })
 
+// A click on the scope lands as on KI2D's Radio Panel: the nearest 50 Hz in CW, 500 Hz in phone,
+// and where it lands in data.
+test('a click on the scope tunes to the mode’s step', async () => {
+  for (const [mode, step] of [['CW', 50], ['USB', 500], ['LSB', 500], ['FM', 500], ['DATA-USB', undefined], ['RTTY', undefined]] as const) {
+    const { hook } = bandMap({
+      readRadio: async () => ({ id: 'r', frequencyHz: 14074000, mode, modes: [mode], spectrum: { mode: 'center', spanHz: 50000, spansHz: [50000] } }),
+    })
+    const { scene } = await hook.render({ environment: env(220, 900), clock: { nowMillis: 1e12 }, instanceId: 'a', config: {}, operation: {} }, { getSpots: async () => spots })
+    const find = (id: string) => scene.controls.find((c: { id: string }) => c.id === id)
+    assert.deepEqual([find('scope').tuneStep, find('scope-pan').tuneStep], [step, step], mode)
+  }
+})
+
 // The label's pill takes in its emoji, which a copy of sits on, and the label sits beside it there.
 test("a marker's label pill takes in its emoji", async () => {
   for (const [width, height] of [[900, 220], [360, 640]]) {

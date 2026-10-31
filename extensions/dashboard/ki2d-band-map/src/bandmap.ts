@@ -61,6 +61,8 @@ const passbands: Record<string, [number, number]> = {
   USB: [100, 2800], LSB: [-2800, -100], CW: [-250, 250], AM: [-3000, 3000], FM: [-5000, 5000],
   'DATA-USB': [0, 3000], 'DATA-LSB': [-3000, 0], RTTY: [-250, 250],
 }
+/** Where a click on the scope lands, by mode, as on KI2D's Radio Panel: the nearest 50 Hz in CW, 500 Hz in phone; data and RTTY where clicked. */
+const tuneSteps: Record<string, number> = { CW: 50, USB: 500, LSB: 500, AM: 500, FM: 500 }
 const ages = [10, 30, 60]
 /**
  * Zoomed in to no less than `narrowest` kHz across the pane. A scene is at most `longest` units
@@ -167,9 +169,10 @@ export type MapView = {
   tunable?: boolean
   /**
    * Present when the host draws the radio's scope on the map, over `range` (kHz, the sweep's edges):
-   * its waterfall behind the calls, its panadapter under the scale's labels, or both.
+   * its waterfall behind the calls, its panadapter under the scale's labels, or both. A click on it
+   * tunes to the nearest `tuneStep` Hz, or with none, where it lands.
    */
-  scope?: { radio: string; waterfall: boolean; pan: boolean; range: [number, number] }
+  scope?: { radio: string; waterfall: boolean; pan: boolean; range: [number, number]; tuneStep?: number }
   /** The scale and the scope on the other side: the line's left in a tall map, along the bottom of a wide one. */
   inverted?: boolean
   /** The operator's own thousands and decimal marks. */
@@ -337,6 +340,7 @@ export function bandMapScene(
     const common = {
       kind: 'spectrum', radio: view.scope.radio, after: 'background', event: 'tune', span, scale: false, backgroundColor: c.surface,
       flow: vertical ? (side < 0 ? 'left' : 'right') : side < 0 ? 'up' : 'down', rising: vertical ? 'down' : 'right',
+      ...(view.scope.tuneStep ? { tuneStep: view.scope.tuneStep } : {}),
     } as const
     // Across the line where the sweep is: the field from the line to the calls' edge, or the scale's
     // strip from the line to the pane's.
@@ -691,7 +695,7 @@ export function createBandMap(host: BandMapHost): PanelHook {
           : sp.mode === 'center' && sp.spanHz ? [radioKHz - sp.spanHz / 1000, radioKHz + sp.spanHz / 1000]
           : sp.mode == null ? [radioKHz - guess, radioKHz + guess]
           : undefined
-        if (scoped) scope = { radio: radio.id, waterfall: falls, pan, range: scoped }
+        if (scoped) scope = { radio: radio.id, waterfall: falls, pan, range: scoped, tuneStep: tuneSteps[radioMode ?? ''] }
       }
       // The plan where the operation's station is, or the library's own where there is none; the
       // markers for its IARU region (its ITU one) and entity, or all of them.
