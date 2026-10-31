@@ -659,6 +659,11 @@ The app's extensions build against the SDK's **source**; these build against the
 
 Node 24, ESM, TypeScript.
 
+GitHub Actions runs the full gate on pushes to `main` and pull requests to `main`:
+`npm ci`, `npm run typecheck`, then `npm test`. The tests include building,
+packing and loading every extension against a stub host. It does not publish
+to the catalog or replace testing in Ham2K Logger.
+
 ```sh
 npm install
 npm test                       # every workspace, then every bundle
