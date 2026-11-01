@@ -23,20 +23,21 @@ webhooks, and HamAlert's alerts.
 
 ## What is here
 
-112 extensions, grouped by the manifest's own `category`:
+113 extensions, grouped by the manifest's own `category`:
 
 | directory | manifest `category` | n | of which |
 |---|---|--:|---|
-| `extensions/activities/` | `activity` | 20 | 18 ported built-ins, 2 new programs |
+| `extensions/activities/` | `activity` | 21 | 18 ported built-ins, 3 new programs |
 | `extensions/contests/` | `contest` | 72 | 14 ported built-ins, 4 new contests, 49 QSO party events, 5 park events |
 | `extensions/awards/` | `award` | 2 | 2 new award checklists |
 | `extensions/lookups/` | `lookup` | 5 | 5 ported built-ins |
 | `extensions/spots/` | `spots` | 7 | 1 ported built-in, 6 new spotting sources |
 | `extensions/dashboard/` | `dashboard` | 6 | 1 ported built-in, 2 new panels, 3 SVG reference panels |
-| **total** | | **112** | **39 ported, 70 new, 3 SVG reference panels** |
+| **total** | | **113** | **39 ported, 71 new, 3 SVG reference panels** |
 
-The 39 are the app's own extensions, ported one for one. The 70 are new: four
-contests and events the app has never shipped separately, five state-park
+The 39 are the app's own extensions, ported one for one. The 71 are new:
+three activity programs, four contests and events the app has never shipped
+separately, five state-park
 events, six spotting sources, two award programs, Worked All States and
 DXCC checklists, a rate chart and a band map:
 
@@ -55,6 +56,20 @@ DXCC checklists, a rate chart and a band map:
   PPOTA issues its spot-posting key per integration, not per operator, so it
   ships in the bundle as a constant (`PPOTA_API_KEY`), as WWFF's does. It is
   Ham2K's key, issued by PPOTA's administrator; rotating it means a release.
+
+- **`ham2k-tiles`** — [Tiles on the Air](https://tilesontheair.com),
+  Maidenhead grid "tiles", the 6-character subsquares, written for the catalog
+  from the site's own [rules](https://tilesontheair.com/Rules) and the
+  "REST API for Developers" under its
+  [Resources](https://tilesontheair.com/Resources). Its ref types, `tiles`
+  and `tilesActivation`, are new and permanent in the same way; its short
+  name is "Tiles" because TOTA is already Towers on the Air's. There is no
+  reference list to download: a tile IS a grid square, decorated from its six
+  characters alone, and the one nearby is the one the operator stands in.
+  Self-spotting takes the operator's callsign and the "Offline Spot Gateway
+  PIN" from their Tiles profile, entered as an account. Tiles has no way to
+  check a PIN short of posting a spot, so the account's test only says the
+  two are filled in.
 
 - **The state-park events** — `ham2k-txspota`, `ham2k-flspota`,
   `ham2k-gaspota`, `ham2k-ohspota` and `ham2k-wispota` — are one extension
