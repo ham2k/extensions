@@ -11,7 +11,7 @@ import { fixtureOperation, loadExtension } from "./sdkGapTesting.ts"
 const contest = await loadExtension(() => import("./index.ts"), { hostCalls: { getSettings: () => ({ operatorSection: 'eny' }) } })
 
 type Suggestion = { mode?: string; name: string; label: string; shortLabel: string; relevance: number }
-type Control = { key: string; input: Record<string, unknown> & { form?: { elements: { type?: string; key?: string; value?: unknown }[] } } }
+type Control = { key: string; label?: string; input: Record<string, unknown> & { form?: { elements: { type?: string; key?: string; value?: unknown }[] } } }
 
 const configured = fixtureOperation({
   stationCall: 'N0DEV',
@@ -66,6 +66,7 @@ test("logging asks for our serial, then theirs, precedence, check and section, i
   assert.deepEqual(controls.map((c) => c.key), [
     'arrl-ss/ourSerial', 'arrl-ss/theirSerial', 'arrl-ss/theirPrecedence', 'arrl-ss/theirCheck', 'arrl-ss/theirSection',
   ])
+  assert.deepEqual(controls.slice(0, 2).map((c) => c.label), ['Our #', 'Their #'])
   assert.equal(controls[0].input.kind, 'serial')
   assert.deepEqual(controls[4].input.preferredCodes, ['CT'])
   // Off-contest, nothing.

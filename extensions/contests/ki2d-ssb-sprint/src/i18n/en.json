@@ -23,7 +23,7 @@
   "qsyRule": "move 1 kHz to call, 5 kHz to CQ",
   "rulesLink": "[Official rules](https://ssbsprint.com/rules/)",
   "ourSerialLabel": "Our #",
-  "theirSerialLabel": "#",
+  "theirSerialLabel": "Their #",
   "nameLabel": "Name",
   "locationLabel": "Loc",
   "notConfigured": "Not configured!",

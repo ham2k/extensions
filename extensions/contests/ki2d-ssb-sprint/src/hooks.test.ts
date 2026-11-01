@@ -22,7 +22,7 @@ const contest = await loadExtension(() => import("./index.ts"), {
 })
 
 type Suggestion = { name: string; label: string; shortLabel: string; relevance: number }
-type Control = { key: string; skipFocus?: boolean; input: Record<string, unknown> & { form?: { elements: { key?: string; value?: unknown }[] } } }
+type Control = { key: string; label?: string; skipFocus?: boolean; input: Record<string, unknown> & { form?: { elements: { key?: string; value?: unknown }[] } } }
 
 const configured = fixtureOperation({
   stationCall: 'KI2D',
@@ -79,6 +79,7 @@ test("logging asks for our serial, then their serial, name and location, guessin
     qso: { their: { call: 'W1AW', state: 'CT', name: 'Hiram Maxim' } },
   })) as Control[]
   assert.deepEqual(controls.map((c) => c.key), ['ssb-sprint/ourSerial', 'ssb-sprint/theirSerial', 'ssb-sprint/name', 'ssb-sprint/location'])
+  assert.deepEqual(controls.map((c) => c.label), ['Our #', 'Their #', 'Name', 'Loc'])
   assert.equal(controls[0].input.kind, 'serial')
   assert.equal(controls[0].skipFocus, true)
   assert.equal(controls[2].input.suggestedValue, 'HIRAM')
@@ -168,6 +169,33 @@ test("a contact just saved puts the QSY rule on the FYI line, as HaLo saves it; 
     qso: contact(14262),
   }, { ctx: { getQsos: async () => { throw new Error('no log') } } })
   assert.deepEqual(unread, patch)
+})
+
+test("under SO2R each radio keeps its own QSY duty and message", async () => {
+  const now = Date.now()
+  const settled = () => new Promise((resolve) => setImmediate(resolve))
+  const save = async (freq: number, radio: 'A' | 'B') => {
+    await contest.runHook("activity", "processQsoBeforeSave", {
+      operation: configured,
+      qso: { startAtMillis: now, freq, our: { radio }, their: { call: 'W1AW' }, refs: [{ type: 'ssb-sprint', theirSerial: '7', name: 'HAL', location: 'CT' }] },
+    })
+    await settled()
+  }
+  dialHz = 21300000
+  const before = fyi.length
+
+  await save(21300, 'A')
+  // Radio B's dial can't be read yet: a single contact there says nothing.
+  await save(7200, 'B')
+  // A's second on 21.300, with B's between them: the move is owed on A.
+  await save(21300, 'A')
+  const posted = fyi.slice(before)
+  assert.deepEqual(posted.map((m) => [m.key, m.radio, m.category]), [['qsy', 'A', 'info'], ['qsy', 'A', 'warning']])
+
+  // B's second on 7.200: the rule, in B's set alone.
+  await save(7200, 'B')
+  const b = fyi.at(-1)!
+  assert.deepEqual([b.key, b.radio, b.category, b.text], ['qsy-b', 'B', 'warning', '**QSY:** move 1 kHz to call, 5 kHz to CQ'])
 })
 
 test("the ref states the rules for its entry: no spotting assistance but for a check log", async () => {

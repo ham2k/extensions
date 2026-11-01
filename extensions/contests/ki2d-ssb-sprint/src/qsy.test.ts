@@ -10,7 +10,7 @@ import assert from "node:assert/strict"
 import type { FyiMessageParams, JSONValue } from "@ham2k/extension-sdk"
 
 import { tFor } from "./i18n.ts"
-import { QsyWatcher, WATCH_MILLIS, dutyAfter, previousContact, qsyMessage } from "./qsy.ts"
+import { QsyWatcher, WATCH_MILLIS, dutyAfter, previousContact, qsyMessage, setOf } from "./qsy.ts"
 
 const t = tFor({ locale: 'en' })
 
@@ -187,4 +187,38 @@ test("a stale frequency is no reading, and a late answer never overwrites a newe
   await older
   // Only the newer reading — 10 kHz out, nothing to say — counted.
   assert.deepEqual(texts(), [])
+})
+
+test("under SO2R the contact before is the one on the same radio, and a contact without one is Radio A's", () => {
+  const log: Record<string, JSONValue>[] = [
+    { uuid: 'a1', startAtMillis: 1000, freq: 14250, our: { radio: 'A' } },
+    { uuid: 'b1', startAtMillis: 2000, freq: 7200, our: { radio: 'B' } },
+    { uuid: 'x', startAtMillis: 500, freq: 14300 },
+  ]
+  assert.equal(previousContact(log, { startAtMillis: 3000, our: { radio: 'A' } })?.uuid, 'a1')
+  assert.equal(previousContact(log, { startAtMillis: 3000, our: { radio: 'B' } })?.uuid, 'b1')
+  assert.equal(previousContact(log, { startAtMillis: 900 })?.uuid, 'x')
+  assert.deepEqual([setOf({}), setOf({ our: { radio: 'A' } }), setOf({ our: { radio: 'B' } }), setOf(undefined)], ['A', 'A', 'B', 'A'])
+})
+
+test("a radio's message goes to that radio's set, under its own key", async () => {
+  const { state } = standIn()
+  const host = {
+    readRadio: async () => ({ status: 'connected', frequencyHz: 7200000 }),
+    post: async (params: FyiMessageParams) => { state.posted.push(params) },
+    clear: async () => { state.posted.push('cleared') },
+    setInterval: () => 1,
+    clearInterval: () => {},
+  }
+  const b = new QsyWatcher(host, () => 0, 'qsy-b')
+  await b.contact({ freq: 7200, our: { radio: 'B' } }, undefined, t)
+  const posted = state.posted[0] as FyiMessageParams
+  assert.equal(posted.key, 'qsy-b')
+  assert.equal(posted.radio, 'B')
+
+  // Without SO2R the contact names no radio, and neither does the message.
+  const a = new QsyWatcher(host, () => 0)
+  await a.contact({ freq: 7200 }, undefined, t)
+  assert.equal((state.posted[1] as FyiMessageParams).key, 'qsy')
+  assert.equal((state.posted[1] as FyiMessageParams).radio, undefined)
 })

@@ -21,6 +21,9 @@
 // so. After a single contact it is hedged, "unless you answered a CQ": the
 // operator knows which it was, and the distance is what they came to read.
 //
+// Under SO2R each radio keeps its own: a contact on Radio B is judged against
+// the one before it on B, and its message shows in B's set alone.
+//
 // After each new contact the radio's dial is read once a second, and the
 // message follows it as it turns: so far to call, so far to CQ, gone from
 // 5 kHz out, and back if the dial returns to the vacated frequency before
@@ -50,8 +53,26 @@ export const RECENT_MILLIS = 5 * 60 * 1000
 /// How long the rule alone stays up when there is no dial to follow.
 const NO_RADIO_SECONDS = 60
 
-const FYI_KEY = 'qsy'
 const ICON = 'swap-horizontal'
+
+/// The SO2R set a contact was logged from — `our.radio`, which HaLo stamps
+/// on every contact under SO2R — and A for one logged without it, Radio A
+/// being the only radio there is.
+export type QsySet = 'A' | 'B'
+
+export function setOf(qso: Record<string, JSONValue> | undefined): QsySet {
+  const our = qso?.our
+  return our && typeof our === 'object' && !Array.isArray(our) && our.radio === 'B' ? 'B' : 'A'
+}
+
+/// The set a contact NAMES, for the message's `radio`: under SO2R a message
+/// about one radio shows in that radio's set alone; without it, there is one
+/// set and the message names none.
+function namedSet(qso: Record<string, JSONValue>): QsySet | undefined {
+  const our = qso.our
+  const radio = our && typeof our === 'object' && !Array.isArray(our) ? our.radio : undefined
+  return radio === 'A' || radio === 'B' ? radio : undefined
+}
 
 /// `must`: the log proves this contact was solicited. `maybe`: it was,
 /// unless it answered someone else's CQ.
@@ -70,6 +91,7 @@ type Translate = (key: string, options?: Record<string, unknown>) => string
 
 interface Watch {
   duty: QsyDuty
+  radio: QsySet | undefined
   anchorHz: number
   startedMillis: number
   /// The dial has been a call's distance away, so the anchor is now the
@@ -92,13 +114,15 @@ export function dutyAfter(qso: Record<string, JSONValue>, previous: Record<strin
   return before !== undefined && Math.abs(before - freq) * 1000 < CALL_QSY_HZ ? 'must' : 'maybe'
 }
 
-/// The contact logged before [qso] in [qsos] — the operation's log as the
-/// app holds it, which may already include [qso] itself.
+/// The contact logged before [qso] in [qsos], on the same radio — the
+/// operation's log as the app holds it, which may already include [qso]
+/// itself.
 export function previousContact(qsos: Record<string, JSONValue>[], qso: Record<string, JSONValue>): Record<string, JSONValue> | undefined {
   const at = num(qso.startAtMillis) ?? Infinity
+  const set = setOf(qso)
   let previous: Record<string, JSONValue> | undefined
   for (const other of qsos) {
-    if (other.band === 'event' || (qso.uuid && other.uuid === qso.uuid)) continue
+    if (other.band === 'event' || (qso.uuid && other.uuid === qso.uuid) || setOf(other) !== set) continue
     const otherAt = num(other.startAtMillis)
     if (otherAt === undefined || otherAt >= at) continue
     if (!previous || otherAt > num(previous.startAtMillis)!) previous = other
@@ -141,7 +165,7 @@ export function qsyMessage(
 /// that failed — so the next message, or the next clear, is always sent.
 const UNKNOWN = '?'
 
-/// One duty at a time: the latest contact's, replacing the one before.
+/// One radio's duty: its latest contact's, replacing the one before.
 export class QsyWatcher {
   private watch: Watch | undefined
   private timer: number | undefined
@@ -157,10 +181,13 @@ export class QsyWatcher {
 
   private readonly host: QsyHost
   private readonly now: () => number
+  /// The FYI key: one message per radio.
+  private readonly key: string
 
-  constructor(host: QsyHost, now: () => number = Date.now) {
+  constructor(host: QsyHost, now: () => number = Date.now, key = 'qsy') {
     this.host = host
     this.now = now
+    this.key = key
   }
 
   /// The last contact watched — the contact before the next one, when the
@@ -172,7 +199,7 @@ export class QsyWatcher {
     this.lastContact = qso
     const duty = dutyAfter(qso, previous)
     if (!duty) return this.stop()
-    this.watch = { duty, anchorHz: num(qso.freq)! * 1000, startedMillis: this.now(), left: false, t }
+    this.watch = { duty, radio: namedSet(qso), anchorHz: num(qso.freq)! * 1000, startedMillis: this.now(), left: false, t }
     // Every contact posts its first message, even one reading the same as
     // the last: that one may have expired, or been put away by the operator.
     if (this.shown !== undefined) this.shown = UNKNOWN
@@ -218,19 +245,20 @@ export class QsyWatcher {
     if (watch !== this.watch || reading < this.applied) return
     this.applied = reading
     if (distanceHz !== undefined && distanceHz >= CALL_QSY_HZ) watch.left = true
-    await this.show(qsyMessage(watch, distanceHz, watch.t))
+    const message = qsyMessage(watch, distanceHz, watch.t)
+    await this.show(message && { ...message, ...(watch.radio ? { radio: watch.radio } : {}) })
   }
 
   /// Posts [message] when it differs from the one up, clears when there is
   /// none — the line coalesces posts anyway, but the bridge needn't carry
   /// the same text every second.
-  private async show(message: ReturnType<typeof qsyMessage>): Promise<void> {
+  private async show(message: (ReturnType<typeof qsyMessage> & { radio?: QsySet }) | undefined): Promise<void> {
     const shown = message && JSON.stringify(message)
     if (shown === this.shown) return
     this.shown = shown
     try {
-      if (message) await this.host.post({ key: FYI_KEY, icon: ICON, ...message })
-      else await this.host.clear(FYI_KEY)
+      if (message) await this.host.post({ key: this.key, icon: ICON, ...message })
+      else await this.host.clear(this.key)
       this.lineWarned = false
     } catch (e) {
       this.shown = UNKNOWN

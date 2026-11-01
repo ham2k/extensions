@@ -23,7 +23,7 @@
   "qsyRule": "muévete 1 kHz para llamar, 5 kHz para CQ",
   "rulesLink": "[Reglas oficiales](https://ssbsprint.com/rules/)",
   "ourSerialLabel": "Nuestro #",
-  "theirSerialLabel": "#",
+  "theirSerialLabel": "Su #",
   "nameLabel": "Nombre",
   "locationLabel": "Ubic",
   "notConfigured": "¡Sin configurar!",

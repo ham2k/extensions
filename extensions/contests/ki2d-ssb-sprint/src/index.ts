@@ -35,7 +35,7 @@ import { OPERATOR_CLASSES, POWER_CLASSES, cabrilloCategories, contestRules } fro
 import { TYPE, guessedLocation, guessedName, ourExchange, refOfType, serial, serialOf, str, theirExchange } from "./exchange.ts"
 import { HISTORY_STEM, firstName, loadHistory, parseHistory, removeHistory } from "./history.ts"
 import { LOCATION_PATTERN, VALID_LOCATIONS, normalizeLocation } from "./locations.ts"
-import { QsyWatcher, RECENT_MILLIS, previousContact } from "./qsy.ts"
+import { type QsyHost, type QsySet, QsyWatcher, RECENT_MILLIS, previousContact, setOf } from "./qsy.ts"
 import { nextContestDate, relevanceFor } from "./schedule.ts"
 import { CONTEST_TITLE, SprintScorer } from "./scorer.ts"
 
@@ -89,13 +89,23 @@ async function profileDetails(): Promise<{ name: string; email: string }> {
   }
 }
 
-const qsyWatcher = new QsyWatcher({
-  readRadio: () => host.readRadio(),
-  post: (params) => host.fyi.post(params),
-  clear: (key) => host.fyi.clear(key),
-  setInterval: (fn, ms) => host.setInterval(fn, ms),
-  clearInterval: (id) => host.clearInterval(id),
-})
+/// One watcher per radio. Radio A is what `host.readRadio()` reads; the
+/// extension API has no way yet to ask for Radio B, so B's dial is unknown
+/// and its watcher says what it can without one.
+const qsyWatchers: Record<QsySet, QsyWatcher> = {
+  A: qsyWatcherFor('A', () => host.readRadio()),
+  B: qsyWatcherFor('B', async () => null),
+}
+
+function qsyWatcherFor(set: QsySet, readRadio: QsyHost['readRadio']): QsyWatcher {
+  return new QsyWatcher({
+    readRadio,
+    post: (params) => host.fyi.post(params),
+    clear: (key) => host.fyi.clear(key),
+    setInterval: (fn, ms) => host.setInterval(fn, ms),
+    clearInterval: (id) => host.clearInterval(id),
+  }, Date.now, set === 'A' ? 'qsy' : 'qsy-b')
+}
 
 /// How long a save waits for the log before the QSY watch gives up on it.
 const LOG_READ_MILLIS = 500
@@ -105,9 +115,10 @@ const LOG_READ_MILLIS = 500
 ///
 /// HaLo hands a NEW contact over before the log has given it a uuid, while an
 /// edit carries its record's own, so a uuid is what marks an edit; and an
-/// import is long past. The contact before is read from the log when the
-/// operation names itself — `operation.uuid`, which the save hook's operation
-/// does not always carry — and otherwise is the last contact watched.
+/// import is long past. The contact before — on the same radio, under SO2R —
+/// is read from the log when the operation names itself (`operation.uuid`,
+/// which the save hook's operation does not always carry), and otherwise is
+/// the last contact that radio's watcher saw.
 ///
 /// Nothing here can fail the save: the QSY message is a convenience, the
 /// exchange it would cost is the log.
@@ -116,9 +127,10 @@ async function watchQsy(qso: Record<string, JSONValue>, operation: Record<string
     if (qso.uuid) return
     const at = typeof qso.startAtMillis === 'number' ? qso.startAtMillis : undefined
     if (at === undefined || Math.abs(Date.now() - at) > RECENT_MILLIS) return
+    const watcher = qsyWatchers[setOf(qso)]
     const logged = await loggedBefore(qso, operation, ctx)
-    const previous = logged ? logged.previous : qsyWatcher.lastContact
-    qsyWatcher.contact(qso, previous, tFor(ctx)).catch((e) => console.warn(`[${TYPE}] QSY watch failed:`, e))
+    const previous = logged ? logged.previous : watcher.lastContact
+    watcher.contact(qso, previous, tFor(ctx)).catch((e) => console.warn(`[${TYPE}] QSY watch failed:`, e))
   } catch (e) {
     console.warn(`[${TYPE}] QSY watch not started:`, e)
   }

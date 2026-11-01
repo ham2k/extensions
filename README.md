@@ -102,7 +102,9 @@ DXCC checklists, a rate chart and a band map:
   is read once a second and the message says how much further to move. It is
   never judged in the score, and the message is hedged after a single contact
   on a frequency, because the log does not say who solicited a contact — two
-  in a row on one frequency are what prove the move is owed. The summary
+  in a row on one frequency are what prove the move is owed. Under SO2R each
+  radio keeps its own duty and message, by the contact's `our.radio`; Radio
+  B's dial can't be read through the extension API yet. The summary
   checks off every state and province, as the QSO parties do, and unlike
   other contests the Sprint also answers the DAY scope, so the log's date
   header carries its score: the four hours fall inside one UTC day, so the
