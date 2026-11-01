@@ -16,6 +16,6 @@
   "noFrequency": "Esta operación no tiene frecuencia para el spot",
   "pinRejected": "Tiles no aceptó este indicativo y PIN. Revisa el PIN en Profile en tilesontheair.com",
   "rateLimited": "Tiles acepta hasta seis spots por minuto; inténtalo de nuevo en un momento",
-  "callMismatch": "Tu cuenta de Tiles es de {{account}}, pero esta operación es con {{station}}. Tiles lo publicaría como {{account}}",
+  "callMismatch": "Tu cuenta de Tiles es de {{account}}, pero esta operación es con {{station}}",
   "unconfirmed": "Tiles respondió HTTP {{status}} sin confirmar el spot"
 }

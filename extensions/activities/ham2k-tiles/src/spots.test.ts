@@ -131,7 +131,7 @@ test("self-spotting is offered only with a callsign and PIN, and only on a Tiles
 const postSelfSpot = (args: Record<string, unknown>, ctx: Record<string, unknown> = { account: LOGIN }) =>
   tiles.runHook("spots", "postSelfSpot", { operation: activation, ...args }, { ctx }) as Promise<{ ok: boolean; message?: string }>
 
-test("a self-spot posts the registered callsign, the PIN and the tile", async () => {
+test("a self-spot posts the station call as worked, the PIN and the tile", async () => {
   respond('{"ok":true,"spot":{"id":"f96"}}')
   assert.deepEqual(await postSelfSpot({ freq: 14285, mode: "USB", comment: "CQ TILE" }), { ok: true })
 
@@ -139,7 +139,7 @@ test("a self-spot posts the registered callsign, the PIN and the tile", async ()
   assert.equal(sent[0].method, "POST")
   assert.match(sent[0].url, /\/functions\/v1\/self-spot$/)
   assert.deepEqual(bodyOf(sent[0]), {
-    call_sign: "KK4ODA",
+    call_sign: "KK4ODA/P",
     pin: "4837",
     grid: "EM73UU",
     freq: "14285",
@@ -163,7 +163,7 @@ test("a mode Tiles has no name for goes as Other, and below 1 MHz the frequency 
 test("a QRT comment is Tiles' own QRT", async () => {
   respond('{"ok":true}')
   assert.deepEqual(await postSelfSpot({ freq: 14285, mode: "SSB", comment: "QRT, 73" }), { ok: true })
-  assert.deepEqual(bodyOf(sent[0]), { call_sign: "KK4ODA", pin: "4837", qrt: true })
+  assert.deepEqual(bodyOf(sent[0]), { call_sign: "KK4ODA/P", pin: "4837", qrt: true })
 })
 
 test("a refused PIN, the rate limit and a bad request each say what happened", async () => {
@@ -199,9 +199,15 @@ test("a self-spot from an operation on another call is refused, not posted as th
   assert.match(result.message!, /account is for KK4ODA, but this operation is on W1AW/)
   assert.deepEqual(sent, [])
 
-  // A country prefix is the same operator.
+  // A country prefix is the same operator, and the spot carries it.
   respond('{"ok":true}')
-  assert.equal((await postSelfSpot({ freq: 14285, mode: "SSB", operation: { ...activation, stationCall: "VE3/KK4ODA" } })).ok, true)
+  assert.equal((await postSelfSpot({ freq: 14285, mode: "SSB", operation: { ...activation, stationCall: "W1AW, ve3/kk4oda" } })).ok, true)
+  assert.equal(bodyOf(sent[0]).call_sign, "VE3/KK4ODA")
+
+  // An operation with no station call yet is spotted as the account's.
+  respond('{"ok":true}')
+  await postSelfSpot({ freq: 14285, mode: "SSB", operation: { ...activation, stationCall: undefined } })
+  assert.equal(bodyOf(sent[0]).call_sign, "KK4ODA")
 })
 
 test("a 2xx that does not confirm the spot is no spot", async () => {

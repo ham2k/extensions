@@ -445,15 +445,16 @@ const SpotsHook = {
     const tile = tileForGrid(refsOfType(operation, ACTIVATION_TYPE)[0]?.ref)
     if (!tile) return { ok: false, message: t('noActivation') }
 
-    // The PIN belongs to one callsign, and Tiles takes it from any operation:
-    // a club or special-event call would be spotted as the account's own,
-    // sending hunters after a station that is not on the air. `/P` and a
-    // country prefix are the same operator.
-    const station = String(operation.stationCall ?? '').split(',').map((c) => c.trim()).filter((c) => c)
+    // The PIN belongs to one operator, so a club or special-event call is
+    // refused rather than posted under it. `/P` and a country prefix are the
+    // same operator, and the spot carries the call as worked: a hunter logs
+    // what the spot shows.
+    const station = String(operation.stationCall ?? '').split(',').map((c) => c.trim().toUpperCase()).filter((c) => c)
     const accountBase = parseCallsign(credentials.call).baseCall ?? credentials.call
-    if (station.length > 0 && !station.some((c) => (parseCallsign(c.toUpperCase()).baseCall ?? c) === accountBase)) {
-      return { ok: false, message: t('callMismatch', { account: credentials.call, station: station.join(', ') }) }
-    }
+    const call = station.length > 0
+      ? station.find((c) => (parseCallsign(c).baseCall ?? c) === accountBase)
+      : credentials.call
+    if (!call) return { ok: false, message: t('callMismatch', { account: credentials.call, station: station.join(', ') }) }
 
     // A comment the site would read as a QRT is sent as one, rather than as a
     // spot that vanishes from the feed the moment it lands.
@@ -461,9 +462,9 @@ const SpotsHook = {
     if (!qrt && (!freq || !Number.isFinite(Number(freq)))) return { ok: false, message: t('noFrequency') }
 
     const body = qrt
-      ? { call_sign: credentials.call, pin: credentials.pin, qrt: true }
+      ? { call_sign: call, pin: credentials.pin, qrt: true }
       : {
-        call_sign: credentials.call,
+        call_sign: call,
         pin: credentials.pin,
         grid: tile,
         freq: tilesFrequency(Number(freq)),
