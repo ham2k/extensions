@@ -143,3 +143,17 @@ test("the Cabrillo header carries LOCATION, the declared entry, operators and cl
     'CLUB: Yankee Clipper Contest Club',
   ])
 })
+
+test("each QSO line of a MULTI-TWO log ends in the transmitter its position is numbered as, and no other entry's does", async () => {
+  const qsos = QSOS.map((qso, i) => ({ ...qso, our: { ...qso.our, multiIdentifier: ['2', '1', '2'][i] } }))
+  const lines = async (operator: string) =>
+    ((await contest.runHook('export', 'generateExport', {
+      operation: { ...OPERATION, refs: [{ ...OPERATION.refs[0], operator }] },
+      qsos,
+      exportType: 'cqwpx-cabrillo',
+    })) as { content: string }).content.split('\n').filter((line) => line.startsWith('QSO:')).map((line) => line.trim().split(/\s+/))
+  const multi = await lines('MULTI-TWO')
+  const single = await lines('SINGLE-OP')
+  assert.deepEqual(multi.map((line) => line.at(-1)), ['1', '0', '1'])
+  assert.deepEqual(multi.map((line) => line.slice(0, -1)), single)
+})

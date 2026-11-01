@@ -31,7 +31,7 @@ import { tFor } from "./i18n.ts"
 import { cabrilloLocation, normalizeSection } from "./location.ts"
 import { MODES, nearestMode, nextContestDate, relevanceFor } from "./schedule.ts"
 import { ARRLDXScorer, POWER_PATTERN, contestTitle, isWveCall, weAreWve } from "./scorer.ts"
-import { BAND_CLASSES, OPERATOR_CLASSES, POWER_CLASSES, cabrilloCategories, contestRules, declaredClub, declaredOperators } from "./entry.ts"
+import { BAND_CLASSES, OPERATOR_CLASSES, POWER_CLASSES, cabrilloCategories, contestRules, declaredClub, declaredOperators, transmitterColumns } from "./entry.ts"
 
 import manifest from "../manifest.json" with { type: "json" }
 
@@ -426,6 +426,7 @@ const ExportHook = {
 
     if (args.exportType === `${TYPE}-cabrillo`) {
       const profile = await profileDetails()
+      const transmitter = transmitterColumns(opRef, args.qsos)
       const content = qsonToCabrillo(args.qsos, {
         headers: [
           ['CONTEST', mode === 'Phone' ? 'ARRL-DX-SSB' : mode ? `ARRL-DX-${mode}` : 'ARRL-DX'],
@@ -449,6 +450,7 @@ const ExportHook = {
           str(((qso.their as Record<string, JSONValue>) ?? {}).call) || '-',
           reportFor(qso, 'their'),
           str(refOfType(qso, TYPE)?.theirExchange) || '-',
+          ...transmitter(qso),
         ],
       })
       return {

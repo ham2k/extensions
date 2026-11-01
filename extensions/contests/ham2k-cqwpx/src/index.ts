@@ -39,6 +39,7 @@ import {
   contestRules,
   declaredClub,
   declaredOperators,
+  transmitterColumns,
 } from "./entry.ts"
 import { tFor } from "./i18n.ts"
 import { MODES, nearestMode, nextContestDate, relevanceFor } from "./schedule.ts"
@@ -407,6 +408,7 @@ const ExportHook = {
     if (args.exportType === `${TYPE}-cabrillo`) {
       const opRef = refOfType(operation, TYPE)
       const profile = await profileDetails()
+      const transmitter = transmitterColumns(opRef, args.qsos)
       const content = qsonToCabrillo(args.qsos, {
         headers: [
           ['CONTEST', mode ? `CQ-WPX-${mode}` : 'CQ-WPX'],
@@ -429,6 +431,7 @@ const ExportHook = {
           str(((qso.their as Record<string, JSONValue>) ?? {}).call) || '-',
           reportFor(qso, 'their'),
           serial(qso, 'theirSerial') || '0',
+          ...transmitter(qso),
         ],
       })
       return {

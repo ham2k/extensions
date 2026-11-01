@@ -180,3 +180,17 @@ test("the Cabrillo header carries the declared entry and our LOCATION", async ()
   assert.deepEqual(await header({ uuid: 'op-9', stationCall: 'VO1ABC', refs: [{ type: 'cqww', mode: 'CW', qth: 'NF' }] }), ['LOCATION: NL', 'CATEGORY-MODE: CW'])
   assert.deepEqual(await header({ uuid: 'op-10', stationCall: 'VO2ABC', refs: [{ type: 'cqww', mode: 'CW' }] }), ['LOCATION: NL', 'CATEGORY-MODE: CW'])
 })
+
+test("each QSO line of a MULTI-TWO log ends in the transmitter its position is numbered as, and no other entry's does", async () => {
+  const qsos = QSOS.map((qso, i) => ({ ...qso, our: { ...qso.our, multiIdentifier: ['2', '1', '2'][i] } }))
+  const lines = async (operator: string) =>
+    ((await contest.runHook('export', 'generateExport', {
+      operation: { ...OPERATION, refs: [{ ...OPERATION.refs[0], operator }] },
+      qsos,
+      exportType: 'cqww-cabrillo',
+    })) as { content: string }).content.split('\n').filter((line) => line.startsWith('QSO:')).map((line) => line.trim().split(/\s+/))
+  const multi = await lines('MULTI-TWO')
+  const single = await lines('SINGLE-OP')
+  assert.deepEqual(multi.map((line) => line.at(-1)), ['1', '0', '1'])
+  assert.deepEqual(multi.map((line) => line.slice(0, -1)), single)
+})

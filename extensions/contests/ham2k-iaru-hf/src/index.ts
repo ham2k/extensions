@@ -35,7 +35,7 @@ import { tFor } from "./i18n.ts"
 import { cabrilloLocation, normalizeSection } from "./location.ts"
 import { nextContestDate, relevanceFor } from "./schedule.ts"
 import { EXCHANGE_PATTERN, IARUHFScorer, contestTitle, normalizeZone, ourExchange } from "./scorer.ts"
-import { OPERATOR_CLASSES, OVERLAY_CLASSES, POWER_CLASSES, cabrilloCategories, contestRules, declaredClub, declaredOperators } from "./entry.ts"
+import { OPERATOR_CLASSES, OVERLAY_CLASSES, POWER_CLASSES, cabrilloCategories, contestRules, declaredClub, declaredOperators, transmitterColumns } from "./entry.ts"
 
 import manifest from "../manifest.json" with { type: "json" }
 
@@ -477,6 +477,7 @@ const ExportHook = {
 
     if (args.exportType === `${TYPE}-cabrillo`) {
       const profile = await profileDetails()
+      const transmitter = transmitterColumns(opRef, args.qsos)
       const content = qsonToCabrillo(args.qsos, {
         headers: [
           ['CONTEST', 'IARU-HF'],
@@ -500,6 +501,7 @@ const ExportHook = {
           str(((qso.their as Record<string, JSONValue>) ?? {}).call) || '-',
           reportFor(qso, 'their'),
           str(refOfType(qso, TYPE)?.theirExchange) || '-',
+          ...transmitter(qso),
         ],
       })
       return {

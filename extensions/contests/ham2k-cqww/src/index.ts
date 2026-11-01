@@ -30,7 +30,7 @@ import { tFor } from "./i18n.ts"
 import { MODES, nearestMode, nextContestDate, relevanceFor } from "./schedule.ts"
 import { CQWWScorer, ZONE_PATTERN, contestTitle, cqwwCallInfo, normalizeZone } from "./scorer.ts"
 import { QTH_PATTERN, cabrilloLocation, guessedQth, normalizeQth, sendsQth } from "./qth.ts"
-import { BAND_CLASSES, OPERATOR_CLASSES, OVERLAY_CLASSES, POWER_CLASSES, cabrilloCategories, contestRules, declaredClub, declaredOperators } from "./entry.ts"
+import { BAND_CLASSES, OPERATOR_CLASSES, OVERLAY_CLASSES, POWER_CLASSES, cabrilloCategories, contestRules, declaredClub, declaredOperators, transmitterColumns } from "./entry.ts"
 
 import manifest from "../manifest.json" with { type: "json" }
 
@@ -466,6 +466,7 @@ const ExportHook = {
 
     if (args.exportType === `${TYPE}-cabrillo`) {
       const profile = await profileDetails()
+      const transmitter = transmitterColumns(refOfType(operation, TYPE), args.qsos)
       const content = qsonToCabrillo(args.qsos, {
         headers: [
           ['CONTEST', mode ? `CQ-WW-${mode}` : 'CQ-WW'],
@@ -492,6 +493,7 @@ const ExportHook = {
           ...(rtty
             ? [qthColumn(str(((qso.their as Record<string, JSONValue>) ?? {}).call), normalizeQth(refOfType(qso, TYPE)?.theirQth))]
             : []),
+          ...transmitter(qso),
         ],
       })
       return {
