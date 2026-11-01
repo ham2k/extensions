@@ -163,8 +163,13 @@ export class QsyWatcher {
     this.now = now
   }
 
+  /// The last contact watched — the contact before the next one, when the
+  /// log can't be read for it.
+  lastContact: Record<string, JSONValue> | undefined
+
   /// A contact was just logged; [previous] is the one before it.
   async contact(qso: Record<string, JSONValue>, previous: Record<string, JSONValue> | undefined, t: Translate): Promise<void> {
+    this.lastContact = qso
     const duty = dutyAfter(qso, previous)
     if (!duty) return this.stop()
     this.watch = { duty, anchorHz: num(qso.freq)! * 1000, startedMillis: this.now(), left: false, t }

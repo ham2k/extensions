@@ -101,32 +101,48 @@ const qsyWatcher = new QsyWatcher({
 const LOG_READ_MILLIS = 500
 
 /// Starts watching the QSY rule for a contact being saved — a new one, made
-/// just now. An edit is already in the log, and an import is long past.
+/// just now, never an edit or an import.
 ///
-/// The log is read HERE, before the save lands: read afterwards it would hold
-/// this contact too, and every new contact would pass for an edit. That read
-/// holds the save for at most [LOG_READ_MILLIS]; a log that cannot be read in
-/// time, or at all, leaves the watch as it was, since without it an edit and
-/// a new contact look alike. Nothing here can fail the save: the QSY message
-/// is a convenience, the exchange it would cost is the log.
+/// HaLo hands a NEW contact over before the log has given it a uuid, while an
+/// edit carries its record's own, so a uuid is what marks an edit; and an
+/// import is long past. The contact before is read from the log when the
+/// operation names itself — `operation.uuid`, which the save hook's operation
+/// does not always carry — and otherwise is the last contact watched.
+///
+/// Nothing here can fail the save: the QSY message is a convenience, the
+/// exchange it would cost is the log.
 async function watchQsy(qso: Record<string, JSONValue>, operation: Record<string, JSONValue>, ctx: HookContext): Promise<void> {
   try {
+    if (qso.uuid) return
     const at = typeof qso.startAtMillis === 'number' ? qso.startAtMillis : undefined
-    if (at === undefined || Math.abs(Date.now() - at) > RECENT_MILLIS || !operation.uuid || !ctx.getQsos) return
-    let timer: ReturnType<typeof setTimeout> | undefined
-    const qsos = await Promise.race([
-      ctx.getQsos(str(operation.uuid)),
-      new Promise<'late'>((resolve) => { timer = setTimeout(() => resolve('late'), LOG_READ_MILLIS) }),
-    ]).finally(() => clearTimeout(timer))
-    if (!Array.isArray(qsos)) {
-      console.warn(`[${TYPE}] log ${qsos === 'late' ? 'too slow' : 'unavailable'}, QSY watch left as it was`)
-      return
-    }
-    if (qso.uuid && qsos.some((other) => other.uuid === qso.uuid)) return
-    qsyWatcher.contact(qso, previousContact(qsos, qso), tFor(ctx)).catch((e) => console.warn(`[${TYPE}] QSY watch failed:`, e))
+    if (at === undefined || Math.abs(Date.now() - at) > RECENT_MILLIS) return
+    const logged = await loggedBefore(qso, operation, ctx)
+    const previous = logged ? logged.previous : qsyWatcher.lastContact
+    qsyWatcher.contact(qso, previous, tFor(ctx)).catch((e) => console.warn(`[${TYPE}] QSY watch failed:`, e))
   } catch (e) {
     console.warn(`[${TYPE}] QSY watch not started:`, e)
   }
+}
+
+/// The contact logged before [qso], read from the operation's log — or
+/// undefined when the log can't say: no uuid to name the operation by, no
+/// log access, or no answer within [LOG_READ_MILLIS], which is as long as
+/// the save waits for it.
+async function loggedBefore(
+  qso: Record<string, JSONValue>,
+  operation: Record<string, JSONValue>,
+  ctx: HookContext,
+): Promise<{ previous: Record<string, JSONValue> | undefined } | undefined> {
+  if (!operation.uuid || !ctx.getQsos) return undefined
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const qsos = await Promise.race([
+    ctx.getQsos(str(operation.uuid)).catch((e) => {
+      console.warn(`[${TYPE}] log unreadable, QSY duty judged from the last contact watched:`, e)
+      return null
+    }),
+    new Promise<'late'>((resolve) => { timer = setTimeout(() => resolve('late'), LOG_READ_MILLIS) }),
+  ]).finally(() => clearTimeout(timer))
+  return Array.isArray(qsos) ? { previous: previousContact(qsos, qso) } : undefined
 }
 
 /// One select per axis of the entry, "Not declared" first.

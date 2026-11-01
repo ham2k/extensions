@@ -120,41 +120,54 @@ test("saving stamps the guesses and projects both exchanges", async () => {
   })
 })
 
-test("a contact just saved puts the QSY rule on the FYI line; an edit doesn't", async () => {
+test("a contact just saved puts the QSY rule on the FYI line, as HaLo saves it; an edit doesn't", async () => {
   const now = Date.now()
-  const earlier = { uuid: 'q1', startAtMillis: now - 60_000, freq: 14250.2, refs: [{ type: 'ssb-sprint' }] }
-  const save = (qso: Record<string, unknown>, log: Record<string, unknown>[]) =>
-    contest.runHook("activity", "processQsoBeforeSave", { operation: { ...configured, uuid: 'op' }, qso }, { ctx: { getQsos: async () => log as never } })
   const settled = () => new Promise((resolve) => setImmediate(resolve))
+  // As HaLo calls the hook: the operation's QSON without its uuid, which the
+  // app keeps as the row's identity, and a new contact without one either —
+  // only an edit carries its record's.
+  const save = (qso: Record<string, unknown>, ctx: Record<string, unknown> = {}) =>
+    contest.runHook("activity", "processQsoBeforeSave", { operation: configured, qso }, { ctx })
+  const contact = (freq: number, extra: Record<string, unknown> = {}) =>
+    ({ startAtMillis: now, freq, their: { call: 'W1AW' }, refs: [{ type: 'ssb-sprint', theirSerial: '7', name: 'HAL', location: 'CT' }], ...extra })
 
-  // Fixing the contact before, already in the log, starts nothing.
-  await save(earlier, [earlier])
+  // An edit, and a contact logged an hour ago — an import or a late entry —
+  // start nothing.
+  await save(contact(14250.2, { uuid: 'q1' }))
+  await save(contact(14250.2, { startAtMillis: now - 3_600_000 }))
   await settled()
   assert.equal(fyi.length, 0)
 
-  // A contact logged an hour later is an import or a late entry.
-  await save({ uuid: 'q0', startAtMillis: now - 3_600_000, freq: 14250 }, [earlier])
-  await settled()
-  assert.equal(fyi.length, 0)
-
-  // The second contact on 14.250: the move is owed, and the dial hasn't moved.
-  await save({ uuid: 'q2', startAtMillis: now, freq: 14250, refs: [{ type: 'ssb-sprint', theirSerial: '7' }] }, [earlier])
+  // The first contact on 14.250: the move is owed unless it answered a CQ.
+  await save(contact(14250.2))
   await settled()
   assert.equal(fyi.length, 1)
   assert.equal(fyi[0].key, 'qsy')
-  assert.equal(fyi[0].category, 'warning')
-  assert.equal(fyi[0].text, '**QSY:** 1.0 kHz more to call, 5.0 kHz more to CQ')
+  assert.equal(fyi[0].category, 'info')
+  assert.equal(fyi[0].text, '**QSY, unless you answered a CQ:** 0.8 kHz more to call, 4.8 kHz more to CQ')
 
-  // A log that can't be read leaves the watch alone, and never costs the
-  // contact its exchange.
-  dialHz = 14262000
-  const patch = await contest.runHook("activity", "processQsoBeforeSave", {
-    operation: { ...configured, uuid: 'op' },
-    qso: { uuid: 'q3', startAtMillis: now, freq: 14262, their: { call: 'W1AW' }, refs: [{ type: 'ssb-sprint', theirSerial: '8', name: 'HAL', location: 'CT' }] },
-  }, { ctx: { getQsos: async () => { throw new Error('no log') } } })
+  // The second on 14.250, judged against the first without any log to read:
+  // the move is owed.
+  const patch = await save(contact(14250))
   await settled()
-  assert.deepEqual(patch, { refs: [{ type: 'ssb-sprint', name: 'HAL', location: 'CT' }], their: { exchange: '8 HAL CT' } })
-  assert.equal(fyi.length, 1)
+  assert.equal(fyi.length, 2)
+  assert.equal(fyi[1].category, 'warning')
+  assert.equal(fyi[1].text, '**QSY:** 1.0 kHz more to call, 5.0 kHz more to CQ')
+  assert.deepEqual(patch, { refs: [{ type: 'ssb-sprint', name: 'HAL', location: 'CT' }], their: { exchange: '7 HAL CT' } })
+
+  // An operation that names itself is judged by its log, which outranks the
+  // last contact watched: there, the one before was on 14.262.
+  const log = [{ uuid: 'q9', startAtMillis: now - 30_000, freq: 14262 }]
+  await contest.runHook("activity", "processQsoBeforeSave", { operation: { ...configured, uuid: 'op' }, qso: contact(14250) }, { ctx: { getQsos: async () => log as never } })
+  await settled()
+  assert.equal(fyi.at(-1)!.category, 'info')
+
+  // A log that can't be read never costs the contact its exchange.
+  const unread = await contest.runHook("activity", "processQsoBeforeSave", {
+    operation: { ...configured, uuid: 'op' },
+    qso: contact(14262),
+  }, { ctx: { getQsos: async () => { throw new Error('no log') } } })
+  assert.deepEqual(unread, patch)
 })
 
 test("the ref states the rules for its entry: no spotting assistance but for a check log", async () => {
