@@ -102,7 +102,11 @@ DXCC checklists, a rate chart and a band map:
   is read once a second and the message says how much further to move. It is
   never judged in the score, and the message is hedged after a single contact
   on a frequency, because the log does not say who solicited a contact — two
-  in a row on one frequency are what prove the move is owed.
+  in a row on one frequency are what prove the move is owed. The summary
+  checks off every state and province, as the QSO parties do, and unlike
+  other contests the Sprint also answers the DAY scope, so the log's date
+  header carries its score: the four hours fall inside one UTC day, so the
+  day's score is the contest's.
 
 - **`ki2d-wwsac`** — the [Worldwide Sideband Activity Contest](https://wwsac.com),
   an hour of SSB every Tuesday at 0100 UTC, written for the catalog from the

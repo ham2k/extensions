@@ -112,6 +112,14 @@ export const SprintScorer: ContestScorer<SprintScoresheet> = {
     return { scoresheet: sheet, score }
   },
 
+  /// The contest's tally for the operation — and, unlike other contests', for
+  /// the DAY too, so the log's date header carries the score. A contest
+  /// usually answers the day with nothing (`contestSummary`), because its
+  /// multipliers span the whole event and a day's share of the score is a
+  /// number no sponsor defines. The Sprint's four hours fall inside one UTC
+  /// day, 0000Z to 0400Z, so the day's score IS the contest's. The day's
+  /// tally is the badge alone, with no detail: the information panel lists
+  /// day tallies a line each, and the checklist belongs to the operation's.
   summarizeScore({ scoresheet, scope }, ctx) {
     const t = tFor(ctx)
     const keys = Object.keys(scoresheet.mults)
@@ -119,10 +127,10 @@ export const SprintScorer: ContestScorer<SprintScoresheet> = {
     for (const key of keys) kinds[locationKind(key)] += 1
     const part = (count: number, kind: 'state' | 'province' | 'country') =>
       count === 1 ? t(`${kind}One`) : count > 1 ? t(`${kind}Many`, { formatted: fmtInteger(count) }) : ''
-    return contestSummary(
+    const tallies = contestSummary(
       {
         key: TYPE,
-        scope,
+        scope: 'operation',
         icon: 'run-fast',
         title: CONTEST_TITLE,
         total: scoresheet.qsos * keys.length,
@@ -135,35 +143,47 @@ export const SprintScorer: ContestScorer<SprintScoresheet> = {
           },
           ctx,
         ),
-        detail: [multsLines(scoresheet, t), bandBreakdown(scoresheet)].join('\n\n'),
+        detail: [...multsChecklist(scoresheet, t), ...bandBreakdown(scoresheet, t)].join('\n\n'),
+        grid: true,
         extra: { points: scoresheet.qsos, mults: keys.length, qsos: scoresheet.qsos },
       },
       ctx,
     )
+    if (scope === 'operation') return tallies
+    const { longSummary: _detail, grid: _grid, ...badge } = tallies[TYPE]
+    return { [TYPE]: { ...badge, for: 'day' } }
   },
 }
 
 export const CONTEST_TITLE = 'SSB Sprint'
 
-/// Once few enough are left to chase, which ones.
-const MISSING_SHOWN_FROM = 15
-
-/// States and provinces worked out of how many there are, and the missing
-/// ones when the list is short enough to read.
-function multsLines(sheet: SprintScoresheet, t: ReturnType<typeof tFor>): string {
-  const line = (label: string, all: string[]) => {
-    const missing = all.filter((code) => !sheet.mults[code])
-    const counted = t('multsWorked', { label, worked: fmtInteger(all.length - missing.length), total: fmtInteger(all.length) })
-    if (missing.length === 0) return `${counted} ✓`
-    return missing.length <= MISSING_SHOWN_FROM ? `${counted} — ${t('missing', { list: missing.join(' ') })}` : counted
+/// The states and provinces as a checklist, every one of them, those worked
+/// struck through — the core's checklist convention (`grid: true`), as the
+/// QSO parties draw theirs — then the countries worked, which are too many to
+/// list unworked.
+function multsChecklist(sheet: SprintScoresheet, t: ReturnType<typeof tFor>): string[] {
+  const worked = (code: string) => (sheet.mults[code] !== undefined ? `**~~${code}~~**` : code)
+  const count = (codes: string[]) => fmtInteger(codes.filter((code) => sheet.mults[code] !== undefined).length)
+  const parts = [
+    `### ${t('statesHeading', { worked: count(US_STATES), total: fmtInteger(US_STATES.length) })}`,
+    US_STATES.map(worked).join(' '),
+    `### ${t('provincesHeading', { worked: count(CANADIAN_PROVINCES), total: fmtInteger(CANADIAN_PROVINCES.length) })}`,
+    CANADIAN_PROVINCES.map(worked).join(' '),
+  ]
+  const countries = Object.keys(sheet.mults).filter((code) => locationKind(code) === 'country').sort()
+  if (countries.length > 0) {
+    parts.push(`### ${countries.length === 1 ? t('countriesHeadingOne') : t('countriesHeadingMany', { formatted: fmtInteger(countries.length) })}`)
+    parts.push(countries.map(worked).join(' '))
   }
-  return [line(t('statesLabel'), US_STATES), line(t('provincesLabel'), CANADIAN_PROVINCES)].join('\n')
+  return parts
 }
 
 /// QSOs per band, in band order.
-function bandBreakdown(sheet: SprintScoresheet): string {
-  return VALID_BANDS.map((band) => {
-    const qsos = sheet.bands[band] ?? 0
-    return qsos === 0 ? `**${band}**: —` : `**${band}**: ${fmtInteger(qsos)} QSOs`
-  }).join('\n')
+function bandBreakdown(sheet: SprintScoresheet, t: ReturnType<typeof tFor>): string[] {
+  if (sheet.qsos === 0) return []
+  const qsos = (count: number) => (count === 1 ? t('qsoOne') : t('qsoMany', { formatted: fmtInteger(count) }))
+  return [
+    `### ${qsos(sheet.qsos)}`,
+    VALID_BANDS.map((band) => `**${band}**: ${sheet.bands[band] ? qsos(sheet.bands[band]) : '—'}`).join('\n'),
+  ]
 }

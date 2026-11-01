@@ -36,10 +36,12 @@
   "provinceMany": "{{formatted}} provincias",
   "countryOne": "1 país",
   "countryMany": "{{formatted}} países",
-  "statesLabel": "Estados",
-  "provincesLabel": "Provincias",
-  "multsWorked": "**{{label}}:** {{worked}} de {{total}}",
-  "missing": "faltan {{list}}",
   "historyFileName": "Historial de N1MM: SSB Sprint",
-  "historyFileDescription": "El nombre y la ubicación que cada estación envió en SSB Sprints anteriores, del archivo de historial de llamadas de N1MM Logger+, sugeridos al registrar. Registra lo que copies."
+  "historyFileDescription": "El nombre y la ubicación que cada estación envió en SSB Sprints anteriores, del archivo de historial de llamadas de N1MM Logger+, sugeridos al registrar. Registra lo que copies.",
+  "statesHeading": "{{worked}} de {{total}} estados de EE. UU.",
+  "provincesHeading": "{{worked}} de {{total}} provincias canadienses",
+  "countriesHeadingOne": "1 país norteamericano",
+  "countriesHeadingMany": "{{formatted}} países norteamericanos",
+  "qsoOne": "1 QSO",
+  "qsoMany": "{{formatted}} QSOs"
 }

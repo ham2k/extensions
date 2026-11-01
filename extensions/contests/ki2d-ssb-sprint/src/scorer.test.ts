@@ -36,7 +36,7 @@ function run(qsos: Record<string, JSONValue>[], operation: Record<string, JSONVa
     sheet = r.scoresheet
     return r.score
   })
-  const summary = SprintScorer.summarizeScore({ scoresheet: sheet, operation, ref, scope: 'operation' } as never, ctx) as Record<string, { total?: number; summary?: string; longSummary?: string }>
+  const summary = SprintScorer.summarizeScore({ scoresheet: sheet, operation, ref, scope: 'operation' } as never, ctx) as Record<string, { total?: number; summary?: string; longSummary?: string; grid?: boolean }>
   return { sheet, scores, summary: Object.values(summary)[0] }
 }
 
@@ -102,10 +102,28 @@ test('an incomplete or unknown exchange still counts, and says so', () => {
   assert.ok(sheet.mults.AK)
 })
 
-test('the summary multiplies contacts by multipliers and says what is left to chase', () => {
+test('the summary multiplies contacts by multipliers and checks off the states and provinces', () => {
   const { summary } = run([qso('W1AW', 'CT'), qso('VE3ABC', 'ON', '40m'), qso('XE1ABC', 'XE', '80m'), qso('W2ABC', 'NY')])
   assert.equal(summary.total, 4 * 4)
-  assert.match(summary.longSummary ?? '', /\*\*Provinces:\*\* 1 of 13 — missing AB BC MB NB NL NS NT NU PE QC SK YT/)
-  assert.match(summary.longSummary ?? '', /\*\*States:\*\* 2 of 51\n/)
-  assert.match(summary.longSummary ?? '', /\*\*20m\*\*: 2 QSOs/)
+  assert.equal(summary.grid, true)
+  const detail = summary.longSummary ?? ''
+  // Every state and province, the worked ones struck.
+  assert.match(detail, /### 2 of 51 US States\n\nAK AL AR AZ CA CO \*\*~~CT~~\*\* DC .* NV \*\*~~NY~~\*\* OH .* WY\n\n/)
+  assert.match(detail, /### 1 of 13 Canadian Provinces\n\nAB BC MB NB NL NS NT NU \*\*~~ON~~\*\* PE QC SK YT\n\n/)
+  // The countries worked, alone.
+  assert.match(detail, /### 1 NA Country\n\n\*\*~~XE~~\*\*\n\n/)
+  assert.match(detail, /### 4 QSOs\n\n\*\*20m\*\*: 2 QSOs\n\*\*40m\*\*: 1 QSO\n\*\*80m\*\*: 1 QSO$/)
+  assert.doesNotMatch(detail, /missing/)
+})
+
+test('the day carries the score too, as a badge for the date header', () => {
+  const { sheet } = run([qso('W1AW', 'CT'), qso('VE3ABC', 'ON', '40m')])
+  const day = SprintScorer.summarizeScore({ scoresheet: sheet, operation: usOperation, ref: usRef, scope: 'day' } as never, ctx) as Record<string, Record<string, unknown>>
+  assert.deepEqual(Object.keys(day), ['ssb-sprint'])
+  assert.equal(day['ssb-sprint'].for, 'day')
+  assert.equal(day['ssb-sprint'].icon, 'run-fast')
+  assert.equal(day['ssb-sprint'].summary, '4')
+  assert.equal(day['ssb-sprint'].label, 'SSB Sprint: 4 points')
+  assert.equal(day['ssb-sprint'].longSummary, undefined)
+  assert.equal(day['ssb-sprint'].grid, undefined)
 })
