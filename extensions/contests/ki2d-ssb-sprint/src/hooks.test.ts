@@ -8,7 +8,18 @@ import assert from "node:assert/strict"
 
 import { fixtureOperation, loadExtension } from "./sdkGapTesting.ts"
 
-const contest = await loadExtension(() => import("./index.ts"), { hostCalls: { getSettings: () => ({ operatorName: 'Sebastian Delmont' }) } })
+/// What reached the FYI line, and where the radio's dial is.
+const fyi: Record<string, unknown>[] = []
+let dialHz = 14250000
+
+const contest = await loadExtension(() => import("./index.ts"), {
+  hostCalls: {
+    getSettings: () => ({ operatorName: 'Sebastian Delmont' }),
+    readRadio: () => ({ status: 'connected', frequencyHz: dialHz }),
+    fyiPost: (params) => fyi.push(params),
+    fyiClear: (params) => fyi.push({ cleared: params.key }),
+  },
+})
 
 type Suggestion = { name: string; label: string; shortLabel: string; relevance: number }
 type Control = { key: string; skipFocus?: boolean; input: Record<string, unknown> & { form?: { elements: { key?: string; value?: unknown }[] } } }
@@ -107,6 +118,43 @@ test("saving stamps the guesses and projects both exchanges", async () => {
     refs: [{ type: 'ssb-sprint', name: 'HAL', location: 'CT' }],
     their: { exchange: '7 HAL CT' },
   })
+})
+
+test("a contact just saved puts the QSY rule on the FYI line; an edit doesn't", async () => {
+  const now = Date.now()
+  const earlier = { uuid: 'q1', startAtMillis: now - 60_000, freq: 14250.2, refs: [{ type: 'ssb-sprint' }] }
+  const save = (qso: Record<string, unknown>, log: Record<string, unknown>[]) =>
+    contest.runHook("activity", "processQsoBeforeSave", { operation: { ...configured, uuid: 'op' }, qso }, { ctx: { getQsos: async () => log as never } })
+  const settled = () => new Promise((resolve) => setImmediate(resolve))
+
+  // Fixing the contact before, already in the log, starts nothing.
+  await save(earlier, [earlier])
+  await settled()
+  assert.equal(fyi.length, 0)
+
+  // A contact logged an hour later is an import or a late entry.
+  await save({ uuid: 'q0', startAtMillis: now - 3_600_000, freq: 14250 }, [earlier])
+  await settled()
+  assert.equal(fyi.length, 0)
+
+  // The second contact on 14.250: the move is owed, and the dial hasn't moved.
+  await save({ uuid: 'q2', startAtMillis: now, freq: 14250, refs: [{ type: 'ssb-sprint', theirSerial: '7' }] }, [earlier])
+  await settled()
+  assert.equal(fyi.length, 1)
+  assert.equal(fyi[0].key, 'qsy')
+  assert.equal(fyi[0].category, 'warning')
+  assert.equal(fyi[0].text, '**QSY:** 1.0 kHz more to call, 5.0 kHz more to CQ')
+
+  // A log that can't be read leaves the watch alone, and never costs the
+  // contact its exchange.
+  dialHz = 14262000
+  const patch = await contest.runHook("activity", "processQsoBeforeSave", {
+    operation: { ...configured, uuid: 'op' },
+    qso: { uuid: 'q3', startAtMillis: now, freq: 14262, their: { call: 'W1AW' }, refs: [{ type: 'ssb-sprint', theirSerial: '8', name: 'HAL', location: 'CT' }] },
+  }, { ctx: { getQsos: async () => { throw new Error('no log') } } })
+  await settled()
+  assert.deepEqual(patch, { refs: [{ type: 'ssb-sprint', name: 'HAL', location: 'CT' }], their: { exchange: '8 HAL CT' } })
+  assert.equal(fyi.length, 1)
 })
 
 test("the ref states the rules for its entry: no spotting assistance but for a check log", async () => {

@@ -35,6 +35,7 @@ import { OPERATOR_CLASSES, POWER_CLASSES, cabrilloCategories, contestRules } fro
 import { TYPE, guessedLocation, guessedName, ourExchange, refOfType, serial, serialOf, str, theirExchange } from "./exchange.ts"
 import { HISTORY_STEM, firstName, loadHistory, parseHistory, removeHistory } from "./history.ts"
 import { LOCATION_PATTERN, VALID_LOCATIONS, normalizeLocation } from "./locations.ts"
+import { QsyWatcher, RECENT_MILLIS, previousContact } from "./qsy.ts"
 import { nextContestDate, relevanceFor } from "./schedule.ts"
 import { CONTEST_TITLE, SprintScorer } from "./scorer.ts"
 
@@ -85,6 +86,46 @@ async function profileDetails(): Promise<{ name: string; email: string }> {
   } catch (e) {
     console.warn(`[${TYPE}] profile settings unavailable, exporting without profile name and email:`, e)
     return { name: '', email: '' }
+  }
+}
+
+const qsyWatcher = new QsyWatcher({
+  readRadio: () => host.readRadio(),
+  post: (params) => host.fyi.post(params),
+  clear: (key) => host.fyi.clear(key),
+  setInterval: (fn, ms) => host.setInterval(fn, ms),
+  clearInterval: (id) => host.clearInterval(id),
+})
+
+/// How long a save waits for the log before the QSY watch gives up on it.
+const LOG_READ_MILLIS = 500
+
+/// Starts watching the QSY rule for a contact being saved — a new one, made
+/// just now. An edit is already in the log, and an import is long past.
+///
+/// The log is read HERE, before the save lands: read afterwards it would hold
+/// this contact too, and every new contact would pass for an edit. That read
+/// holds the save for at most [LOG_READ_MILLIS]; a log that cannot be read in
+/// time, or at all, leaves the watch as it was, since without it an edit and
+/// a new contact look alike. Nothing here can fail the save: the QSY message
+/// is a convenience, the exchange it would cost is the log.
+async function watchQsy(qso: Record<string, JSONValue>, operation: Record<string, JSONValue>, ctx: HookContext): Promise<void> {
+  try {
+    const at = typeof qso.startAtMillis === 'number' ? qso.startAtMillis : undefined
+    if (at === undefined || Math.abs(Date.now() - at) > RECENT_MILLIS || !operation.uuid || !ctx.getQsos) return
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const qsos = await Promise.race([
+      ctx.getQsos(str(operation.uuid)),
+      new Promise<'late'>((resolve) => { timer = setTimeout(() => resolve('late'), LOG_READ_MILLIS) }),
+    ]).finally(() => clearTimeout(timer))
+    if (!Array.isArray(qsos)) {
+      console.warn(`[${TYPE}] log ${qsos === 'late' ? 'too slow' : 'unavailable'}, QSY watch left as it was`)
+      return
+    }
+    if (qso.uuid && qsos.some((other) => other.uuid === qso.uuid)) return
+    qsyWatcher.contact(qso, previousContact(qsos, qso), tFor(ctx)).catch((e) => console.warn(`[${TYPE}] QSY watch failed:`, e))
+  } catch (e) {
+    console.warn(`[${TYPE}] QSY watch not started:`, e)
   }
 }
 
@@ -253,7 +294,7 @@ const ActivityHook = {
   /// on the ref as '' — stays empty rather than being guessed over.
   async processQsoBeforeSave(
     args: { qso: Record<string, JSONValue>; operation: Record<string, JSONValue> },
-    _ctx: HookContext,
+    ctx: HookContext,
   ): Promise<Record<string, JSONValue> | null> {
     if (!refOfType(args.operation, TYPE)) return null
 
@@ -265,6 +306,8 @@ const ActivityHook = {
       name: { read: firstName, guess: () => guessedName(their) },
       location: { read: normalizeLocation, guess: () => guessedLocation(their) },
     }, ({ theirSerial, name, location }) => [theirSerial, name, location].filter((part) => part).join(' '))
+
+    await watchQsy(args.qso, args.operation, ctx)
 
     // Ours only once the core has allocated it: the second and later calls of
     // a call list get theirs after this hook runs, and '' would blank the cell.

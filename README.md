@@ -97,8 +97,12 @@ DXCC checklists, a rate chart and a band map:
   rule, so `src/schedule.ts` lists the runnings and needs the next one added,
   with the manifest's `relevance.dates`, when it is announced. Spotting
   assistance is ruled out for every entry but a check log (rule 3), and
-  self-spotting is left to the operator. The QSY rule is shown at setup but
-  not judged: the log does not say who solicited a contact.
+  self-spotting is left to the operator. The QSY rule is shown at setup and,
+  from extension API 14, kept on the FYI line after every contact: the radio
+  is read once a second and the message says how much further to move. It is
+  never judged in the score, and the message is hedged after a single contact
+  on a frequency, because the log does not say who solicited a contact — two
+  in a row on one frequency are what prove the move is owed.
 
 - **`ki2d-wwsac`** — the [Worldwide Sideband Activity Contest](https://wwsac.com),
   an hour of SSB every Tuesday at 0100 UTC, written for the catalog from the

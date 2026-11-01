@@ -13,8 +13,8 @@
 //
 // Not judged: the QSY rule (11). Whether a contact answered our solicitation
 // or theirs is not in the log, so no frequency pattern proves a violation
-// short of three contacts in a row on one frequency — and HaLo has no words
-// for such an alert yet.
+// short of three contacts in a row on one frequency. It is kept live instead,
+// on the FYI line, as the dial turns (qsy.ts).
 
 import { fmtInteger } from "@ham2k/lib-format-tools"
 import type { ContestScorer, JSONValue, QsoScoreVerdict } from "@ham2k/extension-sdk"
