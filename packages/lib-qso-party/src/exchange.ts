@@ -367,7 +367,8 @@ export function exchangeInheritPrefix(party: Party): number {
 /// under a legacy claim, whose contacts' `qp` refs name no party, and which
 /// such a host can then answer from another party's log. For an earlier
 /// running, [accept] is what holds that back: a code this party offers, in the
-/// station's state.
+/// station's state. The events declare extension API 2, which no such host
+/// loads, so these checks back up the filters rather than replace them.
 ///
 /// [operation] is the one the history was asked of, for a history of that one
 /// operation (`partyContactRefIn`); [accept]

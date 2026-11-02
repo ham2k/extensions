@@ -39,7 +39,7 @@ import { CANADIAN_PROVINCES, US_STATES } from "../packages/lib-qso-party/src/loc
 
 const EXTENSIONS_DIR = resolve(import.meta.dirname, "..", "extensions", "contests")
 
-const VERSION = "0.2.29"
+const VERSION = "0.2.30"
 
 /// The accent an event carries, by the flag of the country whose party it is.
 /// Two colors for the family rather than fifty — what tells two events apart
@@ -314,7 +314,11 @@ function manifestFor(code, key, party) {
     // without touching the engine.
     icon: isCanadian ? "leaf-maple" : "star-box",
     accentColor: isCanadian ? ACCENT_COLORS.ca : ACCENT_COLORS.us,
-    api: 1,
+    // The prefill reads this operation's contacts apart from earlier runnings'
+    // through `getHistoryForCall`'s `operation` / `excludeOperation` filters,
+    // which every host at level 2 applies; below it, last year's county can
+    // pass for one copied minutes ago.
+    api: 2,
     keywords: [...new Set(keywords)],
     // Exactly what `src/index.ts` registers, `ref:` included: the panel and the
     // catalog read this list without loading the bundle.
