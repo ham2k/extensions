@@ -2,7 +2,7 @@
   "key": "ki2d-phone-weekly-test",
   "name": "KI2D’s Phone Weekly Test",
   "shortName": "Phone Weekly Test",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A weekly half hour of SSB, Wednesdays at 0230 UTC (Tuesday evening in North America): name and location, NAQP-style, on 160 through 15m. Formerly the Phone Fray",
   "category": "contest",
   "icon": "account-voice",

@@ -35,7 +35,7 @@ import type { SSMode } from "./schedule.ts"
 import { SSScorer, TYPE, contestTitle } from "./scorer.ts"
 import { ALL_SECTIONS } from "./sections.ts"
 import { normalizeSection, preferredSections } from "./exchange.ts"
-import { HISTORY_STEMS, historyFor, loadHistory, parseHistory, removeHistory } from "./history.ts"
+import { HISTORY_STEMS, loadHistory, parseHistory, removeHistory, suggestedExchange } from "./history.ts"
 import {
   CHECK_PATTERN,
   ENTRY_CLASSES,
@@ -271,13 +271,10 @@ const ActivityHook = {
 
     const t = tFor(ctx)
     const their = (args.qso?.their as Record<string, JSONValue>) ?? {}
-    // The check and section this station sent before, from N1MM's call
-    // history, written in as a guess: the core fills a field with it only while
-    // the field is empty or still holds an earlier guess, so what the operator
-    // copies always stands.
-    const history = historyFor(str(their.call), opRef.mode)
-    const historySection = history?.section ?? ''
-    const historyCheck = history?.check ?? ''
+    // The check and section this station sent before, written in as a guess:
+    // the core fills a field with it only while the field is empty or still
+    // holds an earlier guess, so what the operator copies always stands.
+    const { check: historyCheck, section: historySection } = await suggestedExchange(ctx, args.operation, args.qso, opRef.mode)
     const preferred = preferredSections(their)
     const control = (key: string, label: string, order: number) => ({
       key: `arrl-ss/${key}`,

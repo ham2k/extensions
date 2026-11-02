@@ -189,8 +189,7 @@ const ActivityHook = {
     if (!refOfType(operation, TYPE)) return []
 
     const t = tFor(ctx)
-    const call = str(((qso?.their as Record<string, JSONValue>) ?? {}).call).toUpperCase()
-    const prior = await priorAgeGroup(ctx, call)
+    const prior = await priorAgeGroup(ctx, operation, qso)
 
     return [
       {
@@ -228,7 +227,7 @@ const ActivityHook = {
     // gets the age group the entry field would have suggested.
     const prior = qsoRef !== undefined && 'ageGroup' in qsoRef
       ? ''
-      : await priorAgeGroup(ctx, str(((qso.their as Record<string, JSONValue>) ?? {}).call).toUpperCase())
+      : await priorAgeGroup(ctx, operation, qso)
     const received = stampedExchange(TYPE, qsoRef, {
       // "YOUTH" becomes "Y"; anything unrecognized is kept as typed, for the
       // scorer to flag rather than for this hook to lose.

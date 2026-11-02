@@ -10,7 +10,7 @@
 import { exportTypeDefinition } from "@ham2k/extension-sdk"
 import { qsonToCabrillo } from "@ham2k/lib-qson-cabrillo"
 import { rulesNotes, withRules } from "@ham2k/lib-contest-rules"
-import { stampedExchange } from "@ham2k/lib-contest-exchange"
+import { needsGuess, stampedExchange } from "@ham2k/lib-contest-exchange"
 import { adifForExport, contestScorer, defineExtension, exportFilename, host, startMillisOf } from "@ham2k/extension-sdk"
 import type {
   ActivitySuggestion,
@@ -26,6 +26,7 @@ import type {
   SuggestArgs,
 } from "@ham2k/extension-sdk"
 
+import { TYPE, suggestedExchange } from "./exchange.ts"
 import { tFor } from "./i18n.ts"
 import { MODES, nearestMode, nextContestDate, relevanceFor } from "./schedule.ts"
 import { CQWWScorer, ZONE_PATTERN, contestTitle, cqwwCallInfo, normalizeZone } from "./scorer.ts"
@@ -33,11 +34,6 @@ import { QTH_PATTERN, cabrilloLocation, guessedQth, normalizeQth, sendsQth } fro
 import { BAND_CLASSES, OPERATOR_CLASSES, OVERLAY_CLASSES, POWER_CLASSES, cabrilloCategories, contestRules, declaredClub, declaredOperators, transmitterColumns } from "./entry.ts"
 
 import manifest from "../manifest.json" with { type: "json" }
-
-/// The ref type an operation stores. It is data in the operator's log, so it
-/// stays what the app's own built-in wrote there whatever this package is
-/// called: the manifest key names the package, `TYPE` names the activation.
-const TYPE = 'cqww'
 
 /// What a search has to contain to offer these contests. Matched as "does the
 /// alias contain what was typed", so "cq" finds them and the date ranking
@@ -232,13 +228,8 @@ const ActivityHook = {
     // multiplied by every contest extension the user happens to have enabled.
     if (!refOfType(args.operation, TYPE)) return []
 
-    const their = ((args.qso?.their as Record<string, JSONValue>) ?? {})
-    const guess = (their.guess as Record<string, JSONValue>) ?? {}
-    const call = str(their.call)
-    const suggested =
-      normalizeZone(guess.cqZone) || (call ? normalizeZone(cqwwCallInfo(call).cqZone) : '')
     const rtty = str(refOfType(args.operation, TYPE)?.mode) === 'RTTY'
-    const suggestedQth = rtty ? guessedQth(their) : ''
+    const { zone: suggested, qth: suggestedQth } = await suggestedExchange(ctx, args.operation, args.qso, rtty)
 
     return [
       {
@@ -288,7 +279,7 @@ const ActivityHook = {
   /// Records the zone they sent, and mirrors it where the rest of the app can
   /// see it.
   ///
-  /// When the operator typed nothing, the country file's zone for that call is
+  /// When the operator typed nothing, the guessed zone (`suggestedExchange`) is
   /// written onto the ref as DATA OF RECORD (docs/design/contests.md §8). The
   /// scorer already falls back to the same value, so without this a QSO could
   /// earn a zone multiplier and then export a dash — the log disagreeing with
@@ -300,23 +291,23 @@ const ActivityHook = {
   /// column and a plain (non-contest) ADIF export both come up empty.
   async processQsoBeforeSave(
     args: { qso: Record<string, JSONValue>; operation: Record<string, JSONValue> },
-    _ctx: HookContext,
+    ctx: HookContext,
   ): Promise<Record<string, JSONValue> | null> {
     if (!refOfType(args.operation, TYPE)) return null
 
-    const their = ((args.qso.their as Record<string, JSONValue>) ?? {})
-    const guess = (their.guess as Record<string, JSONValue>) ?? {}
-    const call = str(their.call)
+    const call = str(((args.qso.their as Record<string, JSONValue>) ?? {}).call)
     // RTTY's QTH, and only from a W/VE station. Anywhere else the part reads as
     // nothing, typed or not.
-    const sendsAQth = str(refOfType(args.operation, TYPE)?.mode) === 'RTTY' && call !== '' && sendsQth(call)
+    const rtty = str(refOfType(args.operation, TYPE)?.mode) === 'RTTY'
+    const sendsAQth = rtty && call !== '' && sendsQth(call)
+    const qsoRef = refOfType(args.qso, TYPE)
+    const guess = needsGuess(qsoRef, sendsAQth ? ['theirZone', 'theirQth'] : ['theirZone'])
+      ? await suggestedExchange(ctx, args.operation, args.qso, rtty)
+      : { zone: '', qth: '' }
 
-    return stampedExchange(TYPE, refOfType(args.qso, TYPE), {
-      theirZone: {
-        read: normalizeZone,
-        guess: () => normalizeZone(guess.cqZone) || (call ? normalizeZone(cqwwCallInfo(call).cqZone) : ''),
-      },
-      theirQth: sendsAQth ? { read: normalizeQth, guess: () => guessedQth(their) } : { read: () => '' },
+    return stampedExchange(TYPE, qsoRef, {
+      theirZone: { read: normalizeZone, guess: () => guess.zone },
+      theirQth: sendsAQth ? { read: normalizeQth, guess: () => guess.qth } : { read: () => '' },
     }, ({ theirZone, theirQth }) => exchangeOf(theirZone, theirQth))
   },
 }

@@ -178,7 +178,7 @@ const ActivityHook = {
 
     const t = tFor(ctx)
     const their = (qso?.their as Record<string, JSONValue>) ?? {}
-    const { name, location } = await suggestedExchange(ctx, operation, their)
+    const { name, location } = await suggestedExchange(ctx, operation, their, qso)
 
     return [
       {
@@ -231,7 +231,7 @@ const ActivityHook = {
     const decided = (key: string) => qsoRef !== undefined && key in qsoRef
     const guess = decided('name') && decided('location')
       ? { name: '', location: '' }
-      : await suggestedExchange(ctx, operation, (qso.their as Record<string, JSONValue>) ?? {})
+      : await suggestedExchange(ctx, operation, (qso.their as Record<string, JSONValue>) ?? {}, qso)
     const received = stampedExchange(TYPE, qsoRef, {
       name: { read: firstName, guess: () => guess.name },
       location: { read: normalizeLocation, guess: () => guess.location },

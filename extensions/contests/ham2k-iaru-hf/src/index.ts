@@ -15,8 +15,8 @@
 import { exportTypeDefinition } from "@ham2k/extension-sdk"
 import { qsonToCabrillo } from "@ham2k/lib-qson-cabrillo"
 import { rulesNotes, withRules } from "@ham2k/lib-contest-rules"
-import { stampedExchange } from "@ham2k/lib-contest-exchange"
-import { adifForExport, annotateCallAgainstCountryFile, contestScorer, defineExtension, exportFilename, host, startMillisOf } from "@ham2k/extension-sdk"
+import { needsGuess, stampedExchange } from "@ham2k/lib-contest-exchange"
+import { adifForExport, contestScorer, defineExtension, exportFilename, host, startMillisOf } from "@ham2k/extension-sdk"
 import type {
   ActivitySuggestion,
   ExportOption,
@@ -31,18 +31,14 @@ import type {
   SuggestArgs,
 } from "@ham2k/extension-sdk"
 
+import { TYPE, suggestedExchange } from "./exchange.ts"
 import { tFor } from "./i18n.ts"
 import { cabrilloLocation, normalizeSection } from "./location.ts"
 import { nextContestDate, relevanceFor } from "./schedule.ts"
-import { EXCHANGE_PATTERN, IARUHFScorer, contestTitle, normalizeZone, ourExchange } from "./scorer.ts"
+import { EXCHANGE_PATTERN, IARUHFScorer, contestTitle, ourExchange } from "./scorer.ts"
 import { OPERATOR_CLASSES, OVERLAY_CLASSES, POWER_CLASSES, cabrilloCategories, contestRules, declaredClub, declaredOperators, transmitterColumns } from "./entry.ts"
 
 import manifest from "../manifest.json" with { type: "json" }
-
-/// The ref type an operation stores. It is data in the operator's log, so it
-/// stays what the app's own built-in wrote there whatever this package is
-/// called: the manifest key names the package, `TYPE` names the activation.
-const TYPE = 'iaru-hf'
 
 /// What a search has to contain to offer this contest. Matched as "does the
 /// alias contain what was typed", so "iaru" or "championship" finds it.
@@ -54,18 +50,6 @@ function refOfType(container: Record<string, JSONValue>, type: string): Record<s
 
 function str(value: JSONValue | undefined): string {
   return typeof value === 'string' ? value : ''
-}
-
-/// The ITU zone the country file resolves for a callsign, as a string. Used
-/// both to prefill the exchange field and to stamp it at save.
-function guessedZoneFor(their: Record<string, JSONValue>): string {
-  const guess = (their.guess as Record<string, JSONValue>) ?? {}
-  const call = str(their.call)
-  return (
-    normalizeZone(their.ituZone) ||
-    normalizeZone(guess.ituZone) ||
-    (call ? normalizeZone(annotateCallAgainstCountryFile(call).ituZone) : '')
-  )
 }
 
 /// Our section from the operator's profile, for the setup form's `value`.
@@ -283,8 +267,7 @@ const ActivityHook = {
     // running; what this saves is a country-file annotation per refresh.
     if (!refOfType(args.operation, TYPE)) return []
 
-    const their = ((args.qso?.their as Record<string, JSONValue>) ?? {})
-    const suggested = guessedZoneFor(their)
+    const suggested = await suggestedExchange(ctx, args.operation, args.qso)
 
     return [
       {
@@ -314,7 +297,7 @@ const ActivityHook = {
   /// Records what was actually received, and mirrors it where the rest of the
   /// app can see it.
   ///
-  /// When the operator typed nothing, the country file's ITU zone for that call
+  /// When the operator typed nothing, the guessed exchange (`suggestedExchange`)
   /// is written onto the ref as DATA OF RECORD — not left to be re-derived
   /// later (docs/design/contests.md §8). The scorer falls back to the same
   /// value, so leaving the ref empty is how a log ends up scoring a zone and
@@ -325,16 +308,16 @@ const ActivityHook = {
   /// column and a plain (non-contest) ADIF export both come up empty.
   async processQsoBeforeSave(
     args: { qso: Record<string, JSONValue>; operation: Record<string, JSONValue> },
-    _ctx: HookContext,
+    ctx: HookContext,
   ): Promise<Record<string, JSONValue> | null> {
     if (!refOfType(args.operation, TYPE)) return null
 
-    // Only a ZONE can be guessed — nothing can infer a society or an office, so
-    // those are always the operator's own typing.
-    return stampedExchange(TYPE, refOfType(args.qso, TYPE), {
+    const qsoRef = refOfType(args.qso, TYPE)
+    const guess = needsGuess(qsoRef, ['theirExchange']) ? await suggestedExchange(ctx, args.operation, args.qso) : ''
+    return stampedExchange(TYPE, qsoRef, {
       theirExchange: {
         read: (value) => str(value).trim().toUpperCase(),
-        guess: () => guessedZoneFor((args.qso.their as Record<string, JSONValue>) ?? {}),
+        guess: () => guess,
       },
     }, ({ theirExchange }) => theirExchange)
   },

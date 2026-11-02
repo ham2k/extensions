@@ -20,7 +20,7 @@
 import { exportTypeDefinition } from "@ham2k/extension-sdk"
 import { qsonToCabrillo } from "@ham2k/lib-qson-cabrillo"
 import { NO_RESTRICTIONS, rulesNote } from "@ham2k/lib-contest-rules"
-import { stampedExchange } from "@ham2k/lib-contest-exchange"
+import { needsGuess, stampedExchange } from "@ham2k/lib-contest-exchange"
 import { adifForExport, contestScorer, defineExtension, exportFilename, startMillisOf } from "@ham2k/extension-sdk"
 import type {
   ActivitySuggestion,
@@ -42,7 +42,7 @@ import { tFor } from "./i18n.ts"
 import {
   NUMBER_PATTERN,
   firstName,
-  guessedName,
+  suggestedName,
   guessedQth,
   normalizeNumber,
   ourExchange,
@@ -224,7 +224,7 @@ const ActivityHook = {
 
     const t = tFor(ctx)
     const their = ((qso?.their as Record<string, JSONValue>) ?? {})
-    const name = guessedName(their)
+    const name = await suggestedName(ctx, operation, qso)
     const qth = guessedQth(their)
 
     return [
@@ -270,13 +270,14 @@ const ActivityHook = {
   /// see it (docs/design/contests.md §8).
   async processQsoBeforeSave(
     { qso, operation }: { qso: Record<string, JSONValue>; operation: Record<string, JSONValue> },
-    _ctx: HookContext,
+    ctx: HookContext,
   ): Promise<Record<string, JSONValue> | null> {
     if (!refOfType(operation, TYPE)) return null
-    const their = ((qso.their as Record<string, JSONValue>) ?? {})
+    const qsoRef = refOfType(qso, TYPE)
+    const name = needsGuess(qsoRef, ['name']) ? await suggestedName(ctx, operation, qso) : ''
     // The number is never guessed — only what the operator typed is recorded.
-    return stampedExchange(TYPE, refOfType(qso, TYPE), {
-      name: { read: firstName, guess: () => guessedName(their) },
+    return stampedExchange(TYPE, qsoRef, {
+      name: { read: firstName, guess: () => name },
       number: { read: normalizeNumber },
     }, ({ name, number }) => [name, number].filter((x) => x).join(' '))
   },

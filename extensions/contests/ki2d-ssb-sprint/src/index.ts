@@ -8,12 +8,13 @@
 // Four hours, three bands, and an exchange of both calls, a serial, a name
 // and a location: "KA9FOX 122 BILL FL K4XS". Ours comes from the setup — the
 // serial counts itself — and theirs is three fields per QSO, the name and
-// location guessed from N1MM's Sprint call history and the callsign lookup.
+// location guessed from the log, N1MM's Sprint call history and the callsign
+// lookup, in the order `suggestedExchange` gives.
 
 import { exportTypeDefinition } from "@ham2k/extension-sdk"
 import { qsonToCabrillo } from "@ham2k/lib-qson-cabrillo"
 import { rulesNotes, withRules } from "@ham2k/lib-contest-rules"
-import { stampedExchange } from "@ham2k/lib-contest-exchange"
+import { needsGuess, stampedExchange } from "@ham2k/lib-contest-exchange"
 import { adifForExport, contestScorer, defineExtension, exportFilename, host, startMillisOf } from "@ham2k/extension-sdk"
 import type {
   ActivitySuggestion,
@@ -32,7 +33,7 @@ import type {
 
 import { tFor } from "./i18n.ts"
 import { OPERATOR_CLASSES, POWER_CLASSES, cabrilloCategories, contestRules } from "./entry.ts"
-import { TYPE, guessedLocation, guessedName, ourExchange, refOfType, serial, serialOf, str, theirExchange } from "./exchange.ts"
+import { type Exchange, TYPE, ourExchange, refOfType, serial, serialOf, str, suggestedExchange, theirExchange } from "./exchange.ts"
 import { HISTORY_STEM, firstName, loadHistory, parseHistory, removeHistory } from "./history.ts"
 import { LOCATION_PATTERN, VALID_LOCATIONS, normalizeLocation } from "./locations.ts"
 import { type QsyHost, type QsySet, QsyWatcher, RECENT_MILLIS, previousContact, setOf } from "./qsy.ts"
@@ -264,9 +265,7 @@ const ActivityHook = {
     if (!refOfType(args.operation, TYPE)) return []
 
     const t = tFor(ctx)
-    const their = (args.qso?.their as Record<string, JSONValue>) ?? {}
-    const name = guessedName(their)
-    const location = guessedLocation(their)
+    const { name, location } = await suggestedExchange(ctx, args.operation, args.qso)
     const control = (key: string, label: string, order: number) => ({
       key: `${TYPE}/${key}`,
       label: t(label),
@@ -326,13 +325,15 @@ const ActivityHook = {
   ): Promise<Record<string, JSONValue> | null> {
     if (!refOfType(args.operation, TYPE)) return null
 
-    const their = (args.qso.their as Record<string, JSONValue>) ?? {}
     const qsoRef = refOfType(args.qso, TYPE)
+    const guess: Exchange = needsGuess(qsoRef, ['name', 'location'])
+      ? await suggestedExchange(ctx, args.operation, args.qso)
+      : { name: '', location: '' }
     const received = stampedExchange(TYPE, qsoRef, {
       // Read into the exchange as typed, and left on the ref as typed.
       theirSerial: { read: serialOf, stamp: false },
-      name: { read: firstName, guess: () => guessedName(their) },
-      location: { read: normalizeLocation, guess: () => guessedLocation(their) },
+      name: { read: firstName, guess: () => guess.name },
+      location: { read: normalizeLocation, guess: () => guess.location },
     }, ({ theirSerial, name, location }) => [theirSerial, name, location].filter((part) => part).join(' '))
 
     await watchQsy(args.qso, args.operation, ctx)

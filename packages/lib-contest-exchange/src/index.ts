@@ -27,6 +27,8 @@
 
 import type { JSONValue } from "@ham2k/extension-sdk"
 
+export { type PriorSent, needsGuess, priorSent } from "./prior.ts"
+
 /// One part of a received exchange, as the contest's own ref stores it.
 export interface ExchangeField {
   /// What a value the operator decided — typed, or emptied — reads as in the

@@ -44,6 +44,13 @@ function sectionForState(state: string): string {
   return SECTION_FOR_STATE[code] ?? (code in ALL_SECTIONS ? code : '')
 }
 
+/// The section the lookup's state is on its own, or '' where the state is
+/// split between several, or the lookup found none.
+export function lookupSection(their: Record<string, JSONValue>): string {
+  const guess = (their.guess as Record<string, JSONValue>) ?? {}
+  return sectionForState(str(their.state) || str(guess.state))
+}
+
 /// Precomputed: rebuilding these per keystroke costs allocations to answer a
 /// question that only depends on one digit.
 const PREFIX_ENTRIES = Object.entries(PREFIX_TO_LOCATION)
@@ -66,7 +73,7 @@ const SECTIONS_BY_CALL_AREA: Record<number, string[]> = (() => {
 export function preferredSections(their: Record<string, JSONValue>): string[] {
   const guess = (their.guess as Record<string, JSONValue>) ?? {}
   const call = str(their.call).toUpperCase()
-  const fromState = sectionForState(str(their.state) || str(guess.state))
+  const fromState = lookupSection(their)
   if (fromState) return [fromState]
   if (!call) return []
 

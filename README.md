@@ -104,8 +104,10 @@ DXCC checklists, a rate chart and a band map:
   [Cabrillo page](https://ssbsprint.com/submit-log-cabrillo/). A `ki2d-` key,
   so it side-loads from its `.h2kext`. Its ref type, `ssb-sprint`, is new and
   permanent in the same way as HOTA's. The exchange is a serial, a name and a
-  location; the name and location are suggested from N1MM's `SPRINTSSB` call
-  history, then the callsign lookup. Multipliers count once per contest, not
+  location; the name and location are suggested from what the station sent
+  earlier in the operation, then N1MM's `SPRINTSSB` call history, then what it
+  sent in an earlier Sprint, NAQP or Phone Weekly Test, and the callsign
+  lookup — the lookup ahead of an earlier contest for the location. Multipliers count once per contest, not
   per band, and "North America" is CQ WW's plus KH6, so the multiplier list is
   the sponsor's own (`HI3` for the Dominican Republic, `FO/C` for Clipperton)
   rather than NAQP's. The sponsor publishes each season's date rather than a
@@ -360,6 +362,11 @@ saying publishes to `stable`.
     own; the package holds the bookkeeping they all share and that is easy to
     get wrong — a present key, blank or not, is a decision; a guess that comes
     up empty is never stamped as a blank, which would read back as one.
+    `priorSent` reads what a station sent before, in this operation and in
+    earlier ones, for the order every contest's prefill follows: this
+    operation, then the contest's call history file, then earlier runnings,
+    then the lookup and the country file — the lookup ahead of earlier
+    runnings for a part that says where the station is.
   - `@ham2k/lib-naqp-exchange` — NAQP's exchange, a name and a location: the
     states, provinces and North American entities it accepts, which of them
     are multipliers, and the guesses from the callsign lookup and the country
