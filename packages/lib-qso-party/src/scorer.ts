@@ -287,10 +287,13 @@ export function qsoPartyScorer(params: QsoPartyParams): ContestScorer<QsoPartySc
       })
       const theyAreInParty = standing.theyAreInParty
 
+      // Nothing to place them by holds the contact back on the location field
+      // while the station is still there to ask; a location the party does not
+      // know is logged, worth nothing, and said so.
       if (theirs.length === 0) {
         return {
           scoresheet: sheet,
-          score: { value: 0, alerts: [typed ? 'invalidExchange' : 'missingExchange'] },
+          score: typed ? { value: 0, alerts: ['invalidExchange'] } : { value: 0, incomplete: [`${party.refType}/location`] },
         }
       }
 

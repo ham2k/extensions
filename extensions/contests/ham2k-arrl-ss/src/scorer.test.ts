@@ -95,7 +95,10 @@ test("an exchange with a part missing or not one Sweepstakes sends is flagged wh
     withExchange('K3ABC', 3, { theirCheck: '7' }),
     withExchange('K4ABC', 4, { theirSerial: '1A' }),
   ])
-  assert.deepEqual(scores.map((s) => s.alerts), [['missingExchange'], ['missingExchange'], ['invalidExchange'], ['invalidExchange'], ['invalidExchange']])
+  // A part not copied is held back by its field, where Enter sends the
+  // operator; one copied wrong is logged, with the pill.
+  assert.deepEqual(scores.map((s) => s.incomplete), [['arrl-ss/theirCheck'], ['arrl-ss/theirSection'], undefined, undefined, undefined])
+  assert.deepEqual(scores.map((s) => s.alerts), [undefined, undefined, ['invalidExchange'], ['invalidExchange'], ['invalidExchange']])
   // Still scored: the log checker, not the logger, decides what a bad copy costs.
   assert.deepEqual(scores.map((s) => s.value), [2, 2, 2, 2, 2])
 })

@@ -85,7 +85,7 @@ export const R1VHFScorer: ContestScorer<R1VHFScoresheet> = {
       return { scoresheet: base, score: { value: 0, alerts: ['ourGrid'] } }
     }
     if (!theirGrid) {
-      return { scoresheet: base, score: { value: 0, alerts: ['missingExchange'] } }
+      return { scoresheet: base, score: { value: 0, incomplete: ['r1-vhf-tests/grid'] } }
     }
 
     const key = `${call}|${band}|${ourGrid}`

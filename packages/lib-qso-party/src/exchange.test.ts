@@ -174,7 +174,7 @@ test('an exchange nobody typed falls back to what we know of where they are', ()
   assert.equal(rows[0][5].trim(), 'NJ')
 
   // Nothing known: still nothing claimed. A contact we cannot place is one the
-  // scorer refuses (`missingExchange`), and a file may not claim what the
+  // scorer holds back (`incomplete`), and a file may not claim what the
   // scoreboard declined.
   assert.equal(defaultTheirLocation(ny, qso()), '')
   assert.deepEqual(cabrilloRowsFor(ny, qso(), operation('ALB'), 'N0DEV'), [])

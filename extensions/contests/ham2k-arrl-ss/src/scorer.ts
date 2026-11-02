@@ -139,12 +139,19 @@ export const SSScorer: ContestScorer<SSScoresheet> = {
       sheet.sections[section] = (sheet.sections[section] ?? 0) + 1
       score.section = section
     }
-    // The contact still scores, but an exchange that is incomplete or not one
-    // Sweepstakes sends is a section going unclaimed, or a contact the log
+    // A part not yet copied holds the contact back, named by its field, while
+    // the station is still there to ask. One that is not what Sweepstakes sends
+    // still scores, but is a section going unclaimed or a contact the log
     // checker will remove — and a typo the operator can still fix, if told.
-    const parts = [contestRef?.theirSerial, contestRef?.theirPrecedence, contestRef?.theirCheck, contestRef?.theirSection]
-    if (parts.some((part) => String(part ?? '').trim() === '')) {
-      score.alerts = ['missingExchange']
+    const parts = {
+      theirSerial: contestRef?.theirSerial,
+      theirPrecedence: contestRef?.theirPrecedence,
+      theirCheck: contestRef?.theirCheck,
+      theirSection: contestRef?.theirSection,
+    }
+    const missing = Object.entries(parts).filter(([, part]) => String(part ?? '').trim() === '')
+    if (missing.length > 0) {
+      score.incomplete = missing.map(([key]) => `${TYPE}/${key}`)
     } else if (!/^\d+$/.test(String(contestRef?.theirSerial).trim()) || !normalizePrecedence(contestRef?.theirPrecedence) || !normalizeCheck(contestRef?.theirCheck) || !section) {
       score.alerts = ['invalidExchange']
     }

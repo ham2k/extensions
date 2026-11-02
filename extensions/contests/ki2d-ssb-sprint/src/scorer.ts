@@ -101,12 +101,14 @@ export const SprintScorer: ContestScorer<SprintScoresheet> = {
     if (heardBefore) notices.push('newBand')
     if (notices.length > 0) score.notices = notices
 
-    // The contact still counts, but an exchange that is incomplete, or a
-    // location the Sprint doesn't know, is a contact the log checker will
-    // remove (16) or a multiplier going unclaimed — and a typo the operator
-    // can still fix, if told.
-    const parts = [qsoRef?.theirSerial, qsoRef?.name, qsoRef?.location]
-    if (parts.some((part) => String(part ?? '').trim() === '')) score.alerts = ['missingExchange']
+    // A part not yet copied holds the contact back, named by its field, while
+    // the station is still there to ask. One the Sprint doesn't know still
+    // counts, but is a contact the log checker will remove (16) or a
+    // multiplier going unclaimed — and a typo the operator can still fix, if
+    // told.
+    const parts = { theirSerial: qsoRef?.theirSerial, name: qsoRef?.name, location: qsoRef?.location }
+    const missing = Object.entries(parts).filter(([, part]) => String(part ?? '').trim() === '')
+    if (missing.length > 0) score.incomplete = missing.map(([key]) => `${TYPE}/${key}`)
     else if (!/^\d+$/.test(String(qsoRef?.theirSerial).trim()) || !firstName(qsoRef?.name) || !isValidLocation(location)) score.alerts = ['invalidExchange']
 
     return { scoresheet: sheet, score }

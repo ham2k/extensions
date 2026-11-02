@@ -26,8 +26,8 @@
 // is not a dupe — a rover changing squares creates a new, separately-scored
 // contact even against a station already worked. Only a repeat of the exact
 // (call, band, our grid, their grid) tuple is a dupe. A QSO with no their-grid
-// exchange never reaches the dupe check at all — it exits earlier as
-// `missingExchange` and is never recorded into `worked`. A grid that is
+// exchange never reaches the dupe check at all — it exits earlier, held back
+// as `incomplete` on the grid field, and is never recorded into `worked`. A grid that is
 // present but shorter than the event's exchange (`shortGrid`) still scores
 // its distance: the sponsor's log checker may accept it, and refusing the
 // points outright would hide a real contact behind a typing slip.
@@ -130,7 +130,7 @@ export const ARRLVHFScorer: ContestScorer<ARRLVHFScoresheet> = {
       return { scoresheet: base, score: { value: 0, alerts: ['ourGrid'] } }
     }
     if (!theirGrid) {
-      return { scoresheet: base, score: { value: 0, alerts: ['missingExchange'] } }
+      return { scoresheet: base, score: { value: 0, incomplete: ['arrl-vhf-tests/grid'] } }
     }
 
     const key = `${call}|${band}|${ourGrid}`

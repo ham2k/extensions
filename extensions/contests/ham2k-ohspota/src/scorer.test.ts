@@ -124,14 +124,17 @@ test("in no park, only a station in one may be worked", () => {
   const { scores, summary } = run([qso({ call: 'W8AAA', park: 'ADA' }), qso({ call: 'W8BBB', park: 'NOT' }), qso({ call: 'W8CCC' })], operationFor())
   assert.deepEqual(scores.map((s) => s.value), [1, 0, 0])
   assert.deepEqual(scores[1].alerts, ['invalidExchange'])
-  assert.deepEqual(scores[2].alerts, ['missingExchange'])
+  assert.deepEqual(scores[2].incomplete, ['ohspota/park'], 'their park is the whole contact, so it is asked for')
   assert.equal(summary().total, 1)
 })
 
-test("in a park everyone counts, and a missing or unknown park says so", () => {
+// From a park, a station in none has no park to send. Asking for one would
+// hold back every such contact at Enter, though each is worth its point.
+test("in a park everyone counts: a station in no park is a contact, and an unknown park says so", () => {
   const { scores } = run([qso({ call: 'W8AAA' }), qso({ call: 'KD4BF', park: 'GA' })])
   assert.deepEqual(scores.map((s) => s.value), [1, 1])
-  assert.deepEqual(scores[0].alerts, ['missingExchange'])
+  assert.equal(scores[0].alerts, undefined)
+  assert.equal(scores[0].incomplete, undefined)
   assert.deepEqual(scores[1].alerts, ['invalidExchange'])
 })
 

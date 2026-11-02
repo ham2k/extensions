@@ -83,7 +83,7 @@ test('a QSO with no recorded exchange grid scores zero, not a guess', () => {
   const ref = { type: 'arrl-vhf-tests', ref: 'ARRL-VHF-JAN' }
   const { scores } = run([qso('K1ABC', '6m')], operation, ref)
   assert.equal(scores[0].value, 0)
-  assert.deepEqual(scores[0].alerts, ['missingExchange'])
+  assert.deepEqual(scores[0].incomplete, ['arrl-vhf-tests/grid'])
 })
 
 test('no operation grid at all scores zero with an ourGrid alert', () => {

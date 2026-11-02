@@ -176,7 +176,7 @@ test('a QSO with no exchange still occupies its dupe slot', () => {
   const { scores, sheet } = run([noExchange, { ...noExchange, refs: [{ type: 'iaru-hf', theirExchange: '28' }] }])
 
   assert.equal(scores[0].value, 0, 'nothing to score it against')
-  assert.deepEqual(scores[0].alerts, ['missingExchange'])
+  assert.deepEqual(scores[0].incomplete, ['iaru-hf/exchange'])
   assert.equal(Object.keys(sheet.mults).length, 0, 'and no multiplier')
 
   assert.equal(scores[1].value, 0)
@@ -189,7 +189,7 @@ test('an exchange the operator deliberately emptied earns no multiplier', () => 
     { their: { call: 'DL1ABC' }, band: '20m', mode: 'CW', refs: [{ type: 'iaru-hf', theirExchange: '' }] },
   ])
   assert.equal(scores[0].value, 0)
-  assert.deepEqual(scores[0].alerts, ['missingExchange'])
+  assert.deepEqual(scores[0].incomplete, ['iaru-hf/exchange'], 'a blank is no zone to fall back on, so the field is asked for')
   assert.equal(Object.keys(sheet.mults).length, 0)
 
   // …while a field nobody touched still gets the country file's zone.

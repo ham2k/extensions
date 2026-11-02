@@ -187,7 +187,9 @@ test('a log kept under the old combined extension scores the exchange its contac
 })
 
 test('an exchange that was never sent, and one that means nothing', () => {
-  assert.deepEqual(run([qso({ location: '' })]).scores[0].alerts, ['missingExchange'])
+  // Never sent: held back on the location field while the station can still
+  // be asked. Sent but meaningless: logged, and said so.
+  assert.deepEqual(run([qso({ location: '' })]).scores[0].incomplete, [`${NY.refType}/location`])
   assert.deepEqual(run([qso({ location: 'ZZZ', entityPrefix: '' })]).scores[0].alerts, ['invalidExchange'])
 })
 
@@ -747,7 +749,7 @@ test('a party may say which state a county belongs to', () => {
 test('a DX station is resolved from the callsign when nothing else knows', () => {
   // An imported or synced QSO carries no lookup at all, so without the country
   // file the entity is unknown: the exchange resolves to nothing, the contact
-  // scores `missingExchange`, and the DX multiplier the party publishes is never
+  // is held back as `incomplete`, and the DX multiplier the party publishes is never
   // claimed.
   registerEntityLookup((call) => (call?.toUpperCase().startsWith('DL') ? 'DL' : undefined))
   try {

@@ -41,7 +41,7 @@ import { fmtInteger } from "@ham2k/lib-format-tools"
 import { contestArithmetic, contestSummary } from "@ham2k/extension-sdk"
 import type { ContestScorer, JSONValue, QsoScoreVerdict } from "@ham2k/extension-sdk"
 
-import { BANDS, MIN_CONTACTS, MIN_OTHER_PARKS, PARKS, slotMode } from "./event.ts"
+import { BANDS, MIN_CONTACTS, MIN_OTHER_PARKS, PARKS, TYPE, slotMode } from "./event.ts"
 import { isOurRef, ourPark, theirExchange, theirPark } from "./parks.ts"
 
 import manifest from "../manifest.json" with { type: "json" }
@@ -111,13 +111,17 @@ export const OhspotaScorer: ContestScorer<OhspotaScoresheet> = {
 
     const our = ourPark(operation, ref)
     const their = theirPark(qso)
-    // The exchange IS a park identifier here, so one that is missing or is not
-    // one of the 76 is a park going unclaimed: a multiplier, and a typo the
-    // operator can still fix while the QSO is in front of them.
-    const exchangeAlert = their ? undefined : (theirExchange(qso) ? 'invalidExchange' : 'missingExchange')
+    // The exchange IS a park identifier here, so one that is not one of the 76
+    // is a park going unclaimed: a multiplier, and a typo the operator can
+    // still fix while the QSO is in front of them. One not sent at all is a
+    // station in no park — which, from a park of our own, is a contact.
+    const exchangeAlert = !their && theirExchange(qso) ? 'invalidExchange' : undefined
 
-    // In no park ourselves, only a station in one may be worked at all.
-    if (!our && !their) return { scoresheet: sheet, score: { value: 0, alerts: [exchangeAlert as string] } }
+    // In no park ourselves, only a station in one may be worked at all: their
+    // park is the contact, held back until it is copied.
+    if (!our && !their) {
+      return { scoresheet: sheet, score: exchangeAlert ? { value: 0, alerts: [exchangeAlert] } : { value: 0, incomplete: [`${TYPE}/park`] } }
+    }
 
     const bySlot = (sheet.worked[call] ??= {})
     const slot = `${our}|${band}|${mode}`

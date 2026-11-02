@@ -106,7 +106,7 @@ test('a station may be worked once per band', () => {
 test('a location the operator never sent costs the multiplier, not the QSO', () => {
   const { scores, sheet } = run([qso('W1AW', '20m')])
   assert.equal(scores[0].value, 1)
-  assert.ok(scores[0].alerts?.includes('missingExchange'))
+  assert.deepEqual(scores[0].incomplete, ['naqp/location'])
   assert.equal(Object.keys(sheet.mults).length, 0)
 })
 

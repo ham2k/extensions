@@ -235,9 +235,9 @@ export const IARUHFScorer: ContestScorer<IARUHFScoresheet> = {
     if (newMode) notices.push('newMode')
     if (notices.length > 0) score.notices = notices
     if (exchange.kind === 'zone') score.zone = exchange.value
-    // Counted, but earning nothing until an exchange is entered — say so, or
-    // the operator has no way to know a multiplier is going unclaimed.
-    if (exchange.kind === 'none') score.alerts = ['missingExchange']
+    // Earning nothing until an exchange is entered, so held back on the
+    // exchange field while the station is still there to ask.
+    if (exchange.kind === 'none') score.incomplete = ['iaru-hf/exchange']
 
     return { scoresheet: base, score }
   },

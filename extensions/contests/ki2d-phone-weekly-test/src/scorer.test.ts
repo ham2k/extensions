@@ -80,9 +80,9 @@ test('a missing or unknown location, or a missing name, still counts, and says s
   const noName = { refs: [{ type: 'pwt', location: 'CT' }] }
   const { scores, summary } = run([qso('W1AW', undefined), qso('W2AW', 'XX'), qso('W3AW', 'CT', '20m', noName)])
   assert.deepEqual(scores.map((s) => s.value), [1, 1, 1])
-  assert.deepEqual(scores[0].alerts, ['missingExchange'])
+  assert.deepEqual(scores[0].incomplete, ['pwt/location'])
   assert.deepEqual(scores[1].alerts, ['invalidExchange'])
-  assert.deepEqual(scores[2].alerts, ['missingExchange'])
+  assert.deepEqual(scores[2].incomplete, ['pwt/name'], 'only what is missing is asked for')
   assert.equal(summary.total, 3)
 })
 

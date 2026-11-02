@@ -153,7 +153,7 @@ export const NAQPScorer: ContestScorer<NAQPScoresheet> = {
     // NA entity is a multiplier, so an exchange this contest doesn't recognize
     // is a multiplier going unclaimed — and a typo the operator can still fix,
     // if they're told. polo tinted the field red for the same reason.
-    if (!location) score.alerts = ['missingExchange']
+    if (!location) score.incomplete = ['naqp/location']
     else if (!isMultiplier(location) && location !== 'DX') score.alerts = ['invalidExchange']
 
     return { scoresheet: base, score }

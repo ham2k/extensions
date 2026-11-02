@@ -96,7 +96,8 @@ test('an incomplete or unknown exchange still counts, and says so', () => {
   const missing = qso('W1AW', 'CT')
   ;(missing.refs as Record<string, JSONValue>[])[0].theirSerial = ''
   const { scores, sheet } = run([missing, qso('K1ABC', 'ZZ'), qso('K2ABC', 'kl7')])
-  assert.deepEqual(scores.map((s) => s.alerts?.[0]), ['missingExchange', 'invalidExchange', undefined])
+  assert.deepEqual(scores.map((s) => s.incomplete), [['ssb-sprint/theirSerial'], undefined, undefined])
+  assert.deepEqual(scores.map((s) => s.alerts?.[0]), [undefined, 'invalidExchange', undefined])
   assert.deepEqual(scores.map((s) => s.value), [1, 1, 1])
   // "AK/KL7": the alias is the state.
   assert.ok(sheet.mults.AK)

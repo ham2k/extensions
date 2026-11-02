@@ -96,8 +96,10 @@ export const WwsacScorer: ContestScorer<WwsacScoresheet> = {
     if (heardBefore) notices.push('newBand')
     if (notices.length > 0) score.notices = notices
     if (prefix) score.prefix = prefix
-    // Still a contact, but one the operator can fix while it is fresh.
-    if (!typed) score.alerts = ['missingExchange']
+    // An age group not yet copied holds the contact back while the station is
+    // still there to ask; one that is not an age group still scores, as a
+    // contact the operator can fix while it is fresh.
+    if (!typed) score.incomplete = [`${TYPE}/ageGroup`]
     else if (!ageGroup) score.alerts = ['invalidExchange']
 
     return { scoresheet: sheet, score }

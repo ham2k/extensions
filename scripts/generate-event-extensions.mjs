@@ -39,7 +39,7 @@ import { CANADIAN_PROVINCES, US_STATES } from "../packages/lib-qso-party/src/loc
 
 const EXTENSIONS_DIR = resolve(import.meta.dirname, "..", "extensions", "contests")
 
-const VERSION = "0.2.30"
+const VERSION = "0.3.0"
 
 /// The accent an event carries, by the flag of the country whose party it is.
 /// Two colors for the family rather than fifty — what tells two events apart
@@ -314,11 +314,11 @@ function manifestFor(code, key, party) {
     // without touching the engine.
     icon: isCanadian ? "leaf-maple" : "star-box",
     accentColor: isCanadian ? ACCENT_COLORS.ca : ACCENT_COLORS.us,
-    // The prefill reads this operation's contacts apart from earlier runnings'
-    // through `getHistoryForCall`'s `operation` / `excludeOperation` filters,
-    // which every host at level 2 applies; below it, last year's county can
-    // pass for one copied minutes ago.
-    api: 2,
+    // A contact with no location to place it by is held back on the location
+    // field (`incomplete`), which a host reads from level 15; below it, the
+    // contact logs with nothing said. Level 2's history filters, which keep
+    // last year's county from passing for one copied minutes ago, come with it.
+    api: 15,
     keywords: [...new Set(keywords)],
     // Exactly what `src/index.ts` registers, `ref:` included: the panel and the
     // catalog read this list without loading the bundle.
@@ -377,8 +377,8 @@ function packageJsonFor(key, party) {
       "@ham2k/qso-parties": "^0.1.0",
     },
     devDependencies: {
-      "@ham2k/extension-sdk": "^1.12.0",
-      "@ham2k/extension-tools": "^1.12.0",
+      "@ham2k/extension-sdk": "^1.15.0",
+      "@ham2k/extension-tools": "^1.15.0",
       esbuild: "^0.25.5",
     },
     engines: { node: ">=24" },

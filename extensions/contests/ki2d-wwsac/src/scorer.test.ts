@@ -80,7 +80,7 @@ test('SSB on 160 through 6m only', () => {
 test('a missing or unknown age group still counts, as an OM, and says so', () => {
   const { scores, sheet } = run([qso('K1AA', undefined), qso('K2AA', 'XX'), qso('K3AA', 'youth')])
   assert.deepEqual(scores.map((s) => s.value), [1, 1, 10])
-  assert.deepEqual(scores[0].alerts, ['missingExchange'])
+  assert.deepEqual(scores[0].incomplete, ['wwsac/ageGroup'])
   assert.deepEqual(scores[1].alerts, ['invalidExchange'])
   assert.equal(scores[2].alerts, undefined)
   assert.equal(sheet.qsos, 3)

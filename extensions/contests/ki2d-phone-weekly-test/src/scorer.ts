@@ -101,7 +101,11 @@ export const PwtScorer: ContestScorer<PwtScoresheet> = {
     // contest doesn't recognize is one going unclaimed — and a typo the
     // operator can still fix, if told. A name is half of every exchange, DX
     // included.
-    if (!location || !firstName(received?.name)) score.alerts = ['missingExchange']
+    const missing = [
+      ...(firstName(received?.name) ? [] : [`${TYPE}/name`]),
+      ...(location ? [] : [`${TYPE}/location`]),
+    ]
+    if (missing.length > 0) score.incomplete = missing
     else if (!isMultiplier(location) && location !== 'DX') score.alerts = ['invalidExchange']
 
     return { scoresheet: sheet, score }

@@ -103,7 +103,7 @@ test('a QSO with no recorded exchange grid scores zero, not a guess', () => {
   const ref = { type: 'rsgb-vhf-tests', ref: 'RSGB-144-AFS' }
   const { scores } = run([qso('G4ABC', '2m')], operation, ref)
   assert.equal(scores[0].value, 0)
-  assert.deepEqual(scores[0].alerts, ['missingExchange'])
+  assert.deepEqual(scores[0].incomplete, ['rsgb-vhf-tests/grid'])
 })
 
 test('a band outside the running event is rejected', () => {
