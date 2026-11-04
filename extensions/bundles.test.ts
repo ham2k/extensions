@@ -233,6 +233,9 @@ test("every extension builds, packs and loads", async (t) => {
       const outPath = join(await tempDir(), `${manifest.key}-${manifest.version}.h2kext`)
       const packed = await pack(outDir, { outPath, forceName: true })
       assert.equal(packed.manifest.key, manifest.key)
+      // What an operator reads on the install screen before saying yes: the
+      // ABOUT.md beside the manifest, folded in by the build.
+      assert.ok(typeof packed.manifest.about === "string" && packed.manifest.about.trim(), `${name} has no ABOUT.md`)
       await rm(dirname(outPath), { recursive: true, force: true })
 
       const { definition, registrations } = loadBundle(bundle)

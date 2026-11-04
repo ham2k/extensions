@@ -1,7 +1,7 @@
 {
   "key": "ki2d-radio-panel",
   "name": "KI2D’s Radio Panel",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Live CAT readout, meters and panadapter for a local radio",
   "category": "dashboard",
   "icon": "radio-handheld",

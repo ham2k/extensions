@@ -408,12 +408,14 @@ Three routes in, and which one you are on decides almost everything:
   **Porting a built-in**.
 - **something new**, which is this section.
 
-Every extension, whatever its category, is the same four files plus `src/`:
+Every extension, whatever its category, is the same five files plus `src/`:
 
 ```
 extensions/<category>/<key>/
   manifest.json     key, name, version 0.1.0, api 1, category, hooks,
                     sharedDependencies, and whatever the category needs
+  ABOUT.md          what an operator does with it, for the install screen,
+                    the details and the catalog page; the build folds it in
   package.json      private workspace, @ham2k/ext-<key>, build/typecheck/pack
                     (+ test, if it ships one)
   build.mjs         buildExtension(build, { dir: import.meta.dirname })
@@ -421,8 +423,14 @@ extensions/<category>/<key>/
   src/index.ts      defineExtension({ …, onActivation }) and its registerHook calls
 ```
 
-Copy them from the nearest sibling rather than typing them; only `manifest.json`
-and `src/` differ between two extensions in the same category. Four rules bind
+Copy them from the nearest sibling rather than typing them; only `manifest.json`,
+`ABOUT.md` and `src/` differ between two extensions in the same category. Write
+`ABOUT.md` the way the others read: what the operator does, in short active
+sentences, naming only the main features, in plain words, each checked against
+the code. Leave out the rarer setup cases and the program's rules: whoever
+installs it already knows them. A contest's is one line under its intro, a
+short list of what it adds (call history, full scoring, multiplier and dupe
+alerts); what every contest does, like a Cabrillo export, goes unsaid. Five rules bind
 everywhere, and `bundles.test.ts` enforces each:
 
 - **The directory is the category and the key.** `activity` lives in
@@ -447,6 +455,9 @@ everywhere, and `bundles.test.ts` enforces each:
   its own, a sidebar entry or Common Preferences rows each take an admin's
   review on the catalog; see the app's `docs/extensions/settings.md`, *Where
   an extension's settings go*.
+- **Every extension ships an about text.** Its `ABOUT.md` is what an operator
+  reads on the install screen before saying yes, so a bundle built without one
+  fails.
 
 What each category actually is, with the worked example to read first:
 
@@ -493,7 +504,7 @@ Everything specific to one QSO party is data. Adding one is:
      abbreviation never depends on the order the parties are walked in, and
      adding a third never renames an existing one.
 
-   The four files it writes:
+   The files it writes:
    - `manifest.json` — key, name, `shortName`, version, description,
      `category: "contest"`, `api: 1`, icon, accent, keywords, `hooks`,
      `relevance`,
@@ -507,6 +518,8 @@ Everything specific to one QSO party is data. Adding one is:
      **`hooks` must list exactly what the code registers, `ref:<refType>`
      included** — the panel and the catalog read that list without loading
      anything, and `bundles.test.ts` holds the two to each other.
+   - `ABOUT.md` — the about text, from the party's own data: its site, its
+     weekend, its counties, and roving only where the party allows it. `--manifests` rewrites it too.
    - `package.json` — a private workspace with `build`, `typecheck` and `pack`.
    - `build.mjs` — `buildExtension(build, { dir: import.meta.dirname })`.
    - `src/index.ts` — `defineQsoParty({ ...PARTY, extensionKey: manifest.key, … })`
