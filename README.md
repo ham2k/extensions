@@ -294,10 +294,12 @@ extensions (its `docs/extensions/distribution.md`): once taken, the app offers
 none of its built-ins but the core, and until it is taken a downloaded copy
 stays on disk unused while the built-in it supersedes runs.
 
-**The pre-loaded set** — `ham2k-pota`, `ham2k-sota`, `ham2k-wwff` and the five
-lookups — the app also ships packaged, and installs on first run. Publishing
-one means re-packing the copy in the app's `app/assets/preloaded-extensions/`
-to match, so a new install starts on the current release.
+**The pre-loaded set** the app also ships packaged, and installs on first run:
+the extensions its
+[`app/assets/preloaded-extensions/index.json`](https://github.com/ham2k/halo/blob/main/app/assets/preloaded-extensions/index.json)
+lists — most activities, every lookup and the main contests, but none of the
+QSO party events. Publishing one of those means updating the app's copy too, so
+a new install starts on the current release.
 
 The 49 QSO party events are published too. They are new events under their own
 refTypes (`texas-qso-party`), not copies of anything the app ships — `qp`
