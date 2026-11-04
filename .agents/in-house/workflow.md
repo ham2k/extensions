@@ -146,10 +146,13 @@ done
   version with different bytes is refused, so every fix that will be
   published needs a new version — in BOTH `manifest.json` and `package.json`,
   then `npm install --package-lock-only` to carry it into the lockfile.
-- **the pre-loaded set** — `ham2k-pota`, `ham2k-sota`, `ham2k-wwff`,
-  `ham2k-dxcc` and the five lookups — also ships packaged inside the app
-  (`app/assets/preloaded-extensions/`). Publishing one of those is only half
-  the release; the app's copy needs re-packing, which is app-repo work.
+- **the pre-loaded set** also ships packaged inside the app. The list is
+  halo-dist's `app/assets/preloaded-extensions/index.json`; read it there
+  rather than keeping a copy here, which drifts. Publishing one of those is
+  only half the release: in halo-dist, `node scripts/preloaded-extensions.mjs
+  update` replaces each with the catalog's current release (`check` says
+  whether any is behind), and that commit merges to halo-dist `main` under its
+  own rules.
 - **merge-time hazards**: generated files. `packages/qso-parties/src/parties/*.ts`
   and `identities.ts` are written by `node scripts/convert-parties.mjs`, and
   the 49 `extensions/contests/ham2k-*` events by
