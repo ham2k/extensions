@@ -73,19 +73,19 @@ test("logging asks for our serial, then theirs, precedence, check and section, i
   assert.deepEqual(await contest.runHook("activity", "loggingControls", { operation: fixtureOperation() }), [])
 })
 
-test("saving projects both exchanges where the QSO row and plain ADIF can see them", async () => {
+test("saving projects only their exchange, so the QSO row shows what was copied rather than the same sent exchange on every line", async () => {
   const patch = await contest.runHook("activity", "processQsoBeforeSave", {
     operation: configured,
     qso: { their: { call: 'W9JJ' }, refs: [{ type: 'arrl-ss', ourSerial: 123, theirSerial: '043', theirPrecedence: 'm', theirCheck: '31', theirSection: 'il' }] },
   })
-  assert.deepEqual(patch, { our: { exchange: '123 A 79 CT' }, their: { exchange: '43 M 31 IL' } })
+  assert.deepEqual(patch, { their: { exchange: '43 M 31 IL' } })
 
-  // Nothing of theirs entered yet: only ours projects.
+  // Nothing of theirs entered yet: nothing projects.
   const ours = await contest.runHook("activity", "processQsoBeforeSave", {
     operation: configured,
     qso: { their: { call: 'W9JJ' }, refs: [{ type: 'arrl-ss', ourSerial: 7 }] },
   })
-  assert.deepEqual(ours, { our: { exchange: '7 A 79 CT' } })
+  assert.equal(ours, null)
 })
 
 test("a part that isn't a valid value is kept as typed, so the exchange never looks complete when it isn't", async () => {
@@ -93,7 +93,7 @@ test("a part that isn't a valid value is kept as typed, so the exchange never lo
     operation: fixtureOperation({ refs: [{ type: 'arrl-ss', mode: 'CW', entry: 'SO-LOW', check: '1979', section: 'NYC' }] }),
     qso: { their: { call: 'W9JJ' }, refs: [{ type: 'arrl-ss', ourSerial: 1, theirSerial: '43', theirPrecedence: 'x', theirCheck: '7', theirSection: 'ill' }] },
   })
-  assert.deepEqual(patch, { our: { exchange: '1 A 1979 NYC' }, their: { exchange: '43 X 7 ILL' } })
+  assert.deepEqual(patch, { their: { exchange: '43 X 7 ILL' } })
 })
 
 test("an unknown section is flagged in the entry field rather than accepted", async () => {
@@ -122,4 +122,63 @@ test("the setup form's rules line follows the entry", async () => {
   const shownFor = (entry: string) => notes.filter((el) => el.visibleWhen?.equals.includes(entry)).map((el) => el.text)
   assert.deepEqual(shownFor("SO-HIGH"), ["🔴 Assistance: OFF, 🟢 Self-spotting: ON"])
   assert.deepEqual(shownFor("MULTI-LOW"), ["🟢 Assistance: ON, 🟢 Self-spotting: ON"])
+})
+
+/// How the app compiles an exchange pattern: anchored, case-insensitive.
+const anchored = (source: unknown) => new RegExp(`^(?:${source as string})$`, 'i')
+
+test("our serial carries the rest of what we send, and sits out the Space walk", async () => {
+  const controls = (await contest.runHook("activity", "loggingControls", { operation: configured, qso: { their: { call: 'W1AW' } } })) as Control[]
+  const ours = controls.find((c) => c.key === 'arrl-ss/ourSerial')! as Control & { skipFocus?: boolean }
+  // Precedence, OUR CALL, check, section: what goes out after the number, in
+  // the order it is sent. Without the call the operator reads a wrong exchange.
+  assert.equal(ours.input.ourExchange, 'A N0DEV 79 CT')
+  // Seen only while no number is held, so it says a number goes first; the
+  // host adds our exchange after it while the operator includes it.
+  assert.equal(ours.input.placeholder, '#')
+  // The sequence fills it; Space and Tab go from the call to their exchange.
+  assert.equal(ours.skipFocus, true)
+})
+
+test("our serial's field grows a digit once the series passes 999", async () => {
+  const qsoWith = (serial: number) => ({ refs: [{ type: 'arrl-ss', ourSerial: serial }] })
+  const widthAt = async (serials: number[]) => {
+    const controls = (await contest.runHook(
+      "activity",
+      "loggingControls",
+      { operation: { ...configured, uuid: 'op-1' }, qso: { their: { call: 'W1AW' } } },
+      { ctx: { getQsos: async () => serials.map(qsoWith) } as never },
+    )) as Control[]
+    return (controls.find((c) => c.key === 'arrl-ss/ourSerial')!.input.chars as { min: number }).min
+  }
+  // 3 digits for the first 999 contacts gives the row's room to the fields
+  // still to be copied; the 1000th must not be clipped.
+  assert.equal(await widthAt([]), 3)
+  assert.equal(await widthAt([998]), 3)
+  assert.equal(await widthAt([999]), 4)
+})
+
+test("their exchange is one group typed straight through: 4A20ENY splits into its four parts", async () => {
+  const controls = (await contest.runHook("activity", "loggingControls", { operation: configured, qso: { their: { call: 'W1AW' } } })) as (Control & { group?: string })[]
+  const their = controls.filter((c) => c.key !== 'arrl-ss/ourSerial')
+  assert.deepEqual(their.map((c) => c.group), ['their', 'their', 'their', 'their'])
+  const [serial, precedence, check] = their.map((c) => c.input)
+  // A letter ends the serial and goes on to the precedence…
+  assert.ok(!anchored(serial.autoadvanceBefore).test('4'))
+  assert.ok(anchored(serial.autoadvanceBefore).test('4A'))
+  // …a valid precedence moves on by itself…
+  assert.ok(anchored(precedence.autoadvanceWhen).test('a'))
+  assert.ok(!anchored(precedence.autoadvanceWhen).test('X'))
+  // …and so does the check, at two digits.
+  assert.ok(!anchored(check.autoadvanceWhen).test('2'))
+  assert.ok(anchored(check.autoadvanceWhen).test('20'))
+})
+
+test("editing a contact that holds a copy of ours clears it", async () => {
+  const patch = await contest.runHook("activity", "processQsoBeforeSave", {
+    operation: configured,
+    qso: { their: { call: 'W9JJ' }, our: { exchange: '123 A 79 CT' }, refs: [{ type: 'arrl-ss', ourSerial: 124, theirSerial: '43', theirPrecedence: 'M', theirCheck: '31', theirSection: 'IL' }] },
+  })
+  // Left alone, the row would keep showing 123 after the serial became 124.
+  assert.deepEqual(patch, { their: { exchange: '43 M 31 IL' }, our: { exchange: '' } })
 })
