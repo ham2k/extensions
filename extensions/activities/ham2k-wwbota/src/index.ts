@@ -231,7 +231,21 @@ const SpotsHook = {
     if (refs.length === 0) return { ok: false, message: 'No WWBOTA activation on this operation' }
     const call = String(operation.stationCall ?? '').trim()
     if (!call) return { ok: false, message: 'This operation has no station callsign to spot' }
-    return postSpotToWWBOTA({ call, refs, freq, mode, comment, spotterCall: call })
+    const spotIds = (operation.spotIds ?? {}) as Record<string, unknown>
+    const spotId = spotIds[manifest.key]
+    return postSpotToWWBOTA({
+      call,
+      refs,
+      freq,
+      mode,
+      comment,
+      spotterCall: call,
+      spotId: typeof spotId === 'number' || typeof spotId === 'string' ? String(spotId) : undefined,
+      onSpotId: (id) => {
+        const current = (operation.spotIds ?? {}) as Record<string, JSONValue>
+        operation.spotIds = { ...current, [manifest.key]: id } as JSONValue
+      },
+    })
   },
 
   async postOtherSpot({ qso, comment, spotterCall }: PostOtherSpotRequest, _ctx: HookContext): Promise<PostResult> {
@@ -279,39 +293,69 @@ function referenceComment(refs: Ref[], comment?: string): string {
 /// open. `type` tells the feed whether the operator is on the air or done;
 /// app-polo reads it out of the comment and so do we.
 async function postSpotToWWBOTA(
-  { call, refs, freq, mode, comment, spotterCall }: {
+  { call, refs, freq, mode, comment, spotterCall, spotId, onSpotId }: {
     call: string
     refs: Ref[]
     freq: number
     mode?: string
     comment?: string
     spotterCall?: string
+    spotId?: string
+    onSpotId?: (id: string) => void
   },
 ): Promise<PostResult> {
+  const body = JSON.stringify({
+    // Omitted rather than guessed when we have none: an in-progress QSO has
+    // no `our.call` yet, and sending the SPOTTED station as its own spotter
+    // would be a plain lie.
+    ...(spotterCall ? { spotter: spotterCall } : {}),
+    call,
+    freq: freq / 1000,
+    // Null, not a guess: the feed would rather know the mode is unknown
+    // than be told SSB.
+    mode: mode || null,
+    comment: referenceComment(refs, comment),
+    type: /QRT/i.test(comment ?? '') ? 'QRT' : 'Live',
+  })
+
   try {
-    const response = await host.fetch(`${API_BASE}/spots/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({
-        // Omitted rather than guessed when we have none: an in-progress QSO has
-        // no `our.call` yet, and sending the SPOTTED station as its own spotter
-        // would be a plain lie.
-        ...(spotterCall ? { spotter: spotterCall } : {}),
-        call,
-        freq: freq / 1000,
-        // Null, not a guess: the feed would rather know the mode is unknown
-        // than be told SSB.
-        mode: mode || null,
-        comment: referenceComment(refs, comment),
-        type: /QRT/i.test(comment ?? '') ? 'QRT' : 'Live',
-      }),
-    })
+    let response: { status: number, body: string }
+    if (spotId) {
+      response = await host.fetch(`${API_BASE}/spots/${encodeURIComponent(spotId)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body,
+      })
+      if (response.status === 404) response = await postNewSpot(body)
+    } else {
+      response = await postNewSpot(body)
+    }
+
     if (response.status !== 200 && response.status !== 201) {
       return { ok: false, message: `WWBOTA API returned HTTP ${response.status}` }
+    }
+
+    if (onSpotId) {
+      try {
+        const created = JSON.parse(response.body) as { id?: unknown }
+        if (typeof created.id === 'number' || typeof created.id === 'string') {
+          onSpotId(String(created.id))
+        }
+      } catch {
+        // Some successful responses may have no JSON body; keep the existing id.
+      }
     }
     return { ok: true }
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) }
+  }
+
+  async function postNewSpot(jsonBody: string) {
+    return host.fetch(`${API_BASE}/spots/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: jsonBody,
+    })
   }
 }
 
