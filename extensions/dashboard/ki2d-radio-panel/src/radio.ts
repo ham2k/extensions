@@ -225,9 +225,12 @@ export function createRadioPanel(host: RadioHost): PanelHook {
       const longSwrHold = last?.swrAverage != null && last.swrAverage > swrHigh && args.clock.realNowMillis - last.endedAtMillis < swrHighHoldMillis
       const waiting = p.requested !== undefined || p.mode !== undefined
       const pending = waiting ? ((args.clock.realNowMillis - (p.sent ?? 0)) > 5000 ? t.unconfirmed : t.awaiting) : ''
-      // The band plan where the operation's station is, or the library's own where there is none.
+      // The band plan where the operation's station is. With no station, or a call that names no country,
+      // the library's plan mixes every region's, and an edge of one lands inside another's band: the
+      // widest edges alone then.
       const station = typeof args.operation?.stationCall === 'string' ? args.operation.stationCall.trim().toUpperCase() : ''
-      const where = station ? regionAndCountryForDxccCode(entityForCall(station).dxccCode) : {}
+      const found = station ? regionAndCountryForDxccCode(entityForCall(station).dxccCode) : {}
+      const where = found.ituRegion != null || found.countryCode ? found : undefined
       return { kind: 'svgScene', title: r?.name?.trim() || t.title, scene: radioDocument(args.environment, r, p.requested, pending, {
         ...view(key), radio: selection, spectrum: spectrumConfig(args.config), panWidthHz, longSwrHold, where,
         theme: typeof args.config.theme === 'string' && args.config.theme in themes ? args.config.theme as Theme : 'light',
@@ -655,7 +658,7 @@ export function radioDocument(e: PanelEnvironment, r: PanelRadioState | null, re
   // sets the levels on a drag of the strip at the right; the event hears where each but a pan ended.
   if (panadapter) {
     const pw = w - 24, ph = panBottom - y
-    const plan = r ? planFor(r, view.panWidthHz, pw, ph, sp.display === 'waterfall' ? 'waterfall' : 'spectrum', view.where ?? {}) : []
+    const plan = r ? planFor(r, view.panWidthHz, pw, ph, sp.display === 'waterfall' ? 'waterfall' : 'spectrum', view.where) : []
     scene.controls!.push({ id: 'panadapter', label: t.panadapter, kind: 'bandScope', x: left + 12, y, width: pw, height: ph, after: 'face',
       ...(view.panWidthHz ? { span: view.panWidthHz } : {}),
       ...(view.radio ? { radio: view.radio } : {}), display: sp.display === 'pan' ? 'spectrum' : sp.display as 'both' | 'waterfall',
@@ -683,7 +686,7 @@ export function radioDocument(e: PanelEnvironment, r: PanelRadioState | null, re
  * natively and the panel hears where only once a gesture ends, so drawn about the dial alone, an edge
  * the picture was panned to would be missing.
  */
-function planFor(r: PanelRadioState, shownHz: number | undefined, width: number, height: number, top: string, where: Where): PanelSceneSpectrumLayer[] {
+function planFor(r: PanelRadioState, shownHz: number | undefined, width: number, height: number, top: string, where: Where | undefined): PanelSceneSpectrumLayer[] {
   const sp = r.spectrum, sweep = sp?.lowHz != null && sp.highHz != null && sp.highHz > sp.lowHz ? [sp.lowHz / 1000, sp.highHz / 1000] : undefined
   const sweepHz = sweep ? (sweep[1] - sweep[0]) * 1000 : (sp?.spanHz ?? 0) * 2
   const shown = shownHz ?? sweepHz
@@ -691,8 +694,8 @@ function planFor(r: PanelRadioState, shownHz: number | undefined, width: number,
   const band = bandForFrequency(r.frequencyHz / 1000), edges = bandEdges[band]
   if (!edges) return []
   const dial = r.frequencyHz / 1000, reach = Math.max(shown, sweepHz) / 1000
-  return planLayers(bandPlan(band, where), {
-    hzPerPx: shown / width, top, height,
+  return planLayers(where ? bandPlan(band, where) : [{ from: edges[0], to: edges[1], mode: null }], {
+    hzPerPx: shown / width, top, height, edgesOnly: !where,
     window: [Math.min(edges[0], dial - reach, sweep?.[0] ?? dial), Math.max(edges[1], dial + reach, sweep?.[1] ?? dial)],
   })
 }

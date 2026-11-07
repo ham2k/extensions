@@ -44,6 +44,11 @@ test('each kind of mode is labelled where it starts, once, and the FT8 and FT4 w
   assert.deepEqual(layers.filter(l => l.kind === 'line').map(l => l.x), ['freq:14070000', 'freq:14095000', 'freq:14150000'])
 })
 
+test('edges only leaves out every mode\'s line and label', () => {
+  const layers = planLayers(twenty, { ...layout, edgesOnly: true })
+  assert.deepEqual(layers.map(l => l.id.split(':')[1]), ['out', 'out', 'edge', 'edge'])
+})
+
 test('a label too close to the one before drops to the second row, and with no room there, is left out', () => {
   // At 1 kHz a pixel, Data's tag would cover CW's start 25 kHz on.
   const crowded: PlanSegment[] = [

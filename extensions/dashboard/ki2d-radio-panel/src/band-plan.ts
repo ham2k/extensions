@@ -86,6 +86,8 @@ export interface PlanLayout {
   window: [number, number]
   /** The panafall's height in pixels: the edges' stripes are drawn to it, so they keep their slant. */
   height: number
+  /** The band's edges and what lies outside them, and no mode's start. */
+  edgesOnly?: boolean
 }
 
 /** A label's row height, its size, and how far it stands in from its line. */
@@ -132,6 +134,7 @@ export function planLayers(segments: PlanSegment[], layout: PlanLayout): PanelSc
   for (const khz of edges.filter(k => seen(k))) {
     layers.push({ id: `plan:edge:${khz}`, kind: 'svg', x: `freq:${hz(khz)}-${barrier / 2}px`, x2: `freq:${hz(khz)}+${barrier / 2}px`, svg: stripes(layout.height) })
   }
+  if (layout.edgesOnly) return layers
 
   // The modes' stretches. A window of its own, or a hole in the plan, takes the kind before it (at a
   // run's start, the one after), so it splits no stretch.

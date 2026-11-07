@@ -269,6 +269,18 @@ test('the panafall marks the band\'s edges and where each kind of mode starts, a
   assert.deepEqual(sceneOf(await createRadioPanel(radioHost(() => ({ ...state, frequencyHz: 9000000 })).host).render(args, ctx)).controls!.find(c => c.id === 'panadapter')!.layers, undefined)
 })
 
+test('with no station to place it, the panafall marks only the band\'s widest edges', async () => {
+  const state: PanelRadioState = { ...live, frequencyHz: 1840000, mode: 'CW', spectrum: { problem: null, mode: 'center', spanHz: 50000, lowHz: 1790000, highHz: 1890000, refLevelDb: null, speed: null,
+    spansHz: [50000], refMinDb: -30, refMaxDb: 10, refStepDb: 1, modes: ['center'], speeds: [] } }
+  const panel = createRadioPanel(radioHost(() => state).host)
+  for (const operation of [{}, { stationCall: '' }, { stationCall: 'XX0XXX' }] as Record<string, JSONValue>[]) {
+    const layers = sceneOf(await panel.render({ ...args, operation }, ctx)).controls!.find(c => c.id === 'panadapter')!.layers ?? []
+    // Every region's plan at once dims 160 m below 1810 kHz, as Region 1's, inside a US station's band.
+    assert.deepEqual(layers.filter(l => l.id.startsWith('plan:edge:')).map(l => l.x), ['freq:1800000-1.5px', 'freq:2000000-1.5px'], JSON.stringify(operation))
+    assert.ok(!layers.some(l => l.id.startsWith('plan:mode')), JSON.stringify(operation))
+  }
+})
+
 // A FlexRadio's scope, which the app widens for the widest display on screen: a band map beside the
 // panel may want all of it, and the panel asking for its own span would narrow the map's.
 test('where the app sizes the scope itself, the panadapter only crops to its width', async () => {
