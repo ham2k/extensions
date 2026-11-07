@@ -257,13 +257,13 @@ function argsFor(c, index, panelKey) {
   const args = { environment, clock: { nowMillis: now, realNowMillis: now }, instanceId: `case-${index}`, panelKey, operation: c.operation ?? {}, qso: c.qso, qsoCount: qsos.length, config: c.config ?? {}, reason: "preview" }
   const ctx = { online: true, locale: c.locale, distanceUnits: "kilometers", getQsos: async () => qsos, getSpots: async options => boardFor(c, now, options) }
   const radio = loaded.useRadio({ ...c, index })
-  return { args, ctx }
+  return { args, ctx, radio }
 }
 
 async function renderCase(c, index) {
   const entries = []
   for (const { key, hook } of loaded.panels) {
-    const { args, ctx } = argsFor(c, index, "")
+    const { args, ctx, radio } = argsFor(c, index, "")
     let descriptors
     try { descriptors = await hook.getPanels({}, ctx) } catch (error) { entries.push({ ...c, index, panel: key, error: String(error?.stack ?? error) }); continue }
     for (const descriptor of descriptors.filter(d => !c.panel || d.key === c.panel)) {

@@ -6,7 +6,7 @@ Run your radio from beside your log: its frequency, meters and scope, live, and 
 - **Mode, power and filter** controls.
 - **Signal, power and SWR meters.**
 - **The antenna tuner**, where your radio has one.
-- **Panadapter and waterfall** from the radio's scope. Click to tune.
+- **Panadapter and waterfall** from the radio's scope, with the band's edges and where CW, data and phone start. Click or scroll to tune, drag the picture to pan, drag the scale to zoom.
 
 ## Before you go
 
