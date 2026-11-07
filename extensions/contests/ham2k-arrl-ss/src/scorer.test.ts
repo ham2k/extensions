@@ -149,17 +149,38 @@ test("the operating time leads the summary, ahead of sections and bands", () => 
   // The arithmetic line, then the clock.
   assert.match(detail[0], /1 QSO/)
   assert.match(detail[1], /^\*\*Operating time/)
-  assert.match(detail[2], /^\*\*Sections:\*\* 1 of 85/)
+  assert.match(detail[2], /^### Sections: 1 of 85/)
 })
 
-test("the missing sections are listed once few enough are left, and a Clean Sweep says so", async () => {
+test("the sections are a checklist, a row per call area, those worked struck through", async () => {
   const { ALL_SECTIONS } = await import("./sections.ts")
   const all = Object.keys(ALL_SECTIONS)
-  const most = run(all.slice(0, 70).map((section, i) => qso(`K${i}AA`, i, section)))
-  assert.match(String(most.summary.longSummary), new RegExp(`Missing:\\*\\* ${all.slice(70).sort().join(' ')}`))
+  const { summary } = run([qso('W1AW', 0, 'CT'), qso('VE3ABC', 1, 'ONS'), qso('K6ABC', 2, 'SDG')])
+  assert.equal(summary.grid, true)
+  const detail = String(summary.longSummary)
+  assert.match(detail, /### Sections: 3 of 85\n/)
+  assert.match(detail, /^W1 \*\*~~CT~~\*\* EMA ME NH RI VT WMA$/m)
+  assert.match(detail, /^W6 EB LAX ORG PAC SB SCV \*\*~~SDG~~\*\* SF SJV SV$/m)
+  assert.match(detail, /^VE AB BC GH MB NB NL NS ONE ONN \*\*~~ONS~~\*\* PE QC SK TER$/m)
+  // Every section in exactly one row: the rows hold all 85 and nothing else.
+  const rows = detail.split('\n').filter((line) => /^(W\d|VE) /.test(line))
+  assert.equal(rows.length, 11)
+  assert.deepEqual(rows.flatMap((row) => row.split(' ').slice(1).map((code) => code.replace(/[*~]/g, ''))).sort(), [...all].sort())
+
   const sweep = run(all.map((section, i) => qso(`K${i}AA`, i, section)))
-  assert.match(String(sweep.summary.longSummary), /Clean Sweep!\*\* All 85 sections/)
+  assert.match(String(sweep.summary.longSummary), /### Clean Sweep! All 85 sections/)
+  const sweptCodes = String(sweep.summary.longSummary).split('\n').filter((line) => /^(W\d|VE) /.test(line)).flatMap((row) => row.split(' ').slice(1))
+  assert.equal(sweptCodes.length, 85)
+  assert.ok(sweptCodes.every((code) => /^\*\*~~[A-Z]+~~\*\*$/.test(code)))
   assert.equal(sweep.summary.total, 85 * 2 * 85)
+})
+
+test("the short summary is the sections and the score, and a day has none", () => {
+  const { summary } = run([qso('W1AW', 0, 'CT'), qso('K1ABC', 1, 'CT'), qso('W9JJ', 2, 'IL')])
+  assert.equal(summary.summary, '×2: 12')
+  let sheet = SSScorer.startScoresheet({ operation, ref: cwRef }, ctx)
+  sheet = SSScorer.scoreQso({ scoresheet: sheet, qso: qso('W1AW', 0), operation, ref: cwRef, isNewDay: false }, ctx).scoresheet
+  assert.deepEqual(SSScorer.summarizeScore({ scoresheet: sheet, operation, ref: cwRef, scope: 'day' }, ctx), {})
 })
 
 test("durations read as hours and minutes", () => {

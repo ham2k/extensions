@@ -22,7 +22,7 @@ import { contestArithmetic, contestSummary } from "@ham2k/extension-sdk"
 import { tFor } from "./i18n.ts"
 import { normalizeCheck, normalizePrecedence } from "./entry.ts"
 import { isWVE, normalizeSection } from "./exchange.ts"
-import { ALL_SECTIONS } from "./sections.ts"
+import { ALL_SECTIONS, CALL_AREA_FOR_SECTION } from "./sections.ts"
 
 export const TYPE = 'arrl-ss'
 
@@ -158,27 +158,33 @@ export const SSScorer: ContestScorer<SSScoresheet> = {
     return { scoresheet: sheet, score }
   },
 
+  /// The contest's tally for the whole operation, and nothing for a day.
   summarizeScore({ scoresheet, ref, scope }, ctx) {
     const t = tFor(ctx)
     const sections = Object.keys(scoresheet.sections).length
-    return contestSummary(
+    const total = scoresheet.points * sections
+    const tallies = contestSummary(
       {
         key: TYPE,
         scope,
         icon: 'broom',
         title: contestTitle(ref),
-        total: scoresheet.points * sections,
+        total,
         arithmetic: contestArithmetic(
           { qsos: scoresheet.qsos, points: scoresheet.points, mults: sections, multsNoun: t(sections === 1 ? 'sectionOne' : 'sectionMany') },
           ctx,
         ),
         // The clock first: past 24 hours nothing scores, and an operator
         // planning off-times reads this more than anything below it.
-        detail: [operatingTime(scoresheet, t), sectionsLine(scoresheet, t), bandBreakdown(scoresheet)].join('\n\n'),
+        detail: [operatingTime(scoresheet, t), ...sectionsChecklist(scoresheet, t), bandBreakdown(scoresheet)].join('\n\n'),
+        grid: true,
         extra: { points: scoresheet.points, mults: sections, qsos: scoresheet.qsos },
       },
       ctx,
     )
+    // The short summary carries the sections beside the score: `×45: 1,234`.
+    if (tallies[TYPE]) tallies[TYPE].summary = `×${fmtInteger(sections)}: ${fmtInteger(total)}`
+    return tallies
   },
 }
 
@@ -220,15 +226,26 @@ function operatingTime(sheet: SSScoresheet, t: (key: string, args?: Record<strin
   return lines.join('\n')
 }
 
-/// Sections worked, and — once few enough are left to chase — which ones.
-const MISSING_SHOWN_FROM = 20
+/// The rows of the sections checklist: the US call areas in the order a
+/// Sweepstakes check sheet lists them, then Canada.
+const CHECKLIST_ROWS: [string, number | string][] = [
+  ['W1', 1], ['W2', 2], ['W3', 3], ['W4', 4], ['W5', 5], ['W6', 6], ['W7', 7], ['W8', 8], ['W9', 9], ['W0', 0], ['VE', 'Canada'],
+]
 
-function sectionsLine(sheet: SSScoresheet, t: (key: string, args?: Record<string, string>) => string): string {
+/// Every section as a checklist, a row per call area, those worked struck
+/// through — the core's checklist convention (`grid: true`), as the QSO
+/// parties and the Sprint draw theirs. A Clean Sweep is all 85 of them.
+function sectionsChecklist(sheet: SSScoresheet, t: (key: string, args?: Record<string, string>) => string): string[] {
   const all = Object.keys(ALL_SECTIONS)
-  const missing = all.filter((section) => !sheet.sections[section]).sort()
-  if (missing.length === 0) return t('cleanSweep', { total: fmtInteger(all.length) })
-  const line = t('sectionsWorked', { worked: fmtInteger(all.length - missing.length), total: fmtInteger(all.length) })
-  return missing.length <= MISSING_SHOWN_FROM ? `${line}\n${t('sectionsMissing', { list: missing.join(' ') })}` : line
+  const worked = all.filter((section) => sheet.sections[section]).length
+  const heading = worked === all.length
+    ? t('cleanSweep', { total: fmtInteger(all.length) })
+    : t('sectionsHeading', { worked: fmtInteger(worked), total: fmtInteger(all.length) })
+  const rows = CHECKLIST_ROWS.map(([label, area]) => {
+    const codes = all.filter((section) => CALL_AREA_FOR_SECTION[section] === area).sort()
+    return `${label} ${codes.map((code) => (sheet.sections[code] ? `**~~${code}~~**` : code)).join(' ')}`
+  })
+  return [`### ${heading}`, rows.join('\n')]
 }
 
 /// QSOs per band, in band order.
