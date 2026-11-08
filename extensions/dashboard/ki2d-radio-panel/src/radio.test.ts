@@ -112,7 +112,9 @@ test('a placement pinned to a radio reads, commands and draws that radio, whatev
   const other = { ...live, id: 'rig-b', name: 'Second radio' }, reads: (string | undefined)[] = []
   const { host, commands } = radioHost(() => other, { listRadios: async () => [live, other], readRadio: async id => { reads.push(id); return id === 'rig-b' ? other : live } })
   const panel = createRadioPanel(host)
-  const options = (await panel.getPanels({}, ctx))[0].form![0].options
+  // A form may hold section headers too (SDK 1.20); the first is the radio's field.
+  const first = (await panel.getPanels({}, ctx))[0].form![0]
+  const options = first.type === 'field' ? first.options : undefined
   assert.ok(Array.isArray(options))
   assert.deepEqual(options.map(o => o.value), ['auto', 'rig-a', 'rig-b'])
   const pinned = { ...args, instanceId: 'pinned', config: { radio: 'rig-b' } }

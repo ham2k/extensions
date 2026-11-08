@@ -15,10 +15,12 @@ chart and a band map drawn as the app's native panel scenes:
 - `ki2d-rate-chart`: QSO rates over the trailing 10 and 60 minutes and the
   last 10 contacts, with peaks, lows, a rate goal, and a chart per operator
   for multi-operator stations.
-- `ki2d-band-map`: the spots on a band along a scale of its frequencies, over
-  the radio's panadapter where its scope is on the band, zoomed and scrolled
-  natively; a click puts the station into the logging fields. Needs extension
-  API 12 (Ham2K Logger with scrolling scenes and `host.suggestQso`).
+- `ki2d-band-map`: the spots on a band along a scale of its frequencies, with
+  what is marked on the band among them (the operator's band tags, other
+  extensions' notes), over the radio's band scope where it is on the band,
+  zoomed and scrolled natively; a click puts the station into the logging
+  fields, and a click on the scope tunes the radio at the app's own step.
+  Needs extension API 20 (Ham2K Logger with band annotations).
 
 The weather, solar and rate panels each offer a theme per placement —
 Automatic, Light, Dark or Teal — from `packages/lib-panel-themes`.

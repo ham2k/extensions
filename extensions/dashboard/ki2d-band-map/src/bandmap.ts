@@ -3,12 +3,14 @@
 //
 // The spots on one band, along a line of its frequencies: vertical in a tall panel (rising top to
 // bottom, as a band plan reads down the page; its scale on the right, the calls to its left),
-// horizontal in a wide one (its scale along the top, the calls under it). Where the radio's scope is
-// on the band shown, the host draws it over the stretch of the line it covers, however the map is
-// zoomed: its waterfall behind the calls, flowing away from the line, and its panadapter under the
-// scale's labels. Inverted, the scale and the scope go to the other side.
+// horizontal in a wide one (its scale along the top, the calls under it). Among them, what is marked
+// on the band (the operator's band tags, other extensions' notes), and accents as the Spots panel
+// has them. Where the radio's scope is on the band shown, the host draws it — its band scope, which
+// tunes the radio itself — over the stretch of the line it covers, however the map is zoomed: its
+// waterfall behind the calls, flowing away from the line, and its panadapter under the scale's
+// labels. Inverted, the scale and the scope go to the other side.
 import { entityForCall, entityPrefixForCall, regionAndCountryForDxccCode } from '@ham2k/extension-sdk'
-import type { BoardSpot, HookContext, PanelEnvironment, PanelHook, PanelRadioResult, PanelRadioSet, PanelRadioState, PanelScene, PanelSceneControl as Control, PanelSceneLayer as Layer, SuggestedQso } from '@ham2k/extension-sdk'
+import type { BoardSpot, HeldBandAnnotation, HookContext, PanelEnvironment, PanelHook, PanelRadioResult, PanelRadioSet, PanelRadioState, PanelScene, PanelSceneControl as Control, PanelSceneLayer as Layer, SuggestedQso } from '@ham2k/extension-sdk'
 import { bandEdges, bandForKHz, bandPlan, bands, modeStretch, planAllows, plannedMode, radioModeFor, spotPassband, superModeForRadio } from './bands.ts'
 import type { SuperMode } from '@ham2k/lib-operation-data'
 import { freqParts, hzDigitsNeeded, type FreqParts } from './frequency.ts'
@@ -25,6 +27,7 @@ type BandMapHost = {
 const en = {
   title: 'KI2D’s Band Map', description: 'The spots on a band, along its frequencies',
   band: 'Band', auto: 'Automatic (the radio’s band)', age: 'Spots no older than', minutes: (n: number) => `${n} minutes`,
+  notes: 'Band annotations', notesHelp: 'What is marked on the band among the spots: your band tags (QRM!, NET!) and what extensions mark.',
   waterfall: 'Radio waterfall', panadapter: 'Radio panadapter', direction: 'Scope direction', normal: 'Normal', inverted: 'Inverted',
   mapTitle: (band: string) => `${band} Band Map`, unavailable: 'This app cannot show the band map', more: (n: number) => `+${n} more`,
   tune: (call: string, mhz: string) => `Tune to ${call} on ${mhz} MHz`, tuneHere: 'Tune to this frequency', scope: 'Panadapter',
@@ -35,6 +38,7 @@ const en = {
 const es: typeof en = {
   title: 'Mapa de banda de KI2D', description: 'Los spots de una banda, a lo largo de sus frecuencias',
   band: 'Banda', auto: 'Automática (la banda de la radio)', age: 'Spots de hasta', minutes: (n: number) => `${n} minutos`,
+  notes: 'Anotaciones de la banda', notesHelp: 'Lo marcado en la banda entre los spots: tus etiquetas de banda (QRM!, NET!) y lo que marcan las extensiones.',
   waterfall: 'Cascada de la radio', panadapter: 'Panorámico de la radio', direction: 'Dirección del panorámico', normal: 'Normal', inverted: 'Invertida',
   mapTitle: (band: string) => `Mapa de ${band}`, unavailable: 'Esta app no puede mostrar el mapa de banda', more: (n: number) => `+${n} más`,
   tune: (call: string, mhz: string) => `Sintonizar ${call} en ${mhz} MHz`, tuneHere: 'Sintonizar esta frecuencia', scope: 'Panorámico',
@@ -61,8 +65,11 @@ const passbands: Record<string, [number, number]> = {
   USB: [100, 2800], LSB: [-2800, -100], CW: [-250, 250], AM: [-3000, 3000], FM: [-5000, 5000],
   'DATA-USB': [0, 3000], 'DATA-LSB': [-3000, 0], RTTY: [-250, 250],
 }
-/** Where a click on the scope lands, by mode, as on KI2D's Radio Panel: the nearest 50 Hz in CW, 500 Hz in phone; data and RTTY where clicked. */
-const tuneSteps: Record<string, number> = { CW: 50, USB: 500, LSB: 500, AM: 500, FM: 500 }
+/**
+ * Something new to work a spot for, and a new multiplier, in the Spots panel's own colours
+ * (`HaLoColors.important` and `spotMultiplier`, each theme's), so the two panels accent alike.
+ */
+const accents = { fresh: '#1aa01a', freshDark: '#1ac81a', multiplier: '#c2500f', multiplierDark: '#ff8a4c' }
 const ages = [10, 30, 60]
 /**
  * Zoomed in to no less than `narrowest` kHz across the pane. A scene is at most `longest` units
@@ -72,7 +79,21 @@ const narrowest = 2, longest = 8192
 
 /** A spot as the map shows it: one per station, its newest report. */
 export type MapSpot = {
-  call: string; khz: number; band?: string; mode?: string; refs: { type: string; ref: string }[]; ageMinutes: number; worked: boolean; isSelf: boolean; notices: number
+  call: string; khz: number; band?: string; mode?: string; refs: { type: string; ref: string }[]; ageMinutes: number; worked: boolean; isSelf: boolean
+  /** What tells it from the rest where `call` alone does not: a call not fully copied, or a note. */
+  key?: string
+  /** Something new to work it for — a band, a mode, a day, a reference, a multiplier — as the Spots panel accents. */
+  fresh: boolean
+  /** A new multiplier, which the Spots panel draws in its own colour over the rest. */
+  multiplier?: boolean
+  /** One of the band's `general` annotations rather than a station: its label for a call, nothing to log. */
+  note?: boolean
+  /** A note's whole label, where `call` holds it cut short. */
+  label?: string
+  /** The ink it suggests, `#rrggbb`: a note's. */
+  color?: string
+  /** The stretch it covers in Hz either side of it, where its mode does not say: a note's. */
+  heard?: [number, number]
   /** For a spot that names no mode, the band plan's guess: what its passband shows and the radio tunes to, but not what is logged. */
   planned?: string
   /**
@@ -94,10 +115,14 @@ export function mapSpots(board: BoardSpot[], nowMillis: number, [lo, hi]: [numbe
   for (const s of board) {
     const call = s.their.call.toUpperCase()
     if (s.freq == null) continue
-    reports.set(call, [...(reports.get(call) ?? []), s])
+    // A call not fully copied ("W1A?") names no one station: two of them are two places on the
+    // band, each its own spot.
+    const key = call.includes('?') ? `${call}@${s.freq}` : call
+    reports.set(key, [...(reports.get(key) ?? []), s])
   }
   const spots: MapSpot[] = []
-  for (const [call, [s, ...older]] of reports) {
+  for (const [key, [s, ...older]] of reports) {
+    const call = s.their.call.toUpperCase()
     if (s.freq! < lo || s.freq! > hi) continue
     const refs = new Map<string, NonNullable<BoardSpot['refs']>[number]>()
     for (const r of [s, ...older].flatMap(o => o.refs ?? [])) if (!refs.has(`${r.type}:${r.ref}`)) refs.set(`${r.type}:${r.ref}`, r)
@@ -105,17 +130,58 @@ export function mapSpots(board: BoardSpot[], nowMillis: number, [lo, hi]: [numbe
     // Drawn as the newest report that names a reference: a park's tree, not the cluster's tower.
     const shown = [s, ...older].find(o => o.refs?.length) ?? s
     const icon = shown.spot.source === 'cluster' && !shown.refs?.length ? undefined : shown.display?.icon ?? shown.icon ?? 'radio-tower'
+    const notices = s.annotations?.notices ?? []
     spots.push({
-      call, khz: s.freq!, band: s.band, mode, planned: mode ? undefined : plannedMode(call, s.freq!), refs: [...refs.values()], ageMinutes: Math.max(0, Math.round((nowMillis - s.spot.timeInMillis) / 60000)),
-      worked: s.annotations?.worked ?? false, isSelf: s.annotations?.isSelf ?? false, notices: s.annotations?.notices.length ?? 0,
+      call, ...(key !== call ? { key } : {}), khz: s.freq!, band: s.band, mode, planned: mode ? undefined : plannedMode(call, s.freq!), refs: [...refs.values()], ageMinutes: Math.max(0, Math.round((nowMillis - s.spot.timeInMillis) / 60000)),
+      worked: s.annotations?.worked ?? false, isSelf: s.annotations?.isSelf ?? false,
+      fresh: notices.some(n => accented.includes(n) || chaseAlert(n)), ...(notices.includes('newMult') ? { multiplier: true } : {}),
       icon, iconColor: shown.display?.iconColor, emoji: shown.display?.emoji,
     })
   }
   return spots
 }
 
+/**
+ * The scorers' notices the Spots panel accents, and the map after it. A new DXCC, state or province
+ * it leaves out: those are about the call being typed, and on a whole band they would light up most spots.
+ */
+const accented = ['newBand', 'newMode', 'newDay', 'newRef', 'newMult']
+/** A chasing program's verdict the operator asked to be alerted to — `chase:<program>:<verdict>` then flags, `alert` among them. */
+const chaseAlert = (notice: string) => notice.startsWith('chase:') && notice.split(':').slice(3).includes('alert')
+
+/**
+ * The band's `general` annotations within [lo, hi] — the operator's band tags, what extensions mark —
+ * as spots: each labelled, where it is or in the middle of what the window holds of the stretch it
+ * covers, never fading.
+ */
+/** The most characters of a note's label the map shows. */
+const noteLength = 12
+
+export function noteSpots(annotations: HeldBandAnnotation[], [lo, hi]: [number, number]): MapSpot[] {
+  // Each named by its key, or where it starts: by its place in the list, a note added before it would
+  // move a click on the picture painted before onto another. Two alike are told apart in turn.
+  const seen = new Map<string, number>()
+  return annotations.filter(a => a.type === 'general' && a.label?.trim()).flatMap(a => {
+    const [from, to] = [a.fromHz, a.toHz != null && a.toHz > a.fromHz ? a.toHz : a.fromHz]
+    if (to / 1000 < lo || from / 1000 > hi) return []
+    const at = Math.round((Math.max(from, lo * 1000) + Math.min(to, hi * 1000)) / 2)
+    const base = `note:${a.source}:${a.key ?? a.fromHz}`, n = seen.get(base) ?? 0
+    seen.set(base, n + 1)
+    // Cut to a call's length: a label sizes the map's columns, and a long one would take their room.
+    const label = a.label!.trim(), short = label.length > noteLength ? `${label.slice(0, noteLength - 1).trimEnd()}…` : label
+    return [{
+      call: short, ...(short !== label ? { label } : {}), key: n ? `${base}#${n}` : base, khz: at / 1000, refs: [], ageMinutes: 0, worked: false, isSelf: false, fresh: false, note: true,
+      ...(a.icon ? { icon: a.icon, iconColor: a.color } : {}), ...(a.color ? { color: a.color } : {}),
+      ...(to > from ? { heard: [from - at, to - at] as [number, number] } : {}),
+    }]
+  })
+}
+
+/** What names a spot among the rest: its call, or what tells it apart where the call does not. */
+export const spotKey = (s: MapSpot) => s.key ?? s.call
+
 /** Who keeps a place when there is not room for all: something new first, then the unworked, then the newest. */
-const rank = (s: MapSpot) => (s.notices ? 0 : s.worked ? 2 : 1) * 1e6 + s.ageMinutes
+const rank = (s: MapSpot) => (s.fresh ? 0 : s.worked ? 2 : 1) * 1e6 + s.ageMinutes
 const byRank = (a: MapSpot, b: MapSpot) => rank(a) - rank(b)
 /** Who sits nearest the line where labels crowd: the newest. */
 const byAge = (a: MapSpot, b: MapSpot) => a.ageMinutes - b.ageMinutes
@@ -170,9 +236,9 @@ export type MapView = {
   /**
    * Present when the host draws the radio's scope on the map, over `range` (kHz, the sweep's edges):
    * its waterfall behind the calls, its panadapter under the scale's labels, or both. A click on it
-   * tunes to the nearest `tuneStep` Hz, or with none, where it lands.
+   * tunes the radio, as the app's own band scope does.
    */
-  scope?: { radio: string; waterfall: boolean; pan: boolean; range: [number, number]; tuneStep?: number }
+  scope?: { radio: string; waterfall: boolean; pan: boolean; range: [number, number] }
   /** The scale and the scope on the other side: the line's left in a tall map, along the bottom of a wide one. */
   inverted?: boolean
   /** The operator's own thousands and decimal marks. */
@@ -337,10 +403,15 @@ export function bandMapScene(
     const span = Math.min(1e7, Math.floor(cropped ? ((r1 - r0) * 1000 * longest) / (s1 - s0) : Math.max(hi - lo, r1 - r0) * 1000))
     if (cropped) [s0, s1] = [(s0 + s1 - longest) / 2, (s0 + s1 + longest) / 2]
     // Frequency down the page or to the right, as the map's scale runs, whichever way the waterfall flows.
+    // A click, or a drag of the dial's line, tunes the radio from the app itself, at its own step,
+    // as on its Band Scope. The map is what zooms and scrolls: the scope pans and zooms with it,
+    // never on its own, and a wheel over it scrolls the map rather than tuning. The map's own scale
+    // and pointer stand in for the scope's axis, level strip and dial label.
     const common = {
-      kind: 'spectrum', radio: view.scope.radio, after: 'background', event: 'tune', span, scale: false, backgroundColor: c.surface,
+      kind: 'bandScope', radio: view.scope.radio, after: 'background', span, backgroundColor: c.surface,
+      scale: false, levelScale: false, vfoLabel: false,
+      gestures: { tune: 'native', zoom: 'off', pan: 'off', split: 'off', levels: 'off', scroll: { vertical: 'off', horizontal: 'off' } },
       flow: vertical ? (side < 0 ? 'left' : 'right') : side < 0 ? 'up' : 'down', rising: vertical ? 'down' : 'right',
-      ...(view.scope.tuneStep ? { tuneStep: view.scope.tuneStep } : {}),
     } as const
     // Across the line where the sweep is: the field from the line to the calls' edge, or the scale's
     // strip from the line to the pane's.
@@ -359,7 +430,7 @@ export function bandMapScene(
     }
     if (pan) {
       controls.push({
-        ...common, id: 'scope-pan', label: t.scope, display: 'pan', center: {},
+        ...common, id: 'scope-pan', label: t.scope, display: 'spectrum', center: {},
         traceColor: dark ? trace.dark : trace.light, fillColor: dark ? trace.darkFill : trace.lightFill, gridColor: '#00000000',
         ...place(vertical ? (side < 0 ? right : left) : side < 0 ? bottom : top),
       })
@@ -379,7 +450,10 @@ export function bandMapScene(
       : `<path d="M${p} ${side < 0 ? fieldTop : fieldBottom}V${axis}" stroke="${tunedLine}" stroke-width="${tuned.width}"/>`), following)
   }
 
-  const ink = (s: MapSpot) => (s.notices ? c.primary : s.isSelf ? c.secondary : s.worked ? c.onSurfaceVariant : c.onSurface)
+  // A note in the ink it suggests; a station as the Spots panel accents it: a new multiplier over
+  // anything else new, then our own, then the worked.
+  const ink = (s: MapSpot) => s.color ?? (s.multiplier ? (dark ? accents.multiplierDark : accents.multiplier)
+    : s.fresh ? (dark ? accents.freshDark : accents.fresh) : s.isSelf ? c.secondary : s.worked ? c.onSurfaceVariant : c.onSurface)
   // Age shows only as fading: fresh at full strength, the oldest asked for at `faintest`.
   // A spot of a kind the radio is not on — its mode's, or the plan's guess — at `elsewhere` of that.
   const faintest = 0.35, elsewhere = 0.45
@@ -395,7 +469,10 @@ export function bandMapScene(
   const ranked = [...view.spots].sort(byRank).slice(0, mostSpots(scaleLayers))
 
   // Where each spot shown goes: its point on the line, its label centred on it, and the leader between them.
-  type Shown = { s: MapSpot; p: number; x: number; y: number; w: number; leader: string; reach: number[] }
+  // `collapsed`: no room for its label among the rest. It keeps its dot, its bar and a stub of its
+  // leader on the line, and its label shows, over the others nearest the line, only while lit:
+  // dropped whole, a crowded stretch of the band would look empty.
+  type Shown = { s: MapSpot; p: number; x: number; y: number; w: number; leader: string; reach: number[]; collapsed?: boolean }
   const shown: Shown[] = []
   if (vertical) {
     // Columns beside the line: as few as keep every label within `drift` of its point, and no more
@@ -414,10 +491,10 @@ export function bandMapScene(
       tops = columns(chosen.map(want), count, row, top, bottom)
       if (tops.every(({ top: y }, i) => Math.abs(y + row / 2 - want(chosen[i])) <= drift)) break
     }
-    chosen.forEach((s, i) => {
+    const place = (s: MapSpot, column: number, y: number, collapsed?: boolean) => {
       // The column's edge nearer the line, the label's width out from it, and the label's other end.
-      const near = axis + side * (22 + tops[i].column * (columnWidth + gap)), w = Math.min(room - tops[i].column * (columnWidth + gap), pillWidth(s))
-      const p = at(s.khz), x = side < 0 ? near - w : near, y = tops[i].top
+      const near = axis + side * (22 + column * (columnWidth + gap)), w = Math.min(room - column * (columnWidth + gap), pillWidth(s))
+      const p = at(s.khz), x = side < 0 ? near - w : near
       const meet = y + labelHeight / 2
       // Straight across where the dot is level with the label's side, clear of its rounded corners.
       // Elsewhere level out of the dot, a square turn just short of the label (in the gap before its
@@ -427,8 +504,14 @@ export function bandMapScene(
       const leader = bend
         ? `M${axis} ${p}H${turn - out}Q${turn} ${p} ${turn} ${p + dir * bend}V${meet - dir * bend}Q${turn} ${meet} ${turn + out} ${meet}H${near}`
         : `M${axis} ${p}H${near}`
-      shown.push({ s, p, x, y, w, leader, reach: [Math.min(axis, near) - 5, Math.min(p, meet) - 5, Math.max(axis, near) + 5, Math.max(p, meet) + 5] })
-    })
+      shown.push({ s, p, x, y, w, leader, reach: [Math.min(axis, near) - 5, Math.min(p, meet) - 5, Math.max(axis, near) + 5, Math.max(p, meet) + 5], collapsed })
+    }
+    chosen.forEach((s, i) => place(s, tops[i].column, tops[i].top))
+    // The rest beside their points in the first column, where they show lit.
+    if (fits(1)) {
+      const kept = new Set(chosen)
+      for (const s of ranked) if (!kept.has(s)) place(s, 0, Math.min(Math.max(at(s.khz) - labelHeight / 2, top), bottom - labelHeight), true)
+    }
   } else {
     // Lanes on the calls' side of the line, the newest spots taking the nearest, each label centred
     // on its point; short of the markers' strip at the field's far edge.
@@ -440,13 +523,29 @@ export function bandMapScene(
       const start = Math.max(left, Math.min(p - w / 2, right - w))
       return [start, start + w] as [number, number]
     })
+    // One with no lane of its own shows lit in the nearest.
     lanes(spans, count, 4).forEach((lane, i) => {
-      if (lane == null) return
-      const s = nearest[i], p = at(s.khz), y = side < 0 ? axis - 6 - (lane + 1) * row : axis + 6 + lane * row + (row - labelHeight), [x, end] = spans[i]
+      if (!count) return
+      const s = nearest[i], p = at(s.khz), y = side < 0 ? axis - 6 - ((lane ?? 0) + 1) * row : axis + 6 + (lane ?? 0) * row + (row - labelHeight), [x, end] = spans[i]
       const meet = side < 0 ? y + labelHeight : y
-      shown.push({ s, p, x, y, w: end - x, leader: `M${p} ${axis}V${meet}`, reach: [p - 5, Math.min(axis, meet) - 5, p + 5, Math.max(axis, meet) + 5] })
+      shown.push({ s, p, x, y, w: end - x, leader: `M${p} ${axis}V${meet}`, reach: [p - 5, Math.min(axis, meet) - 5, p + 5, Math.max(axis, meet) + 5], collapsed: lane == null })
     })
   }
+  // Each spot's stretch of the line, for the pointer to light it: 10 px either side of its point,
+  // shared with its neighbours halfway; none under a pixel, where points all but coincide.
+  const slices = (list: Shown[]) => {
+    const byPoint = list.map(({ p }, i) => ({ p, i })).sort((a, b) => a.p - b.p)
+    const out: ([number, number] | undefined)[] = []
+    byPoint.forEach(({ p, i }, k) => {
+      const from = Math.max(p - 10, k ? (byPoint[k - 1].p + p) / 2 : -Infinity), to = Math.min(p + 10, k < byPoint.length - 1 ? (p + byPoint[k + 1].p) / 2 : Infinity)
+      out[i] = to - from < 1 ? undefined : [from, to]
+    })
+    return out
+  }
+  // A collapsed spot lights only on its stretch of the line: with none, nothing would ever show it,
+  // so it is left out and counted with the rest the map has no room for.
+  const reachable = slices(shown)
+  shown.splice(0, shown.length, ...shown.filter((spot, i) => !spot.collapsed || reachable[i]))
   const hidden = view.spots.length - shown.length
 
   // Under the pointer — its label, or its point on the scale — a spot's line, dot and label light up
@@ -460,7 +559,7 @@ export function bandMapScene(
   // The band the spot's signal takes by its mode, a bar along the line under its dot in the spot's ink, as its leader is, kept to the line.
   const [lineStart, lineEnd] = [Math.min(a0, a1), Math.max(a0, a1)]
   const signal = (s: MapSpot) => {
-    const hz = spotPassband(s.mode ?? s.planned, s.khz)
+    const hz = s.heard ?? spotPassband(s.mode ?? s.planned, s.khz)
     if (!hz) return undefined
     const [q, r] = hz.map(h => Math.min(Math.max(at(s.khz + h / 1000), lineStart), lineEnd)).sort((a, b) => a - b)
     return r > q ? [q, r] : undefined
@@ -468,35 +567,44 @@ export function bandMapScene(
   const bar = (s: MapSpot, [q, r]: number[]) =>
     vertical ? `<rect x="${axis - 3}" y="${q}" width="6" height="${r - q}" fill="${ink(s)}" fill-opacity=".6"/>`
       : `<rect x="${q}" y="${axis - 3}" width="${r - q}" height="6" fill="${ink(s)}" fill-opacity=".6"/>`
-  // Leaders first, so a nearer label covers those passing behind it.
-  shown.forEach(({ s, p, leader, reach }, i) => {
+  // Leaders first, so a nearer label covers those passing behind it; a collapsed spot's only a stub
+  // out from the line, toward where the labels are.
+  shown.forEach(({ s, p, leader, reach, collapsed }, i) => {
     const band = signal(s)
     const box = band ? (vertical ? [Math.min(reach[0], axis - 3), Math.min(reach[1], band[0]), Math.max(reach[2], axis + 3), Math.max(reach[3], band[1])]
       : [Math.min(reach[0], band[0]), Math.min(reach[1], axis - 3), Math.max(reach[2], band[1]), Math.max(reach[3], axis + 3)]) : reach
-    piece(`spot-${i}-line`, box, `${band ? bar(s, band) : ''}<path d="${leader}" fill="none" stroke="${ink(s)}" stroke-opacity=".6" stroke-width="1"/>${dot(s, p, 3.5)}`, { opacity: lit(i, fade(s)) })
+    const stub = vertical ? `M${axis} ${p}H${axis + side * 8}` : `M${p} ${axis}V${axis + side * 8}`
+    piece(`spot-${i}-line`, box, `${band ? bar(s, band) : ''}<path d="${collapsed ? stub : leader}" fill="none" stroke="${ink(s)}" stroke-opacity=".6" stroke-width="1"/>${dot(s, p, 3.5)}`, { opacity: lit(i, fade(s)) })
   })
   shown.forEach((spot, i) => {
-    const { s, x, y, w } = spot
+    const { s, x, y, w, collapsed } = spot
+    if (collapsed) return
     piece(`spot-${i}-box`, [x, y, x + w, y + labelHeight], `<g opacity="${fade(s).toFixed(2)}"><rect x="${x}" y="${y}" width="${w}" height="${labelHeight}" rx="3" fill="${fill}" fill-opacity="${fillOpacity}"/>${strike(spot)}</g>`)
   })
-  shown.forEach((spot, i) => {
+  const litLabel = (spot: Shown, i: number) => {
     const { s, p, x, y, w, leader, reach } = spot
     const box = [Math.min(reach[0], x), Math.min(reach[1], y), Math.max(reach[2], x + w), Math.max(reach[3], y + labelHeight)]
     piece(`lit-${i}`, [box[0] - 2, box[1] - 2, box[2] + 2, box[3] + 2], `<path d="${leader}" fill="none" stroke="${ink(s)}" stroke-width="2.5"/>${dot(s, p, 5.5)}` +
       `<rect x="${x}" y="${y}" width="${w}" height="${labelHeight}" rx="3" fill="${c.surface}"/>` +
       `<rect x="${x + 0.5}" y="${y + 0.5}" width="${w - 1}" height="${labelHeight - 1}" rx="3" fill="none" stroke="${ink(s)}" stroke-width="1"/>${strike(spot)}`, { opacity: lit(i, 0) })
-  })
-  shown.forEach(({ s, x, y, w }, i) => {
-    // Text colours take no alpha, so each part fades through its layer's opacity: by age, and full when lit.
-    // The call's box runs to the label's end, so a guess short of the real advance never cuts it off.
-    if (s.icon) layers.push({ id: `spot-${i}-icon`, x: x + 3, y: y + (textHeight - iconSize) / 2 + 2, width: iconSize, height: iconSize, icon: { name: s.icon, color: s.iconColor ?? ink(s) }, opacity: lit(i, fade(s)) })
+  }
+  const label = ({ s, x, y, w, collapsed }: Shown, i: number) => {
+    // Text colours take no alpha, so each part fades through its layer's opacity: by age, and full
+    // when lit; a collapsed spot's shows only lit. The call's box runs to the label's end, so a guess
+    // short of the real advance never cuts it off.
+    const opacity = lit(i, collapsed ? 0 : fade(s))
+    if (s.icon) layers.push({ id: `spot-${i}-icon`, x: x + 3, y: y + (textHeight - iconSize) / 2 + 2, width: iconSize, height: iconSize, icon: { name: s.icon, color: s.iconColor ?? ink(s) }, opacity })
     text(`spot-${i}-call`, x + callAt(s), y, Math.max(1, w - callAt(s) - 2), textHeight, s.call, callSize, ink(s), { fontFamily: mono, fontWeight: 700 })
-    layers[layers.length - 1].opacity = lit(i, fade(s))
+    layers[layers.length - 1].opacity = opacity
     if (s.emoji) {
       text(`spot-${i}-emoji`, x + w - 6 - emojiWidth, y, emojiWidth + 4, textHeight, s.emoji, callSize - 1, ink(s), { align: 'center' })
-      layers[layers.length - 1].opacity = lit(i, fade(s))
+      layers[layers.length - 1].opacity = opacity
     }
-  })
+  }
+  // The labels with places of their own, then each collapsed one whole over them, where it shows lit.
+  shown.forEach((spot, i) => { if (!spot.collapsed) litLabel(spot, i) })
+  shown.forEach((spot, i) => { if (!spot.collapsed) label(spot, i) })
+  shown.forEach((spot, i) => { if (spot.collapsed) { litLabel(spot, i); label(spot, i) } })
 
   // A marker's emoji, and under the pointer its line drawn solid and its label in a pill that takes
   // in the emoji, over any spots and other emoji there. The host sets `mark` to its number.
@@ -537,19 +645,22 @@ export function bandMapScene(
 
   // A label tunes to its spot; so does the line at its dot, shared with its neighbours halfway.
   // Ids name the station, not its place in the list, which every new spot shifts: a click on the
-  // picture painted before a render must still reach the spot it showed. A map holds one spot a call.
+  // picture painted before a render must still reach the spot it showed. A map holds one spot a
+  // station, a call not fully copied one a place, and a note one a key.
+  // With no radio to tune, a note's only light it: there is nothing to log at one.
   const hover = (i: number) => ({ hoverSet: { value: 'hot', to: i } })
-  shown.forEach(({ s, x, y, w }, i) => {
-    controls.push({ id: `spot:${s.call}`, label: t.tune(s.call, mhz(s.khz)), kind: 'button', x, y, width: w, height: labelHeight, event: 'spot', ...hover(i) })
-    placed.push({ id: `spot:${s.call}`, spot: s })
+  const acts = (s: MapSpot) => (s.note && !view.tunable ? { label: s.label ?? s.call } : { label: t.tune(s.label ?? s.call, mhz(s.khz)), event: 'spot' })
+  shown.forEach(({ s, x, y, w, collapsed }, i) => {
+    if (collapsed) return
+    controls.push({ id: `spot:${spotKey(s)}`, kind: 'button', x, y, width: w, height: labelHeight, ...acts(s), ...hover(i) })
+    placed.push({ id: `spot:${spotKey(s)}`, spot: s })
   })
-  const byPoint = shown.map((spot, i) => ({ ...spot, i })).sort((a, b) => a.p - b.p)
-  byPoint.forEach(({ s, p, i }, k) => {
-    const from = Math.max(p - 10, k ? (byPoint[k - 1].p + p) / 2 : -Infinity), to = Math.min(p + 10, k < byPoint.length - 1 ? (p + byPoint[k + 1].p) / 2 : Infinity)
-    if (to - from < 1) return
+  slices(shown).forEach((slice, i) => {
+    if (!slice) return
+    const s = shown[i].s, [from, to] = slice
     const rect = vertical ? { x: axis - 8, y: from, width: 16, height: to - from } : { x: from, y: axis - 8, width: to - from, height: 16 }
-    controls.push({ id: `scale:${s.call}`, label: t.tune(s.call, mhz(s.khz)), kind: 'button', ...rect, event: 'spot', ...hover(i) })
-    placed.push({ id: `scale:${s.call}`, spot: s })
+    controls.push({ id: `scale:${spotKey(s)}`, kind: 'button', ...rect, ...acts(s), ...hover(i) })
+    placed.push({ id: `scale:${spotKey(s)}`, spot: s })
   })
   // Zoom, down the top corner on the calls' side over everything else, clear of the markers' strip:
   // in, out, and the next of the preset views, named and drawn as the one it goes to. A way it cannot
@@ -654,6 +765,7 @@ export function createBandMap(host: BandMapHost): PanelHook {
         form: [
           { type: 'field', fieldType: 'select', key: 'band', label: t.band, value: 'auto', options: [{ value: 'auto', label: t.auto }, ...bands.map(b => ({ value: b, label: b }))] },
           { type: 'field', fieldType: 'select', key: 'age', label: t.age, value: '30', options: ages.map(n => ({ value: String(n), label: t.minutes(n) })) },
+          { type: 'field', fieldType: 'checkbox', key: 'notes', label: t.notes, value: true, description: t.notesHelp },
           { type: 'field', fieldType: 'checkbox', key: 'waterfall', label: t.waterfall, value: true },
           { type: 'field', fieldType: 'checkbox', key: 'pan', label: t.panadapter, value: true },
           { type: 'field', fieldType: 'select', key: 'direction', label: t.direction, value: 'normal', options: [{ value: 'normal', label: t.normal }, { value: 'inverted', label: t.inverted }] },
@@ -695,7 +807,7 @@ export function createBandMap(host: BandMapHost): PanelHook {
           : sp.mode === 'center' && sp.spanHz ? [radioKHz - sp.spanHz / 1000, radioKHz + sp.spanHz / 1000]
           : sp.mode == null ? [radioKHz - guess, radioKHz + guess]
           : undefined
-        if (scoped) scope = { radio: radio.id, waterfall: falls, pan, range: scoped, tuneStep: tuneSteps[radioMode ?? ''] }
+        if (scoped) scope = { radio: radio.id, waterfall: falls, pan, range: scoped }
       }
       // The plan where the operation's station is, or the library's own where there is none; the
       // markers for its IARU region (its ITU one) and entity, or all of them.
@@ -763,16 +875,20 @@ export function createBandMap(host: BandMapHost): PanelHook {
       }
       scroll = { factor: (factor * reach) / (hi - lo), offset: v.offset, follow, centerOn, stretch: { min: 1 / factor, max: most / factor } }
       const maxAgeMinutes = ages.includes(Number(args.config.age)) ? Number(args.config.age) : 30
-      const board = (await ctx.getSpots?.({ filter: 'all', band, maxAgeMinutes })) ?? []
+      // Every spot from the sources the operator has on, as the app's Band Scope takes them, whatever
+      // the Spots panel's own filters leave out; and what is marked on the band among them.
+      const board = (await ctx.getSpots?.({ filter: 'sources', band, maxAgeMinutes })) ?? []
+      const notes = toggle(args.config.notes, true) ? noteSpots((await ctx.getBandAnnotations?.({ band })) ?? [], window) : []
       // The logging controls name a contact's mode, not a radio's: SSB is its sideband there, as a spot's is.
-      const passband: [number, number] | undefined = fromDraft ? (radioKHz != null ? spotPassband(radioMode, radioKHz) : undefined)
+      // FT8 and FT4 there are the radio's data passband, which a spot of them leaves unmarked.
+      const passband: [number, number] | undefined = fromDraft ? (radioKHz != null ? spotPassband(radioMode === 'FT8' || radioMode === 'FT4' ? 'DATA' : radioMode, radioKHz) : undefined)
         : radio?.passband ? [radio.passband.lowHz, radio.passband.highHz] : passbands[radioMode ?? '']
       const marks = { group: ctx.groupingSeparator ?? ',', decimal: ctx.decimalSeparator ?? '.' }
       const plan = {
         edges: segments.slice(1).map(s => s.from),
         off: kind ? segments.filter(s => !planAllows(s, kind)).map(s => [s.from, s.to] as [number, number]) : [],
       }
-      const view: MapView = { band, window, inverted: args.config.direction === 'inverted', passband, plan, superMode: kind, tunable: !!radio?.id, spots: mapSpots(board, args.clock.nowMillis, window), markers, maxAgeMinutes, radioKHz, follows: !fromDraft, scope, marks, zoom, scroll }
+      const view: MapView = { band, window, inverted: args.config.direction === 'inverted', passband, plan, superMode: kind, tunable: !!radio?.id, spots: [...notes, ...mapSpots(board, args.clock.nowMillis, window)], markers, maxAgeMinutes, radioKHz, follows: !fromDraft, scope, marks, zoom, scroll }
       const { scene, placed, offset, centerKHz, centerAt, tuneAt } = bandMapScene(args.environment, view, t)
       if (scroll) {
         const v = viewOf(key)
@@ -817,6 +933,12 @@ export function createBandMap(host: BandMapHost): PanelHook {
       if (event.action === 'spot') {
         const spot = drawn?.placed.find(p => p.id === event.controlId)?.spot
         if (!spot) return { values: {} }
+        // Nothing to log at a note: the radio alone, to where it is, in the mode it is in.
+        if (spot.note) {
+          const radio = await host.readRadio()
+          if (radio?.id) refusedBy(await host.setRadio({ id: radio.id, frequencyHz: Math.round(spot.khz * 1000) }))
+          return { values: {} }
+        }
         const qso = { their: { call: spot.call }, freq: spot.khz, band: spot.band, mode: spot.mode, refs: spot.refs }
         // Not accepted is no such operation open; a refusal throws, and is the host's to report.
         const { accepted } = await host.suggestQso({ qso, operationUuid: drawn?.operationUuid })
@@ -833,10 +955,6 @@ export function createBandMap(host: BandMapHost): PanelHook {
       if (event.action === 'axis') {
         const khz = typeof event.value === 'number' ? drawn?.tuneAt?.(event.value) : undefined
         if (khz != null) refusedBy(await host.setRadio({ id: radio.id, frequencyHz: Math.round(khz * 1000) }))
-        return { values: {} }
-      }
-      if (event.action === 'tune' && typeof event.value === 'number') {
-        refusedBy(await host.setRadio({ id: radio.id, frequencyHz: Math.round(event.value) }))
         return { values: {} }
       }
       // A control this map does not draw: a dead one would say nothing of why.

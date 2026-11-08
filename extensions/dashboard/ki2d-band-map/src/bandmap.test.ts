@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MPL-2.0
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { createBandMap, mapSpots } from './bandmap.ts'
+import { createBandMap, mapSpots, noteSpots } from './bandmap.ts'
 import { bandEdges } from './bands.ts'
 
 const colors: Record<string, string> = {}
@@ -228,35 +228,38 @@ test('the scope takes the waterfall and the panadapter as set, flowing away from
   // Tall, 220 wide: the line at 212 − 58, the field from 8 to it, the strip from it to 212.
   let { falls, pan } = await scopesFor(220, 900)
   assert.deepEqual([falls.display, falls.flow, falls.x, falls.width], ['waterfall', 'left', 8, 146])
-  assert.deepEqual([pan.display, pan.flow, pan.x, pan.width], ['pan', 'left', 154, 58])
+  assert.deepEqual([pan.display, pan.flow, pan.x, pan.width], ['spectrum', 'left', 154, 58])
   assert.deepEqual([falls.rising, pan.rising], ['down', 'down'], 'frequency down the page, as the scale runs')
   ;({ falls, pan } = await scopesFor(220, 900, { direction: 'inverted' }))
   assert.deepEqual([falls.flow, falls.x, falls.width, pan.x, pan.width], ['right', 66, 146, 8, 58])
   assert.deepEqual([falls.rising, pan.rising], ['down', 'down'])
   ;({ falls, pan } = await scopesFor(220, 900, { waterfall: false }))
-  assert.deepEqual([falls, pan.display], [undefined, 'pan'])
+  assert.deepEqual([falls, pan.display], [undefined, 'spectrum'])
   ;({ falls, pan } = await scopesFor(220, 900, { pan: false }))
   assert.deepEqual([falls.display, pan], ['waterfall', undefined])
   assert.deepEqual(await scopesFor(220, 900, { waterfall: false, pan: false }), { falls: undefined, pan: undefined })
   // The menu before these toggles, whose Off was no scope at all, and a toggle set since wins over it.
   assert.deepEqual(await scopesFor(220, 900, { panadapter: 'off' }), { falls: undefined, pan: undefined })
-  assert.equal((await scopesFor(220, 900, { panadapter: 'off', pan: true })).pan.display, 'pan')
+  assert.equal((await scopesFor(220, 900, { panadapter: 'off', pan: true })).pan.display, 'spectrum')
   // Wide, 220 high: the scale along the top, 8 to 26, or inverted along the bottom.
   ;({ falls, pan } = await scopesFor(900, 220))
   assert.deepEqual([falls.flow, falls.y, falls.height, pan.y, pan.height, falls.rising], ['down', 26, 186, 8, 18, 'right'])
   assert.equal((await scopesFor(900, 220, { direction: 'inverted' })).falls.flow, 'up')
 })
 
-// A click on the scope lands as on KI2D's Radio Panel: the nearest 50 Hz in CW, 500 Hz in phone,
-// and where it lands in data.
-test('a click on the scope tunes to the mode’s step', async () => {
-  for (const [mode, step] of [['CW', 50], ['USB', 500], ['LSB', 500], ['FM', 500], ['DATA-USB', undefined], ['RTTY', undefined]] as const) {
-    const { hook } = bandMap({
-      readRadio: async () => ({ id: 'r', frequencyHz: 14074000, mode, modes: [mode], spectrum: { mode: 'center', spanHz: 50000, spansHz: [50000] } }),
-    })
-    const { scene } = await hook.render({ environment: env(220, 900), clock: { nowMillis: 1e12 }, instanceId: 'a', config: {}, operation: {} }, { getSpots: async () => spots })
-    const find = (id: string) => scene.controls.find((c: { id: string }) => c.id === id)
-    assert.deepEqual([find('scope').tuneStep, find('scope-pan').tuneStep], [step, step], mode)
+// The scope is the app's band scope: a click on it, or a drag of the dial's line, tunes the radio
+// from the app at its own step, as its Band Scope does. The map zooms and scrolls it, so the scope's
+// own zoom, pan, split and levels are off, and a wheel over it scrolls the map rather than tuning.
+test('the scope is the app’s band scope, tuning natively while the map zooms and scrolls it', async () => {
+  const { hook } = bandMap({
+    readRadio: async () => ({ id: 'r', frequencyHz: 14025000, mode: 'CW', modes: ['CW'], spectrum: { mode: 'center', spanHz: 50000, spansHz: [50000] } }),
+  })
+  const { scene } = await hook.render({ environment: env(220, 900), clock: { nowMillis: 1e12 }, instanceId: 'a', config: {}, operation: {} }, { getSpots: async () => spots })
+  for (const id of ['scope', 'scope-pan']) {
+    const scope = scene.controls.find((c: { id: string }) => c.id === id)
+    assert.equal(scope.kind, 'bandScope', id)
+    assert.deepEqual([scope.tuneStep, scope.event, scope.scale, scope.levelScale, scope.vfoLabel], [undefined, undefined, false, false, false], id)
+    assert.deepEqual(scope.gestures, { tune: 'native', zoom: 'off', pan: 'off', split: 'off', levels: 'off', scroll: { vertical: 'off', horizontal: 'off' } }, id)
   }
 })
 
@@ -419,4 +422,138 @@ test("the radio's pointer follows its live frequency between renders, and hides 
 test('the map asks to be rendered when the dial moves, to scroll and redraw about it', async () => {
   const [descriptor] = await bandMap().hook.getPanels({}, { locale: 'en' })
   assert.ok(descriptor.on.includes('radio'))
+})
+
+const at = (call: string, freq: number, extra: Record<string, unknown> = {}) =>
+  ({ their: { call }, freq, band: '20m', mode: 'CW', spot: { timeInMillis: 1e12, source: 'pota' }, ...extra })
+const renderWith = async (board: unknown[], ctx: Record<string, unknown> = {}, config: Record<string, unknown> = {}, size: [number, number] = [900, 220], app?: string) => {
+  const { hook, tuned } = bandMap()
+  const environment = { ...env(...size), ...(app ? { brightness: app } : {}) }
+  const { scene } = await hook.render({ environment, clock: { nowMillis: 1e12 }, instanceId: 'a', config: { band: '20m', ...config }, operation: {} }, { getSpots: async () => board, ...ctx })
+  return { scene, hook, tuned }
+}
+const callInk = (scene: any, call: string) => scene.layers.find((l: { text?: { literal: string } }) => l.text?.literal === call).text.color
+
+// The Spots panel's accents: something new to work it for in green, a new multiplier in its own
+// orange over that; a new DXCC alone is about the call being typed, and on a band would light most.
+test('a spot is accented as the Spots panel accents it, in the theme’s shade', async () => {
+  const notes = (notices: string[]) => ({ annotations: { worked: false, isSelf: false, notices } })
+  const board = [
+    at('K1NEW', 14010, notes(['newBand'])), at('K1MULT', 14020, notes(['newMult', 'newBand'])), at('K1DX', 14030, notes(['newDXCC'])),
+    at('K1CHASE', 14040, notes(['chase:pota:newRef:alert'])), at('K1QUIET', 14050, notes(['chase:pota:newRef'])),
+  ]
+  const { scene } = await renderWith(board)
+  assert.deepEqual(['K1NEW', 'K1MULT', 'K1DX', 'K1CHASE', 'K1QUIET'].map(call => callInk(scene, call)), ['#1aa01a', '#c2500f', '#123456', '#1aa01a', '#123456'])
+  const dark = (await renderWith(board, {}, {}, [900, 220], 'dark')).scene
+  assert.deepEqual([callInk(dark, 'K1NEW'), callInk(dark, 'K1MULT')], ['#1ac81a', '#ff8a4c'])
+})
+
+// "W1A?" names no one station: two of them are two places on the band.
+test('a call not fully copied is a spot at each place it was heard', async () => {
+  const { scene } = await renderWith([at('W1A?', 14010), at('W1A?', 14030), at('K1A', 14040), at('K1A', 14041)])
+  const ids = scene.controls.filter((c: { id: string }) => c.id.startsWith('spot:')).map((c: { id: string }) => c.id).sort()
+  assert.deepEqual(ids, ['spot:K1A', 'spot:W1A?@14010', 'spot:W1A?@14030'])
+})
+
+// Every FT8 spot is somewhere in the same 3 kHz: a bar for each would mark no one station.
+test('an FT8 or FT4 spot draws no passband bar along the line', async () => {
+  const { scene } = await renderWith([at('K1FT', 14074, { mode: 'FT8' }), at('K1CW', 14030)])
+  const line = (call: string) => {
+    const i = scene.controls.find((c: { id: string }) => c.id === `spot:${call}`).hoverSet.to
+    return scene.layers.find((l: { id: string }) => l.id === `spot-${i}-line`).svg
+  }
+  assert.ok(!line('K1FT').includes('<rect'))
+  assert.ok(line('K1CW').includes('<rect'))
+})
+
+// What is marked on the band — the operator's band tags, what extensions say — among the spots:
+// labelled, over the stretch it covers, in the ink it suggests; a click tunes the radio alone.
+test('the band’s general annotations are among the spots, and a click on one tunes the radio there', async () => {
+  const said = [
+    { type: 'general', fromHz: 14100000, toHz: 14110000, label: 'NET!', color: '#cc3300', source: 'user', band: '20m', importance: 'primary' },
+    { type: 'known', fromHz: 14074000, toHz: 14077000, label: 'FT8', source: 'band-plan', band: '20m', importance: 'secondary' },
+    { type: 'general', fromHz: 14200000, label: 'QRM!', key: 'qrm', source: 'user', band: '20m', importance: 'primary' },
+  ]
+  const asked: unknown[] = []
+  const getBandAnnotations = async (options: unknown) => (asked.push(options), said)
+  const suggested: unknown[] = []
+  const { hook, tuned } = bandMap({ suggestQso: async (a: unknown) => (suggested.push(a), { accepted: true }) })
+  const { scene } = await hook.render({ environment: env(900, 220), clock: { nowMillis: 1e12 }, instanceId: 'a', config: { band: '20m' }, operation: {} }, { getSpots: async () => spots, getBandAnnotations })
+  assert.deepEqual(asked, [{ band: '20m' }])
+  assert.equal(callInk(scene, 'NET!'), '#cc3300')
+  // The band plan's own annotations are not spots: the map draws its own plan and markers.
+  assert.ok(!scene.controls.some((c: { id: string }) => c.id.startsWith('spot:note:band-plan')), 'the band plan is the map’s own')
+  const net = scene.controls.find((c: { label: string; id: string }) => c.id.startsWith('spot:note:') && c.label.includes('NET!'))
+  // Across the 10 kHz it covers, at 900 px for 350 kHz.
+  const i = net.hoverSet.to, bar = scene.layers.find((l: { id: string }) => l.id === `spot-${i}-line`)
+  assert.ok(bar.width >= (10 / 350) * 884 - 1, `${bar.width}`)
+  await hook.onEvent(event('spot', { controlId: net.id }))
+  assert.deepEqual([suggested, tuned], [[], [{ id: 'r', frequencyHz: 14105000 }]])
+  const off = await renderWith(spots, { getBandAnnotations }, { notes: false })
+  assert.ok(!off.scene.layers.some((l: { text?: { literal: string } }) => l.text?.literal === 'NET!'))
+})
+
+// Dropped whole, a crowded stretch of band would look empty: one with no room for its label keeps
+// its dot on the line, and its label shows only under the pointer, over the rest.
+test('a spot with no room for its label keeps its dot, its label shown only lit', async () => {
+  const crowd = Array.from({ length: 30 }, (_, k) => at(`K${k}AA`, 14030 + k * 0.5))
+  const { scene } = await renderWith(crowd, {}, {}, [900, 120])
+  const calls = scene.layers.filter((l: { id: string }) => /^spot-\d+-call$/.test(l.id))
+  assert.equal(calls.length, 30, 'every spot is drawn')
+  const collapsed = calls.filter((l: { opacity: { output: number[] } }) => l.opacity.output[0] === 0)
+  assert.ok(collapsed.length > 0 && collapsed.length < 30, `${collapsed.length}`)
+  // Its dot, and a way to light it, on the line; no label of its own to click.
+  const i = Number(collapsed[0].id.split('-')[1])
+  assert.ok(scene.layers.some((l: { id: string }) => l.id === `spot-${i}-line`))
+  assert.ok(!scene.layers.some((l: { id: string }) => l.id === `spot-${i}-box`))
+  assert.ok(scene.controls.some((c: { id: string; hoverSet?: { to: number } }) => c.id.startsWith('scale:') && c.hoverSet?.to === i))
+  assert.ok(!scene.controls.some((c: { id: string; hoverSet?: { to: number } }) => c.id.startsWith('spot:') && c.hoverSet?.to === i))
+  // Its label after every placed one's, so it shows over them.
+  const last = Math.max(...calls.filter((l: any) => l.opacity.output[0] !== 0).map((l: any) => scene.layers.indexOf(l)))
+  assert.ok(scene.layers.indexOf(collapsed[0]) > last)
+  assert.ok(!scene.layers.some((l: { id: string }) => l.id === 'more'), 'none left out')
+})
+
+// With no radio there is nothing to tune, and nothing to log at a note: its label only lights it.
+test('with no radio, a note lights under the pointer and sends nothing', async () => {
+  const said = [{ type: 'general', fromHz: 14200000, label: 'QRM!', source: 'user', band: '20m', importance: 'primary' }]
+  const { hook } = bandMap({ readRadio: async () => null })
+  const { scene } = await hook.render({ environment: env(900, 220), clock: { nowMillis: 1e12 }, instanceId: 'a', config: { band: '20m' }, operation: {}, qso: { freq: 14200, band: '20m', mode: 'SSB' } }, { getSpots: async () => spots, getBandAnnotations: async () => said })
+  const note = scene.controls.filter((c: { id: string }) => c.id.startsWith('spot:note:') || c.id.startsWith('scale:note:'))
+  assert.ok(note.length > 0)
+  for (const c of note) assert.deepEqual([c.event, c.label, typeof c.hoverSet.to], [undefined, 'QRM!', 'number'], c.id)
+})
+
+// By its place among the notes, a note added before another would move a click on the picture
+// painted before onto it; a stretch whose middle is off the window shows where the window holds it.
+test('a note is named by its key or its place on the band, and shows where the window holds it', () => {
+  const note = (fromHz: number, extra: Record<string, unknown> = {}) => ({ type: 'general', fromHz, label: 'X', source: 'ext', band: '20m', importance: 'primary', ...extra }) as any
+  const keys = (list: any[]) => noteSpots(list, [14000, 14350]).map(s => s.key)
+  assert.deepEqual(keys([note(14100000), note(14200000)]), ['note:ext:14100000', 'note:ext:14200000'])
+  assert.deepEqual(keys([note(14050000), note(14100000), note(14200000)]).slice(1), ['note:ext:14100000', 'note:ext:14200000'])
+  assert.deepEqual(keys([note(14100000), note(14100000)]), ['note:ext:14100000', 'note:ext:14100000#1'])
+  // 7200–7300 seen through a window of 7180–7230: its middle there is 7215.
+  const [wide] = noteSpots([{ ...note(7200000, { toHz: 7300000 }), band: '40m' }], [7180, 7230])
+  assert.deepEqual([wide.khz, wide.heard], [7215, [-15000, 85000]])
+  assert.deepEqual(noteSpots([note(7300000, { toHz: 7310000 })], [7180, 7230]), [])
+})
+
+// A long label would size the map's columns, and its stations would lose theirs.
+test('a long note label is cut short, its whole text kept as its name', async () => {
+  const said = [{ type: 'general', fromHz: 14300000, label: 'Maritime Mobile Service Net', source: 'user', band: '20m', importance: 'primary' }]
+  const [note] = noteSpots(said as any, [14000, 14350])
+  assert.deepEqual([note.call, note.label], ['Maritime Mo…', 'Maritime Mobile Service Net'])
+  const { scene } = await renderWith(spots, { getBandAnnotations: async () => said })
+  assert.ok(scene.controls.some((c: { label: string }) => c.label === 'Tune to Maritime Mobile Service Net on 14.300 MHz'))
+})
+
+// A dot no pointer can reach would hide its station as surely as leaving it out, without saying so.
+test('a collapsed spot whose point all but coincides with others is counted among those left out', async () => {
+  const crowd = Array.from({ length: 40 }, (_, k) => at(`K${k}FT`, 14074.2 + k * 0.07, { mode: 'FT8' }))
+  const { scene } = await renderWith(crowd)
+  const lit = scene.layers.filter((l: { id: string }) => /^lit-\d+$/.test(l.id)).map((l: { id: string }) => Number(l.id.slice(4)))
+  const reached = new Set(scene.controls.filter((c: { hoverSet?: { value: string; to: number } }) => c.hoverSet?.value === 'hot').map((c: { hoverSet: { to: number } }) => c.hoverSet.to))
+  assert.deepEqual(lit.filter((i: number) => !reached.has(i)), [], 'every spot drawn can be lit')
+  const more = scene.layers.find((l: { id: string }) => l.id === 'more')
+  assert.equal(more?.text.literal, `+${40 - lit.length} more`)
 })
