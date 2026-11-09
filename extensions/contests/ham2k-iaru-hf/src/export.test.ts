@@ -154,15 +154,16 @@ test("the Cabrillo header carries the declared entry, whoever logged and the clu
   // Undeclared, the entry claims nothing beyond the contest's one band.
   assert.deepEqual(await categories({ uuid: 'op-3', stationCall: 'N0DEV', refs: [{ type: 'iaru-hf' }] }), ['CATEGORY-BAND: ALL'])
 
-  // The operators are whoever logged, the station owner closes the line, and
-  // a typed list from an older setup is ignored.
+  // The operators are whoever logged, then the operation's own operator, the
+  // station owner closes the line, and a typed list from an older setup is
+  // ignored.
   const multi = {
     uuid: 'op-4', stationCall: 'N0DEV', local: { operatorCall: 'N0DEV' }, ownerCall: 'n1own',
     refs: [{ type: 'iaru-hf', operator: 'MULTI-ONE', operators: 'N0OLD', club: 'Yankee Clipper Contest Club' }],
   }
   const byTwo = QSOS.map((qso, i) => ({ ...qso, our: { call: 'N0DEV', operatorCall: i === 1 ? 'W2DEF' : 'K1ABC' } }))
   const content = ((await contest.runHook('export', 'generateExport', { operation: multi, qsos: byTwo, exportType: 'iaru-hf-cabrillo' })) as { content: string }).content
-  assert.ok(content.includes('\nOPERATORS: K1ABC W2DEF @N1OWN\n'))
+  assert.ok(content.includes('\nOPERATORS: K1ABC W2DEF N0DEV @N1OWN\n'))
   assert.ok(content.includes('\nCLUB: Yankee Clipper Contest Club\n'))
   // A log the station's own holder made names that call.
   const solo = { ...multi, ownerCall: undefined, refs: [{ type: 'iaru-hf', modeRestriction: 'Mixed' }] }

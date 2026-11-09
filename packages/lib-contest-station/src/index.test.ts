@@ -32,7 +32,14 @@ test("a contact with no operator call was logged by the station's own holder", (
 
 test("deleted contacts and event markers name nobody", () => {
   const qsos = [qso({ operatorCall: 'N0BAD' }, { deleted: true }), qso({ operatorCall: 'N0EVT' }, { band: 'event' }), qso({ operatorCall: 'W2DEF' })]
-  assert.deepEqual(logOperators(operation, qsos), ['W2DEF'])
+  assert.deepEqual(logOperators({ stationCall: 'W1AW' }, qsos), ['W2DEF'])
+})
+
+test("the operation's operator is named even before they log", () => {
+  // A multi-op entry whose second operator has not made a contact yet still
+  // lists them; one already in the log is not listed twice.
+  assert.deepEqual(logOperators(operation, [qso({ operatorCall: 'W2DEF' })]), ['W2DEF', 'K1ABC'])
+  assert.deepEqual(logOperators({ stationCall: 'W1AW', operatorCall: 'k1abc' }, [qso({ operatorCall: 'K1ABC' })]), ['K1ABC'])
 })
 
 test("an empty log names the operation's operator, else its station", () => {
@@ -69,9 +76,12 @@ test("a host that stops answering keeps the club last read", async () => {
   assert.equal((await clubField(ctx, 'test')).value, 'Potomac Valley Radio Club')
 })
 
-test("the export's club is the setup's, else the profile's", async () => {
+test("the export's club is the setup's, a cleared one is none, and an unset one the profile's", async () => {
   settings = () => ({ operatorClub: 'Potomac Valley Radio Club' })
   assert.equal(await cabrilloClub({ club: 'Frankford Radio Club' }, 'test'), 'Frankford Radio Club')
-  assert.equal(await cabrilloClub({ club: '' }, 'test'), 'Potomac Valley Radio Club')
+  // Cleared on purpose — a guest at another club's station — sends no club.
+  assert.equal(await cabrilloClub({ club: '' }, 'test'), '')
+  // Never set, as a setup saved before the field was seeded: the profile's.
+  assert.equal(await cabrilloClub({}, 'test'), 'Potomac Valley Radio Club')
   assert.equal(await cabrilloClub(undefined, 'test'), 'Potomac Valley Radio Club')
 })

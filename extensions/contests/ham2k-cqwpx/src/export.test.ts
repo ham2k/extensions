@@ -124,8 +124,9 @@ test("the Cabrillo file comes out of the export hook", async () => {
 })
 
 test("the Cabrillo header carries LOCATION, the declared entry, whoever logged and the club", async () => {
-  // The operators are whoever logged, the station owner closes the line, and
-  // a typed list from an older setup is ignored.
+  // The operators are whoever logged, then the operation's own operator, the
+  // station owner closes the line, and a typed list from an older setup is
+  // ignored.
   const operation = {
     uuid: 'op-1',
     stationCall: 'N0DEV',
@@ -143,7 +144,7 @@ test("the Cabrillo header carries LOCATION, the declared entry, whoever logged a
     'CATEGORY-POWER: HIGH',
     'CATEGORY-MODE: CW',
     'CATEGORY-TRANSMITTER: TWO',
-    'OPERATORS: K1ABC W2DEF @N1OWN',
+    'OPERATORS: K1ABC W2DEF N0DEV @N1OWN',
     'CLUB: Yankee Clipper Contest Club',
   ])
 })

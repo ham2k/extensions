@@ -3,10 +3,10 @@
 //
 // Who a contest entry names, the same in every contest.
 //
-//   * The OPERATORS are whoever the log says logged: each contact carries its
-//     operator's call, or none when the station's own holder made it. So they
-//     are found, never typed — a typed list goes stale the moment someone
-//     else sits down, and the log already knows.
+//   * The OPERATORS are whoever the log says logged — each contact carries its
+//     operator's call, or none when the station's own holder made it — and
+//     whoever the operation names as its operator. So they are found, never
+//     typed: a typed list goes stale the moment someone else sits down.
 //   * The STATION OWNER is the operation's `ownerCall` (extension API 21),
 //     set in the app's Operation Details: whose station this is when it
 //     belongs to none of the operators. Cabrillo names it as `@CALL` at the
@@ -32,22 +32,25 @@ export function ownerCall(operation: Record<string, JSONValue>): string {
   return callOf(operation.ownerCall).replace(/^@/, '').split(/[\s,;]+/)[0] ?? ''
 }
 
-/// The calls that logged [qsos], in the order each first appears: a contact's
-/// own operator call, else the call it was logged under. With nothing logged,
-/// the operation's operator, else its station call.
+/// The calls that logged [qsos], in the order each first appears — a
+/// contact's own operator call, else the call it was logged under — then the
+/// operation's operator, when the contacts do not already name them. With
+/// nobody at all, the station call.
 ///
 /// Deleted contacts and band-`event` markers name nobody.
 export function logOperators(operation: Record<string, JSONValue>, qsos: Record<string, JSONValue>[]): string[] {
   const calls: string[] = []
+  const add = (call: string) => {
+    if (call && !calls.includes(call)) calls.push(call)
+  }
   for (const qso of qsos) {
     if (qso.deleted === true || qso.band === 'event') continue
     const our = (qso.our as Record<string, JSONValue> | undefined) ?? {}
-    const call = callOf(our.operatorCall) || callOf(our.call) || callOf(operation.stationCall)
-    if (call && !calls.includes(call)) calls.push(call)
+    add(callOf(our.operatorCall) || callOf(our.call) || callOf(operation.stationCall))
   }
-  if (calls.length > 0) return calls
-  const fallback = callOf((operation.local as Record<string, JSONValue> | undefined)?.operatorCall) || callOf(operation.stationCall)
-  return fallback ? [fallback] : []
+  add(callOf(operation.operatorCall) || callOf((operation.local as Record<string, JSONValue> | undefined)?.operatorCall))
+  if (calls.length === 0) add(callOf(operation.stationCall))
+  return calls
 }
 
 /// Cabrillo's `OPERATORS`: [logOperators], then `@OWNER` when the operation
@@ -59,12 +62,12 @@ export function cabrilloOperators(operation: Record<string, JSONValue>, qsos: Re
   return [...calls, ...(owner && !calls.includes(owner) ? [`@${owner}`] : [])].join(' ')
 }
 
-/// `CLUB`: the club on [ref] as typed, on one line, else the profile's. A
-/// cleared field falls back too, since a setup saved before the field was
-/// seeded holds `''` for "use my profile's".
+/// `CLUB`: the club on [ref] as typed, on one line. A setup that holds no
+/// `club` at all — one never opened since the field was seeded — sends the
+/// profile's; one holding `''` was cleared on purpose and sends none.
 export async function cabrilloClub(ref: Record<string, JSONValue> | undefined, tag: string): Promise<string> {
-  const typed = str(ref?.club).replace(/\s+/g, ' ').trim()
-  return typed || (await profileClub(tag))
+  if (typeof ref?.club !== 'string') return profileClub(tag)
+  return ref.club.replace(/\s+/g, ' ').trim()
 }
 
 /// The profile's club, kept from the last read that worked.

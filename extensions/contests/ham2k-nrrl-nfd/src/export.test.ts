@@ -137,7 +137,8 @@ test("the Cabrillo header names whoever logged, then the station owner", async (
     ((await contest.runHook('export', 'generateExport', { operation, qsos, exportType: 'nrrl-nfd-cabrillo' })) as { content: string }).content
   const ref = { type: 'nrrl-nfd', ref: '2026', ourClass: 'A2', ourShelter: 'C' }
 
-  // A typed list from an older setup is ignored: the log is the authority.
+  // A typed list from an older setup is ignored: the log and the operation's
+  // own operator are the authority.
   const byTwo = QSOS.map((qso, i) => ({ ...qso, our: { call: 'N0DEV', operatorCall: i === 1 ? 'LA2DEF' : 'LA1ABC' } }))
   const multi = await cabrillo({
     ...OPERATION,
@@ -145,7 +146,7 @@ test("the Cabrillo header names whoever logged, then the station owner", async (
     ownerCall: 'n1own',
     refs: [{ ...ref, operators: 'N0OLD', club: '  LA4O   Fieldday-gruppa ' }],
   }, byTwo)
-  assert.ok(multi.includes('\nOPERATORS: LA1ABC LA2DEF @N1OWN\n'))
+  assert.ok(multi.includes('\nOPERATORS: LA1ABC LA2DEF N0DEV @N1OWN\n'))
   assert.ok(multi.includes('\nCLUB: LA4O Fieldday-gruppa\n'))
 
   // A log the station's own holder made names that call.

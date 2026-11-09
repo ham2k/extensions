@@ -157,8 +157,9 @@ test("the Cabrillo header carries the declared entry and our LOCATION", async ()
     'CATEGORY-OVERLAY: CLASSIC',
   ])
 
-  // The operators are whoever logged, the station owner closes the line, and
-  // a typed list from an older setup is ignored.
+  // The operators are whoever logged, then the operation's own operator, the
+  // station owner closes the line, and a typed list from an older setup is
+  // ignored.
   const multi = {
     uuid: 'op-4', stationCall: 'N0DEV', local: { operatorCall: 'N0DEV' },
     ownerCall: 'n1own',
@@ -166,7 +167,7 @@ test("the Cabrillo header carries the declared entry and our LOCATION", async ()
   }
   const byTwo = QSOS.map((qso, i) => ({ ...qso, our: { call: 'N0DEV', operatorCall: i === 1 ? 'W2DEF' : 'K1ABC' } }))
   const content = ((await contest.runHook('export', 'generateExport', { operation: multi, qsos: byTwo, exportType: 'cqww-cabrillo' })) as { content: string }).content
-  assert.ok(content.includes('\nOPERATORS: K1ABC W2DEF @N1OWN\n'))
+  assert.ok(content.includes('\nOPERATORS: K1ABC W2DEF N0DEV @N1OWN\n'))
   assert.ok(content.includes('\nCLUB: Yankee Clipper Contest Club\n'))
   // A log the station's own holder made names that call.
   const solo = { ...multi, ownerCall: undefined, refs: [{ type: 'cqww', mode: 'CW' }] }
