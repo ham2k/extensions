@@ -49,6 +49,7 @@ import {
   loggedExchangeFor,
   pastExchangeHolds,
   preferredCodesFor,
+  stateForSentLocation,
 } from "./exchange.ts"
 import { entityPrefixForCall } from "./dxcc.ts"
 import { COUNTY_LINE_SEPARATOR, defaultTheirLocation, guessedStateOf, stateForEntity } from "./location.ts"
@@ -679,6 +680,13 @@ export function qsoPartyActivity(params: QsoPartyParams): ActivityHook {
       // clears the QSO row's column too — but only where this extension owns the
       // field's contents.
       if (exchange || decided) patch.their = { exchange }
+      // Their State, from what they sent: their county's state, their state or
+      // province, their section's state. A station's own word on where it is,
+      // ahead of whatever a lookup guessed. Re-filled on every save, so fixing
+      // a mistyped exchange fixes the State with it.
+      const their = (qso.their as Record<string, JSONValue> | undefined) ?? {}
+      const state = stateForSentLocation(party, location, str(their.call), str(their.state).trim().toUpperCase())
+      if (state && state !== str(their.state)) patch.their = { ...(patch.their as Record<string, JSONValue> | undefined), state }
       // What WE sent: an operator reading an old contact wants both halves of it.
       if (ourExchange) patch.our = { exchange: ourExchange }
 

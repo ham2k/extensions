@@ -34,7 +34,7 @@ import type {
   TitleSuggestion,
 } from "@ham2k/extension-sdk"
 
-import { ALL_SECTIONS, CALL_AREA_FOR_SECTION, PREFIX_TO_LOCATION } from "./sections.ts"
+import { ALL_SECTIONS, CALL_AREA_FOR_SECTION, PREFIX_TO_LOCATION, stateForSection } from "./sections.ts"
 import { CLAIMED_BONUS_KEYS, CLASS_REGEX, FDScorer, TYPE, contestTitle, refOfType } from "./scorer.ts"
 import { fieldDayDate, nextRunningYear, relevanceFor } from "./schedule.ts"
 import { tFor } from "./i18n.ts"
@@ -366,7 +366,12 @@ const ActivityHook = {
     if (!exchange) return null
 
     const their = ((args.qso.their as Record<string, JSONValue>) ?? {})
-    return { their: { ...their, exchange } as unknown as JSONValue }
+    // Their State, from the section they sent: a station's own word on where
+    // it is, ahead of whatever a lookup guessed. Re-filled on every save, so
+    // fixing a mistyped section fixes the State with it. `MX`, `DX` and a
+    // section that names no single state leave the State alone.
+    const state = stateForSection(str(qsoRef?.location).toUpperCase(), str(their.call), str(their.state).toUpperCase())
+    return { their: { ...their, exchange, ...(state ? { state } : {}) } as unknown as JSONValue }
   },
 
   /// Two fields per QSO, both writing to the same ref, which the core folds

@@ -43,7 +43,7 @@ import { ROVING_STATION_CLASSES } from "../packages/lib-qso-party/src/entry.ts"
 
 const EXTENSIONS_DIR = resolve(import.meta.dirname, "..", "extensions", "contests")
 
-const VERSION = "0.3.1"
+const VERSION = "0.3.2"
 
 /// The accent an event carries, by the flag of the country whose party it is.
 /// Two colors for the family rather than fifty — what tells two events apart

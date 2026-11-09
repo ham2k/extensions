@@ -264,3 +264,37 @@ test("Winter Field Day rules out self-spotting for every entry, and leaves assis
   }[]
   assert.ok(controls[0].input.form.elements.some((el) => el.text === "🟢 Assistance: ON, 🔴 Self-spotting: OFF"))
 })
+
+describe("their State, from the section they sent", () => {
+  const stateFor = async (call: string, section: string, state?: string) => {
+    const qso = contestQso(call, { band: '20m', mode: 'SSB', section })
+    qso.refs = [{ ...(qso.refs as Record<string, JSONValue>[])[0], class: '2A' }]
+    if (state) (qso.their as Record<string, JSONValue>).state = state
+    const patch = (await wfd.runHook('activity', 'processQsoBeforeSave', {
+      qso,
+      operation: { refs: [{ type: 'wfd', ourClass: '1H' }] },
+    })) as { their: Record<string, string> }
+    return patch.their.state
+  }
+
+  test("a section that is its state, one of a split state's, and a Canadian one", async () => {
+    assert.equal(await stateFor('W1AW', 'CT'), 'CT')
+    assert.equal(await stateFor('K6ABC', 'SDG'), 'CA')
+    assert.equal(await stateFor('W2ABC', 'NLI'), 'NY')
+    assert.equal(await stateFor('VE3ABC', 'GH'), 'ON')
+  })
+
+  test("the section replaces a lookup's state, and MDC keeps a DC station's DC", async () => {
+    assert.equal(await stateFor('K6ABC', 'SDG', 'NY'), 'CA')
+    assert.equal(await stateFor('W3ABC', 'MDC'), 'MD')
+    assert.equal(await stateFor('W3ABC', 'MDC', 'DC'), 'DC')
+  })
+
+  test("PAC is Hawaii except for a Pacific possession, and no single state fills nothing", async () => {
+    assert.equal(await stateFor('KH6ABC', 'PAC'), 'HI')
+    assert.equal(await stateFor('KH2ABC', 'PAC'), undefined)
+    for (const [call, section] of [['KP4ABC', 'PR'], ['KP2ABC', 'VI'], ['VY1ABC', 'TER'], ['XE1ABC', 'MX'], ['G4ABC', 'DX']]) {
+      assert.equal(await stateFor(call, section), undefined, section)
+    }
+  })
+})
