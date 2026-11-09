@@ -20,6 +20,7 @@
 import { exportTypeDefinition } from "@ham2k/extension-sdk"
 import { qsonToCabrillo } from "@ham2k/lib-qson-cabrillo"
 import { NO_RESTRICTIONS, rulesNote } from "@ham2k/lib-contest-rules"
+import { cabrilloOperators } from "@ham2k/lib-contest-station"
 import { needsGuess, stampedExchange } from "@ham2k/lib-contest-exchange"
 import { adifForExport, contestScorer, defineExtension, exportFilename, startMillisOf } from "@ham2k/extension-sdk"
 import type {
@@ -426,7 +427,7 @@ const ExportHook = {
           ['CALLSIGN', ourCall],
           ['CATEGORY-POWER', power?.cabrillo ?? ''],
           ['NAME', ours.name],
-          ['OPERATORS', str((operation.local as Record<string, JSONValue>)?.operatorCall)],
+          ['OPERATORS', cabrilloOperators(operation, args.qsos)],
           ['GRID-LOCATOR', str(operation.grid)],
         ],
         qsoParts: (qso) => {

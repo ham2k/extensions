@@ -12,10 +12,6 @@
   "ourPowerSourceLabel": "Power source",
   "powerBatteries": "Batteries, solar, wind",
   "powerGenerator": "Commercial power or generator",
-  "operatorsLabel": "Operators",
-  "operatorsPlaceholder": "e.g. K1ABC W2DEF",
-  "clubLabel": "Club or group",
-  "clubPlaceholder": "Full name, as on your entry — leave blank to use your profile's club",
   "bonusesHeader": "Bonus points",
   "bonusesNote": "Claim these on your submission too — HaLo totals them for you, it does not report them.",
   "bonusTransmitters": "Transmitters (100 pts each on emergency power, max 20)",
@@ -48,5 +44,7 @@
   "bonusSiteResponsibilities": "Site responsibilities — classes B–F (50 pts)",
   "notConfigured": "Not configured!",
   "activityDescription": "The ARRL's June operating event, out in the field",
-  "powerMultiplier": "power"
+  "powerMultiplier": "power",
+  "clubLabel": "Club or group",
+  "clubPlaceholder": "Full name, as on your entry"
 }

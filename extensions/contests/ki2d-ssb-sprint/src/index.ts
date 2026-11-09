@@ -14,6 +14,7 @@
 import { exportTypeDefinition } from "@ham2k/extension-sdk"
 import { qsonToCabrillo } from "@ham2k/lib-qson-cabrillo"
 import { rulesNotes, withRules } from "@ham2k/lib-contest-rules"
+import { cabrilloOperators } from "@ham2k/lib-contest-station"
 import { needsGuess, stampedExchange } from "@ham2k/lib-contest-exchange"
 import { adifForExport, contestScorer, defineExtension, exportFilename, host, startMillisOf } from "@ham2k/extension-sdk"
 import type {
@@ -479,8 +480,9 @@ const ExportHook = {
           ['LOCATION', ours.location],
           ['NAME', profile.name || ours.name],
           ['EMAIL', profile.email],
-          // Single operator only: the one at the microphone.
-          ['OPERATORS', str((operation.local as Record<string, JSONValue>)?.operatorCall) || ourCall],
+          // Whoever the log says operated: the rules allow one, and a guest at
+          // someone else's station names its owner after them.
+          ['OPERATORS', cabrilloOperators(operation, args.qsos)],
         ],
         // After freq, mode, date and time: call, nr, name and location sent,
         // then received — `QSO: 14240 PH 2020-11-01 0001 KA9FOX 5 SCOTT WI N3QE 2 TIM MD`.

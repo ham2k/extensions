@@ -46,7 +46,7 @@ test("the setup seeds our section from the profile", async () => {
   const controls = (await contest.runHook("activity", "operationControls", { operation: fixtureOperation() })) as Control[]
   const elements = controls[0].input.form!.elements
   // The rules line, one note per verdict, sits between the exchange and the rest of the entry.
-  assert.deepEqual(elements.map((e) => e.key ?? e.type), ['mode', 'entry', 'check', 'section', 'markdown', 'markdown', 'operators', 'club'])
+  assert.deepEqual(elements.map((e) => e.key ?? e.type), ['mode', 'entry', 'check', 'section', 'markdown', 'markdown', 'club'])
   assert.equal(elements.find((e) => e.key === 'section')!.value, 'ENY')
 })
 

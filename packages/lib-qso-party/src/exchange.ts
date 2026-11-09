@@ -7,6 +7,7 @@
 
 import { operationForQso } from "@ham2k/extension-sdk"
 import type { JSONValue, OperationSegmentPayload } from "@ham2k/extension-sdk"
+import { cabrilloOperators } from "@ham2k/lib-contest-station"
 import { qsonToCabrillo } from "@ham2k/lib-qson-cabrillo"
 
 import { CANADIAN_SECTIONS, STATE_FOR_SECTION, US_SECTIONS } from "./locations.ts"
@@ -531,7 +532,7 @@ export function cabrilloFor(
       ['LOCATION', ourLocationForFile(party, operation)],
       ...cabrilloCategories(party, operation),
       ['EMAIL', ourEmail(party, operation as Record<string, unknown>)],
-      ['OPERATORS', str((operation.local as Record<string, JSONValue>)?.operatorCall)],
+      ['OPERATORS', cabrilloOperators(operation, qsos)],
       ['GRID-LOCATOR', str(operation.grid)],
     ],
     qsoParts: (qso) => cabrilloRowsFor(

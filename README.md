@@ -355,6 +355,13 @@ saying publishes to `stable`.
     it reads; the QSO parties take theirs from the party file's `selfSpotting`
     and, where a party publishes an assisted single-operator class, read plain
     Single Operator as unassisted.
+  - `@ham2k/lib-contest-station` — who a contest entry names. `cabrilloOperators`
+    writes Cabrillo's OPERATORS from the log: every call that logged a contact,
+    in the order each first did, then `@OWNER` when the operation's `ownerCall`
+    (extension API 21) names a station owner who is not one of them.
+    `clubField` is the setup form's Club, seeded from the operator's profile,
+    and `cabrilloClub` the CLUB line it writes. Used by the fifteen contests
+    that write a Cabrillo log and by `lib-qso-party`.
   - `@ham2k/lib-contest-exchange` — a contest's received exchange at save
     time. `stampedExchange` is what `processQsoBeforeSave` returns for every
     contest that guesses an exchange (CQ WW, IARU HF, ARRL VHF, CWT, NAQP,

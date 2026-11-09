@@ -183,3 +183,12 @@ test("each suggestion names the weekend its next running starts", async (t) => {
   t.mock.timers.setTime(Date.UTC(2026, 0, 24))
   assert.equal(await january(), "ARRL VHF January • 2027-01-16")
 })
+
+test("OPERATORS names whoever logged, then the operation's station owner", async () => {
+  // The log is the authority on who operated: without the derivation a
+  // multi-op log names only this device's operator.
+  const operation = operationFor({ ownerCall: 'n1own', refs: [{ type: TYPE, ref: 'ARRL-VHF-JUN' }] })
+  const qsos = (qsosFor(3) as Record<string, unknown>[]).map((qso, i) => ({ ...qso, our: { call: 'N0DEV', operatorCall: i === 0 ? 'K1ABC' : 'W2DEF' } }))
+  const { content } = (await vhf.runHook('export', 'generateExport', { operation, qsos, exportType: 'arrl-vhf-tests-cabrillo' })) as { content: string }
+  assert.ok(content.includes('\nOPERATORS: K1ABC W2DEF @N1OWN\n'), content)
+})

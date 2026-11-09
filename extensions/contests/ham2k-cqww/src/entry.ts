@@ -136,17 +136,3 @@ function byPosition(a: string, b: string): number {
   if (aNumber !== bNumber) return aNumber ? -1 : 1
   return a < b ? -1 : a > b ? 1 : 0
 }
-
-/// `OPERATORS`: the calls typed at setup, uppercased and space-separated as
-/// the sponsor asks, with an `@station` kept as written. Empty when nothing
-/// was typed, so the caller can fall back to the app's operator call.
-export function declaredOperators(ref: Record<string, JSONValue> | undefined): string {
-  const typed = typeof ref?.operators === 'string' ? ref.operators : ''
-  return typed.toUpperCase().split(/[\s,;]+/).filter((call) => call).join(' ')
-}
-
-/// `CLUB`: the club name as typed — spelled out in full, which only the
-/// operator can do — on one line.
-export function declaredClub(ref: Record<string, JSONValue> | undefined): string {
-  return typeof ref?.club === 'string' ? ref.club.replace(/\s+/g, ' ').trim() : ''
-}

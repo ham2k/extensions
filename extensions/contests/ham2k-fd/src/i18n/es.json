@@ -12,10 +12,6 @@
   "ourPowerSourceLabel": "Fuente de alimentación",
   "powerBatteries": "Baterías, solar, eólica",
   "powerGenerator": "Red eléctrica o generador",
-  "operatorsLabel": "Operadores",
-  "operatorsPlaceholder": "ej. K1ABC W2DEF",
-  "clubLabel": "Club o grupo",
-  "clubPlaceholder": "Nombre completo, como en tu inscripción — en blanco usa el club de tu perfil",
   "bonusesHeader": "Puntos de bonificación",
   "bonusesNote": "Recuerda reclamarlos también al enviar tu log — HaLo los suma, no los reporta.",
   "bonusTransmitters": "Transmisores (100 pts c/u con energía de emergencia, máx. 20)",
@@ -48,5 +44,7 @@
   "bonusSiteResponsibilities": "Responsabilidades del sitio — clases B–F (50 pts)",
   "notConfigured": "¡Sin configurar!",
   "activityDescription": "El evento de junio de la ARRL, al aire libre",
-  "powerMultiplier": "potencia"
+  "powerMultiplier": "potencia",
+  "clubLabel": "Club o grupo",
+  "clubPlaceholder": "Nombre completo, como en tu inscripción"
 }

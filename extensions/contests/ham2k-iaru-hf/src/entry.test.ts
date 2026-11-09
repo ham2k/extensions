@@ -11,7 +11,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 import type { JSONValue } from "@ham2k/extension-sdk"
 
-import { cabrilloCategories, declaredClub, declaredOperators, transmitterColumns } from "./entry.ts"
+import { cabrilloCategories, transmitterColumns } from "./entry.ts"
 
 function lines(ref: Record<string, string>) {
   return Object.fromEntries(cabrilloCategories({ type: 'iaru-hf', ...ref }).filter(([, value]) => value))
@@ -97,12 +97,6 @@ test("a checklog is just that", () => {
 
 test("a value that is not one of the rules' is no claim", () => {
   assert.deepEqual(lines({ modeRestriction: 'RTTY', operator: 'MULTI-MULTI', power: '1500', overlay: 'CLASSIC' }), { 'CATEGORY-BAND': 'ALL' })
-})
-
-test("operators are uppercased and space-separated, and the club on one line", () => {
-  assert.equal(declaredOperators({ operators: 'k1abc, w2def;  w3ghi' }), 'K1ABC W2DEF W3GHI')
-  assert.equal(declaredOperators({}), '')
-  assert.equal(declaredClub({ club: '  Yankee  Clipper\nContest Club ' }), 'Yankee Clipper Contest Club')
 })
 
 type Our = Record<string, string | number>

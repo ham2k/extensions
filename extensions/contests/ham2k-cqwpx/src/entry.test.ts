@@ -72,13 +72,6 @@ test("a value that is not one of the rules' is no claim", () => {
   assert.deepEqual(lines({ mode: 'CW', operator: 'SINGLE-OP-QRP', power: '1500' }), { 'CATEGORY-MODE': 'CW' })
 })
 
-test("operators are listed as the sponsor asks, and the club on one line", async () => {
-  const { declaredClub, declaredOperators } = await import("./entry.ts")
-  assert.equal(declaredOperators({ operators: 'k1abc, w2def;  w3ghi @w3bgn' }), 'K1ABC W2DEF W3GHI @W3BGN')
-  assert.equal(declaredOperators({}), '')
-  assert.equal(declaredClub({ club: '  Yankee  Clipper\nContest Club ' }), 'Yankee Clipper Contest Club')
-})
-
 test("LOCATION is what was typed, a Canadian call area, or DX outside the US and Canada", async () => {
   const { cabrilloLocation } = await import("./entry.ts")
   assert.equal(cabrilloLocation('N0DEV', 'wma'), 'WMA')

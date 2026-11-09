@@ -14,6 +14,7 @@
 
 import { exportTypeDefinition } from "@ham2k/extension-sdk"
 import { qsonToCabrillo } from "@ham2k/lib-qson-cabrillo"
+import { cabrilloOperators } from "@ham2k/lib-contest-station"
 import { needsGuess, stampedExchange } from "@ham2k/lib-contest-exchange"
 import { adifForExport, annotateCallAgainstCountryFile, contestScorer, defineExtension, exportFilename, host, startMillisOf } from "@ham2k/extension-sdk"
 import type {
@@ -33,7 +34,7 @@ import { LOCATION_PATTERN, VALID_LOCATIONS, firstName, normalizeLocation, ourExc
 
 import { type Exchange, TYPE, suggestedExchange } from "./exchange.ts"
 import { tFor } from "./i18n.ts"
-import { OPERATOR_CLASSES, POWER_CLASSES, cabrilloCategories, declaredOperators } from "./entry.ts"
+import { OPERATOR_CLASSES, POWER_CLASSES, cabrilloCategories } from "./entry.ts"
 import { MODES, nearestMode, nextContestDate, relevanceFor } from "./schedule.ts"
 import { NAQPScorer, contestTitle } from "./scorer.ts"
 
@@ -162,14 +163,6 @@ const ActivityHook = {
               // The entry we are making, for the Cabrillo header. Each starts
               // undeclared: see entry.ts.
               ...entrySelects(t),
-              {
-                type: 'field',
-                fieldType: 'text',
-                key: 'operators',
-                label: t('operatorsLabel'),
-                placeholder: t('operatorsPlaceholder'),
-                uppercase: true,
-              },
               { type: 'markdown', text: t('rulesLink') },
             ],
           },
@@ -397,8 +390,7 @@ const ExportHook = {
         headers: [
           ['CONTEST', mode ? `NAQP-${mode}` : 'NAQP'],
           ['CALLSIGN', ourCall],
-          // The calls listed at setup, else the app's own operator call.
-          ['OPERATORS', declaredOperators(opRef) || str((operation.local as Record<string, JSONValue>)?.operatorCall)],
+          ['OPERATORS', cabrilloOperators(operation, args.qsos)],
           ['LOCATION', ours.location],
           ...cabrilloCategories(opRef),
           ['GRID-LOCATOR', str(operation.grid)],
