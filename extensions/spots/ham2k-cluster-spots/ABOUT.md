@@ -2,7 +2,7 @@ Read the DX cluster's spots on your Spots panel, and post your own to it.
 
 ## What you get
 
-Every spot your cluster node announces, newest per station, band and mode.
+Every spot your cluster node announces, the moment it announces it, newest per station, band and mode. The node's latest spots from before you connected show up right away too.
 
 ## Spot
 
