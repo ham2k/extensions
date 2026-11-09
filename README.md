@@ -362,6 +362,13 @@ saying publishes to `stable`.
     `clubField` is the setup form's Club, seeded from the operator's profile,
     and `cabrilloClub` the CLUB line it writes. Used by the fifteen contests
     that write a Cabrillo log and by `lib-qso-party`.
+  - `@ham2k/lib-contest-summary` — how a contest summary breaks its score down.
+    `bandBreakdown` writes the band lines, each with its QSOs, points and
+    multipliers (a whole-contest multiplier counted on the band where it was
+    first worked), longest wavelength first; `counted` makes a count agree
+    with its number in the operator's language; `sectionsChecklist` is the
+    ARRL/RAC section grid Sweepstakes and both Field Days show. Used by every
+    contest with a scorer and by `lib-qso-party`.
   - `@ham2k/lib-contest-exchange` — a contest's received exchange at save
     time. `stampedExchange` is what `processQsoBeforeSave` returns for every
     contest that guesses an exchange (CQ WW, IARU HF, ARRL VHF, CWT, NAQP,

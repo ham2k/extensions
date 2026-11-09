@@ -175,6 +175,16 @@ test("the sections are a checklist, a row per call area, those worked struck thr
   assert.equal(sweep.summary.total, 85 * 2 * 85)
 })
 
+test("a band line carries its points and the sections first worked there, adding up to the total", () => {
+  // CT is worked on 20m and again on 40m. Counted on both bands, the band
+  // lines would claim three sections where the score multiplies by two.
+  const { summary } = run([qso('W1AW', 0, 'CT', '20m'), qso('K1ABC', 1, 'CT', '40m'), qso('W9JJ', 2, 'IL', '40m')])
+  const detail = String(summary.longSummary)
+  assert.match(detail, /^\*\*40m\*\*: 2 QSOs, 4 pts, 1 section$/m)
+  assert.match(detail, /^\*\*20m\*\*: 1 QSO, 2 pts, 1 section$/m)
+  assert.match(detail, /^\*\*160m\*\*: —$/m)
+})
+
 test("the short summary is the sections and the score, and a day has none", () => {
   const { summary } = run([qso('W1AW', 0, 'CT'), qso('K1ABC', 1, 'CT'), qso('W9JJ', 2, 'IL')])
   assert.equal(summary.summary, '×2: 12')

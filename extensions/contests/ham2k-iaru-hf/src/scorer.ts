@@ -24,6 +24,7 @@
 // is worth 1 like any other HQ station, because the HQ branch never consults
 // zones. Polo does the same, and the rules describe HQ contacts as a flat 1.
 
+import { bandBreakdown } from "@ham2k/lib-contest-summary"
 import { fmtInteger } from "@ham2k/lib-format-tools"
 import { superModeForMode } from "@ham2k/lib-operation-data"
 import type { ContestScorer, JSONValue, QsoScoreVerdict } from "@ham2k/extension-sdk"
@@ -271,7 +272,16 @@ export const IARUHFScorer: ContestScorer<IARUHFScoresheet> = {
           },
           ctx,
         ),
-        detail: bandBreakdown(scoresheet),
+        detail: bandBreakdown(
+          Object.entries(scoresheet.bands).map(([band, qsos]) => ({
+            band,
+            qsos,
+            points: scoresheet.bandPoints[band] ?? 0,
+            mults: Object.keys(scoresheet.bandMults[band] ?? {}).length,
+          })),
+          ctx,
+          { bands: VALID_BANDS },
+        ),
         extra: { points: scoresheet.points, mults: keys.length, qsos: scoresheet.qsos },
       },
       ctx,
@@ -284,16 +294,4 @@ export const IARUHFScorer: ContestScorer<IARUHFScoresheet> = {
 export function contestTitle(ref: Record<string, JSONValue> | undefined): string {
   const restriction = str(ref?.modeRestriction)
   return ['IARU HF', restriction && restriction !== 'Mixed' ? restriction : undefined].filter(Boolean).join(' ')
-}
-
-/// The per-band table a contester actually reads while operating.
-function bandBreakdown(sheet: IARUHFScoresheet): string {
-  return VALID_BANDS.map((band) => {
-    const qsos = sheet.bands[band] ?? 0
-    const points = sheet.bandPoints[band] ?? 0
-    const mults = Object.keys(sheet.bandMults[band] ?? {}).length
-    return qsos === 0 && mults === 0
-      ? `**${band}**: —`
-      : `**${band}**: ${fmtInteger(qsos)} QSOs, ${fmtInteger(points)} pts, ${fmtInteger(mults)} mults`
-  }).join('\n')
 }

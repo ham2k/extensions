@@ -13,6 +13,7 @@
 //   * "Wednesday, 0230-0300 UTC": a contact either side of the half hour,
 //     logged in the same operation, counts for nothing.
 
+import { bandBreakdown } from "@ham2k/lib-contest-summary"
 import { fmtInteger } from "@ham2k/lib-format-tools"
 import type { ContestScorer, JSONValue, QsoScoreVerdict } from "@ham2k/extension-sdk"
 import { contestArithmetic, contestSummary } from "@ham2k/extension-sdk"
@@ -134,22 +135,19 @@ export const PwtScorer: ContestScorer<PwtScoresheet> = {
           },
           ctx,
         ),
-        detail: bandBreakdown(scoresheet),
+        // Every band listed: there are no logs to send, so this is what the
+        // score posted to 3830scores.com is read from. A point a QSO, so a
+        // band's points are its QSOs.
+        detail: bandBreakdown(
+          Object.entries(scoresheet.bands).map(([band, qsos]) => ({
+            band, qsos, points: qsos, mults: keys.filter((key) => key.startsWith(`${band}|`)).length,
+          })),
+          ctx,
+          { bands: VALID_BANDS },
+        ),
         extra: { points: scoresheet.points, mults: keys.length, qsos: scoresheet.qsos },
       },
       ctx,
     )
   },
-}
-
-/// Contacts and multipliers band by band, every band listed: there are no logs
-/// to send, so this is what the score posted to 3830scores.com is read from.
-function bandBreakdown(sheet: PwtScoresheet): string {
-  return VALID_BANDS.map((band) => {
-    const qsos = sheet.bands[band] ?? 0
-    const mults = Object.keys(sheet.mults).filter((key) => key.startsWith(`${band}|`)).length
-    return qsos === 0 && mults === 0
-      ? `**${band}**: —`
-      : `**${band}**: ${fmtInteger(qsos)} QSOs, ${fmtInteger(mults)} mults`
-  }).join('\n')
 }

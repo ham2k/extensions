@@ -34,11 +34,13 @@
 
 import { contestArithmetic, contestSummary } from "@ham2k/extension-sdk"
 import type { ContestScorer, JSONValue, QsoScoreVerdict } from "@ham2k/extension-sdk"
+import { bandBreakdown } from "@ham2k/lib-contest-summary"
 import { fmtInteger } from "@ham2k/lib-format-tools"
 import { distanceOnEarth, gridToLocation } from "@ham2k/lib-geo-tools"
 
 import { eventFor } from "./events.ts"
 import { trimmedGrid } from "./exchange.ts"
+import { tFor } from "./i18n.ts"
 
 import manifest from "../manifest.json" with { type: "json" }
 
@@ -50,6 +52,10 @@ export type ARRLVHFScoresheet = {
   /// station on this band (`distanceAndPoints` events only).
   qsoPointsTaken: Record<string, true>
   bands: Record<string, number>
+  /// band → the points its contacts scored. Optional: a checkpoint cached
+  /// before it existed has none, and its band lines show no points until the
+  /// log is rescored.
+  bandPoints?: Record<string, number>
   qsos: number
   points: number
   /// The two halves of `points` for `distanceAndPoints` events — the summary
@@ -92,7 +98,7 @@ function distanceKm(ourGrid: string, theirGrid: string): number | null {
 export const ARRLVHFScorer: ContestScorer<ARRLVHFScoresheet> = {
   startScoresheet(): ARRLVHFScoresheet {
     return {
-      worked: {}, qsoPointsTaken: {}, bands: {}, qsos: 0, points: 0, distancePoints: 0, qsoPoints: 0,
+      worked: {}, qsoPointsTaken: {}, bands: {}, bandPoints: {}, qsos: 0, points: 0, distancePoints: 0, qsoPoints: 0,
       distanceTotal: 0, maxDistance: 0, maxDistancePerBand: {},
     }
   },
@@ -107,6 +113,7 @@ export const ARRLVHFScorer: ContestScorer<ARRLVHFScoresheet> = {
     base.qsoPointsTaken ??= {}
     base.distancePoints ??= 0
     base.qsoPoints ??= 0
+    base.bandPoints ??= {}
 
     const event = eventFor(str(ref?.ref))
     if (!event) return { scoresheet: base, score: { value: 0 } }
@@ -182,6 +189,7 @@ export const ARRLVHFScorer: ContestScorer<ARRLVHFScoresheet> = {
 
     base.worked[key] = [...priorGrids, theirGrid]
     base.bands[band] = (base.bands[band] ?? 0) + 1
+    base.bandPoints[band] = (base.bandPoints[band] ?? 0) + value
     base.qsos += 1
     base.points += value
     base.distancePoints += distancePoints
@@ -204,21 +212,27 @@ export const ARRLVHFScorer: ContestScorer<ARRLVHFScoresheet> = {
 
   summarizeScore({ scoresheet, ref, scope }, ctx) {
     const event = eventFor(str(ref?.ref))
+    const t = tFor(ctx)
+    const counted = (count: number, noun: string) =>
+      count === 1 ? t(`${noun}One`) : t(`${noun}Many`, { formatted: fmtInteger(count) })
 
     const usesDistance = event?.score !== 'points'
     // The rules score the two halves separately, so the split is shown too.
     const split = event?.score === 'distanceAndPoints'
-      ? `${fmtInteger(scoresheet.distancePoints)} distance points + ${fmtInteger(scoresheet.qsoPoints)} QSO points`
+      ? `${counted(scoresheet.distancePoints ?? 0, 'distancePoint')} + ${counted(scoresheet.qsoPoints ?? 0, 'qsoPoint')}`
       : null
 
-    const bandLines = Object.keys(scoresheet.bands).sort().map((band) => {
-      const count = scoresheet.bands[band] ?? 0
-      if (!count) return null
-      // A points-only event measures no distance, so it has no longest one.
-      return usesDistance
-        ? `**${band}**: ${fmtInteger(count)} QSOs • Longest: ${fmtInteger(scoresheet.maxDistancePerBand[band] ?? 0)} km`
-        : `**${band}**: ${fmtInteger(count)} QSOs`
-    }).filter((line): line is string => line !== null)
+    // No multipliers: every event here scores points or distance alone.
+    const bandLines = bandBreakdown(
+      Object.entries(scoresheet.bands).map(([band, qsos]) => ({
+        band,
+        qsos,
+        points: scoresheet.bandPoints?.[band],
+        // A points-only event measures no distance, so it has no longest one.
+        more: usesDistance ? [t('longest', { formatted: fmtInteger(scoresheet.maxDistancePerBand[band] ?? 0) })] : [],
+      })),
+      ctx,
+    )
 
     return contestSummary(
       {
@@ -235,7 +249,7 @@ export const ARRLVHFScorer: ContestScorer<ARRLVHFScoresheet> = {
           },
           ctx,
         ),
-        detail: [...(split ? [split, ''] : []), ...bandLines].join('\n'),
+        detail: [...(split ? [split, ''] : []), bandLines].join('\n'),
         extra: { qsos: scoresheet.qsos },
       },
       ctx,

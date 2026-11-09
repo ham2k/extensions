@@ -13,7 +13,8 @@
     "pack": "npm run build && h2kext-pack build --force-name"
   },
   "dependencies": {
-    "@ham2k/lib-contest-station": "^0.1.0"
+    "@ham2k/lib-contest-station": "^0.1.0",
+    "@ham2k/lib-contest-summary": "^0.1.0"
   },
   "//devDependencies": [
     "The libraries the host carries are DECLARED in manifest.json and rewritten",

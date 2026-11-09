@@ -42,8 +42,6 @@
   "overtimeMany": "**{{count}} contactos después de las 24 horas** no cuentan",
   "offTimes": "**Pausas:** {{list}}",
   "offTimesNone": "**Pausas:** ninguna todavía (30 minutos o más sin contactos)",
-  "sectionsHeading": "Secciones: {{worked}} de {{total}}",
-  "cleanSweep": "¡Clean Sweep! Las {{total}} secciones",
   "historyFileName": "Historial de N1MM: SS {{mode}}",
   "historyFileDescription": "El check y la sección que cada estación envió en Sweepstakes anteriores, del archivo de historial de N1MM Logger+, sugeridos al registrar. Registra lo que copies."
 }

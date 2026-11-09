@@ -42,8 +42,6 @@
   "overtimeMany": "**{{count}} contacts past the 24 hours** don't count",
   "offTimes": "**Off times:** {{list}}",
   "offTimesNone": "**Off times:** none yet (30 minutes or more without a contact)",
-  "sectionsHeading": "Sections: {{worked}} of {{total}}",
-  "cleanSweep": "Clean Sweep! All {{total}} sections",
   "historyFileName": "N1MM Call History: SS {{mode}}",
   "historyFileDescription": "The check and section each station sent in earlier Sweepstakes, from N1MM Logger+'s call history file, suggested as you log. Log what you copy."
 }

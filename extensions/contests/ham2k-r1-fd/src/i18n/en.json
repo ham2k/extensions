@@ -24,5 +24,7 @@
   "adifExport": "ADIF for {{contest}}",
   "cabrilloExport": "Cabrillo for {{contest}}",
   "clubLabel": "Club or group",
-  "clubPlaceholder": "Full name, as on your entry"
+  "clubPlaceholder": "Full name, as on your entry",
+  "countryOne": "1 country",
+  "countryMany": "{{count}} countries"
 }

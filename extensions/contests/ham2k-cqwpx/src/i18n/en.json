@@ -36,5 +36,7 @@
   "locationLabel": "Our State / Province / Section (US & Canada)",
   "locationPlaceholder": "e.g. MA, WMA, ON",
   "operator_MULTI-UNLIMITED": "Multi-Transmitter",
-  "overlay_TB-WIRES": "Tribander / Wires"
+  "overlay_TB-WIRES": "Tribander / Wires",
+  "prefixOne": "1 prefix",
+  "prefixMany": "{{formatted}} prefixes"
 }

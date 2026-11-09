@@ -225,6 +225,32 @@ test('the summary names the contest and its score, and splits the multipliers by
   assert.equal((summary.longSummary as string).split('\n')[0], '3 QSOs, 3 pts × 3 mults (1 state, 1 province, 1 country)')
 })
 
+test('each band line carries its QSOs, points and multipliers, in band order', () => {
+  // Multipliers count per band, so a band line without them hides what the
+  // band is worth — a DX QSO is a point but no multiplier, so the two differ.
+  // And 40m worked after 20m still reads above it.
+  const { sheet } = run([qso('W1AW', '20m', 'CT'), qso('DL1ABC', '20m', 'DX'), qso('W1AW', '40m', 'CT')])
+  const summary = NAQPScorer.summarizeScore({ scoresheet: sheet, operation: usOperation, ref: cwRef, scope: 'operation' }, ctx).naqp
+  const lines = (summary.longSummary as string).split('\n').filter((line) => line.startsWith('**'))
+  assert.deepEqual(lines, [
+    '**160m**: —',
+    '**80m**: —',
+    '**40m**: 1 QSO, 1 pt, 1 mult',
+    '**20m**: 2 QSOs, 2 pts, 1 mult',
+    '**15m**: —',
+    '**10m**: —',
+  ])
+})
+
+test('an RTTY running lists only the bands it allows', () => {
+  // NAQP RTTY excludes 160m; listing it as an open band invites the operator
+  // to chase a multiplier the log checker will strike.
+  const rttyRef = { ...cwRef, mode: 'RTTY' }
+  const { sheet } = run([qso('W1AW', '20m', 'CT', 'RTTY')], usOperation, rttyRef)
+  const summary = NAQPScorer.summarizeScore({ scoresheet: sheet, operation: usOperation, ref: rttyRef, scope: 'operation' }, ctx).naqp
+  assert.doesNotMatch(summary.longSummary as string, /160m/)
+})
+
 test('offers no per-day summary', () => {
   // Multipliers are a contest-long tally, so a day's share of the score is not
   // a number the contest defines.

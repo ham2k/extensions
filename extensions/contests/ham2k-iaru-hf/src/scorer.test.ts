@@ -239,6 +239,22 @@ test('the summary names the contest and its score, and splits the multipliers by
   assert.equal((summary.longSummary as string).split('\n')[0], '3 QSOs, 7 pts × 3 mults (1 zone, 1 HQ, 1 official)')
 })
 
+test('each band line carries its QSOs, points and multipliers, in band order', () => {
+  // Multipliers count per band, so a band line without its points and mults
+  // hides what that band is worth; and 40m worked after 20m still reads above it.
+  const { sheet } = run([qso('DL1ABC', '20m', 'CW', '28'), qso('DL0HQ', '20m', 'CW', 'DARC'), qso('W1AW', '40m', 'CW', '8')])
+  const summary = IARUHFScorer.summarizeScore({ scoresheet: sheet, operation: usOperation, ref: mixedRef, scope: 'operation' }, ctx)['iaru-hf']
+  const lines = (summary.longSummary as string).split('\n').filter((line) => line.startsWith('**'))
+  assert.deepEqual(lines, [
+    '**160m**: —',
+    '**80m**: —',
+    '**40m**: 1 QSO, 1 pt, 1 mult',
+    '**20m**: 2 QSOs, 6 pts, 2 mults',
+    '**15m**: —',
+    '**10m**: —',
+  ])
+})
+
 test('a restricted entry is titled by its mode, as the operation is', () => {
   // Mixed is the default and goes unnamed; a CW-only entry must not read as
   // the mixed contest in its own summary.

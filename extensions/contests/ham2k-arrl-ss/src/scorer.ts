@@ -16,13 +16,13 @@
 
 import { fmtInteger } from "@ham2k/lib-format-tools"
 import { parseCallsign } from "@ham2k/lib-callsigns"
-import type { ContestScorer, JSONValue, QsoScoreVerdict } from "@ham2k/extension-sdk"
+import type { ContestScorer, HookContext, JSONValue, QsoScoreVerdict } from "@ham2k/extension-sdk"
 import { contestArithmetic, contestSummary } from "@ham2k/extension-sdk"
+import { bandBreakdown, sectionsChecklist } from "@ham2k/lib-contest-summary"
 
 import { tFor } from "./i18n.ts"
 import { normalizeCheck, normalizePrecedence } from "./entry.ts"
 import { isWVE, normalizeSection } from "./exchange.ts"
-import { ALL_SECTIONS, CALL_AREA_FOR_SECTION } from "./sections.ts"
 
 export const TYPE = 'arrl-ss'
 
@@ -44,6 +44,11 @@ export type SSScoresheet = {
   /// Contacts per section, every one of them a multiplier.
   sections: Record<string, number>
   bands: Record<string, number>
+  /// Sections first worked on each band — a section counts once for the
+  /// contest, on the band where it was first worked, so the band lines add up
+  /// to the total. Optional: a checkpoint cached before it existed has none,
+  /// and shows no multipliers on its bands until the log is rescored.
+  bandSections?: Record<string, number>
   qsos: number
   points: number
   /// When the last contact was, to measure the gap to the next one.
@@ -74,7 +79,7 @@ function modeMatches(contestMode: string, qsoMode: string): boolean {
 
 export const SSScorer: ContestScorer<SSScoresheet> = {
   startScoresheet(): SSScoresheet {
-    return { worked: {}, sections: {}, bands: {}, qsos: 0, points: 0, operatedMillis: 0, offTimes: [], overtime: 0 }
+    return { worked: {}, sections: {}, bands: {}, bandSections: {}, qsos: 0, points: 0, operatedMillis: 0, offTimes: [], overtime: 0 }
   },
 
   // Mutates and returns the given scoresheet — see ContestScorer.scoreQso.
@@ -135,7 +140,11 @@ export const SSScorer: ContestScorer<SSScoresheet> = {
 
     const score: QsoScoreVerdict = { value: 2, band, dupe: false }
     if (section) {
-      if (sheet.sections[section] === undefined) score.notices = ['newMult']
+      if (sheet.sections[section] === undefined) {
+        score.notices = ['newMult']
+        sheet.bandSections ??= {}
+        sheet.bandSections[band] = (sheet.bandSections[band] ?? 0) + 1
+      }
       sheet.sections[section] = (sheet.sections[section] ?? 0) + 1
       score.section = section
     }
@@ -176,7 +185,7 @@ export const SSScorer: ContestScorer<SSScoresheet> = {
         ),
         // The clock first: past 24 hours nothing scores, and an operator
         // planning off-times reads this more than anything below it.
-        detail: [operatingTime(scoresheet, t), ...sectionsChecklist(scoresheet, t), bandBreakdown(scoresheet)].join('\n\n'),
+        detail: [operatingTime(scoresheet, t), sectionsChecklist(Object.keys(scoresheet.sections), ctx), bands(scoresheet, ctx)].join('\n\n'),
         grid: true,
         extra: { points: scoresheet.points, mults: sections, qsos: scoresheet.qsos },
       },
@@ -226,32 +235,13 @@ function operatingTime(sheet: SSScoresheet, t: (key: string, args?: Record<strin
   return lines.join('\n')
 }
 
-/// The rows of the sections checklist: the US call areas in the order a
-/// Sweepstakes check sheet lists them, then Canada.
-const CHECKLIST_ROWS: [string, number | string][] = [
-  ['W1', 1], ['W2', 2], ['W3', 3], ['W4', 4], ['W5', 5], ['W6', 6], ['W7', 7], ['W8', 8], ['W9', 9], ['W0', 0], ['VE', 'Canada'],
-]
-
-/// Every section as a checklist, a row per call area, those worked struck
-/// through — the core's checklist convention (`grid: true`), as the QSO
-/// parties and the Sprint draw theirs. A Clean Sweep is all 85 of them.
-function sectionsChecklist(sheet: SSScoresheet, t: (key: string, args?: Record<string, string>) => string): string[] {
-  const all = Object.keys(ALL_SECTIONS)
-  const worked = all.filter((section) => sheet.sections[section]).length
-  const heading = worked === all.length
-    ? t('cleanSweep', { total: fmtInteger(all.length) })
-    : t('sectionsHeading', { worked: fmtInteger(worked), total: fmtInteger(all.length) })
-  const rows = CHECKLIST_ROWS.map(([label, area]) => {
-    const codes = all.filter((section) => CALL_AREA_FOR_SECTION[section] === area).sort()
-    return `${label} ${codes.map((code) => (sheet.sections[code] ? `**~~${code}~~**` : code)).join(' ')}`
-  })
-  return [`### ${heading}`, rows.join('\n')]
-}
-
-/// QSOs per band, in band order.
-function bandBreakdown(sheet: SSScoresheet): string {
-  return VALID_BANDS.map((band) => {
-    const qsos = sheet.bands[band] ?? 0
-    return qsos === 0 ? `**${band}**: —` : `**${band}**: ${fmtInteger(qsos)} QSOs`
-  }).join('\n')
+/// QSOs, points and the sections first worked, per band, in band order.
+function bands(sheet: SSScoresheet, ctx: Pick<HookContext, 'locale'>): string {
+  const t = tFor(ctx)
+  const bandSections = sheet.bandSections ?? {}
+  return bandBreakdown(
+    Object.entries(sheet.bands).map(([band, qsos]) => ({ band, qsos, points: qsos * 2, mults: bandSections[band] ?? 0 })),
+    ctx,
+    { bands: VALID_BANDS, multNoun: (count) => `${fmtInteger(count)} ${t(count === 1 ? 'sectionOne' : 'sectionMany')}` },
+  )
 }

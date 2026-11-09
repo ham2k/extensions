@@ -15,8 +15,9 @@
   "dependencies": {
     "@ham2k/lib-contest-exchange": "^0.1.0",
     "@ham2k/lib-contest-rules": "^0.1.0",
-    "@ham2k/lib-weekly-contest": "^0.1.0",
-    "@ham2k/lib-contest-station": "^0.1.0"
+    "@ham2k/lib-contest-station": "^0.1.0",
+    "@ham2k/lib-contest-summary": "^0.1.0",
+    "@ham2k/lib-weekly-contest": "^0.1.0"
   },
   "//devDependencies": [
     "The libraries the host carries are DECLARED in manifest.json and rewritten",

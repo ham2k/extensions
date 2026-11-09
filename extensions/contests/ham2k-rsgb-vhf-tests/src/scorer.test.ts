@@ -174,6 +174,28 @@ test('the summary is titled by the event, over arithmetic that keeps the bonus a
   assert.equal(tally.longSummary!.split('\n')[0], '1 QSO, 112 pts + 500 bonus, 112 km')
 })
 
+// A band's points must be its distance points alone: folding the bonus in
+// would make the band lines add up to more than the arithmetic's `pts`.
+test('each band line carries its distance points and its longest contact', () => {
+  const operation = { grid: 'IO91wo' }
+  const ref = { type: 'rsgb-vhf-tests', ref: 'RSGB-BACKPACKERS-3' }
+  const { sheet } = run([qso('G4ABC', '2m', 'IO92wo')], operation, ref)
+  const tally = RSGBVHFScorer.summarizeScore({ scoresheet: sheet, operation, ref, scope: 'operation' }, ctx)['rsgb-vhf-tests']
+  assert.equal(tally.longSummary, '1 QSO, 112 pts + 500 bonus, 112 km\n\n**2m**: 1 QSO, 112 pts • Longest: 112 km')
+})
+
+// Two bands: each line takes only its own contacts' points, in band order.
+test('a two-band event splits the points between its bands', () => {
+  const operation = { grid: 'IO91wo' }
+  const ref = { type: 'rsgb-vhf-tests', ref: 'RSGB-144-432-MARCH' }
+  const { sheet } = run([qso('G4DEF', '70cm', 'IO91wo'), qso('G4ABC', '2m', 'IO92wo')], operation, ref)
+  const tally = RSGBVHFScorer.summarizeScore({ scoresheet: sheet, operation, ref, scope: 'operation' }, ctx)['rsgb-vhf-tests']
+  assert.equal(
+    tally.longSummary!.split('\n\n')[1],
+    '**2m**: 1 QSO, 112 pts • Longest: 112 km\n**70cm**: 1 QSO, 50 pts • Longest: 50 km',
+  )
+})
+
 // Bonuses and distance belong to the whole entry, so a day's share of the
 // score is not a number the contest defines.
 test('offers no per-day summary', () => {

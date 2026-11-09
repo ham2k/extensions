@@ -32,8 +32,6 @@
   "bonusWebSubmission": "Envío por web (50 pts)",
   "theirClassLabel": "Clase",
   "theirSectionLabel": "Secc",
-  "scoreSections": "{{sections}} secciones",
-  "scorePleaseCopy": "{{copies}} contactos «please copy»",
   "adifExport": "ADIF de Field Day",
   "cabrilloExport": "Cabrillo de Field Day",
   "rulesLink": "[Reglas de Field Day](https://field-day.arrl.org/)",
@@ -46,5 +44,10 @@
   "activityDescription": "El evento de junio de la ARRL, al aire libre",
   "powerMultiplier": "potencia",
   "clubLabel": "Club o grupo",
-  "clubPlaceholder": "Nombre completo, como en tu inscripción"
+  "clubPlaceholder": "Nombre completo, como en tu inscripción",
+  "scorePleaseCopyOne": "1 contacto «please copy»",
+  "scorePleaseCopyMany": "{{copies}} contactos «please copy»",
+  "modeCW": "CW",
+  "modePhone": "Fonía",
+  "modeData": "Digital"
 }

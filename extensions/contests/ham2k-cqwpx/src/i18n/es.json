@@ -36,5 +36,7 @@
   "locationLabel": "Nuestro Estado / Provincia / Sección (EE. UU. y Canadá)",
   "locationPlaceholder": "ej. MA, WMA, ON",
   "operator_MULTI-UNLIMITED": "Multi-Transmisor",
-  "overlay_TB-WIRES": "Tribanda / Alambres"
+  "overlay_TB-WIRES": "Tribanda / Alambres",
+  "prefixOne": "1 prefijo",
+  "prefixMany": "{{formatted}} prefijos"
 }

@@ -97,15 +97,19 @@ describe('the rules Winter Field Day shares with ARRL Field Day', () => {
     assert.equal(scores.d.dupe, true)
   })
 
-  test('ARRL, RAC and non-section locations all count toward the sections line', async () => {
-    // Three tallies because the rules count them three ways; a summary that
-    // read only the ARRL one would under-report a log that worked Canada or DX.
+  test('ARRL, RAC and non-section locations are all on the sections checklist', async () => {
+    // Three tallies because the rules count them three ways; a checklist that
+    // read only the ARRL one would hide a log's Canada and DX contacts.
     const result = await score({}, [
       contestQso('K1AAA', { band: '20m', mode: 'SSB', section: 'ENY', uuid: 'a' }),
       contestQso('VE3BBB', { band: '20m', mode: 'SSB', section: 'ONS', uuid: 'b' }),
       contestQso('G0CCC', { band: '20m', mode: 'SSB', section: 'DX', uuid: 'c' }),
     ])
-    assert.match(tally(result).longSummary ?? '', /3 sections/)
+    const detail = tally(result).longSummary ?? ''
+    assert.match(detail, /### Sections: 2 of 85/)
+    assert.match(detail, /\*\*~~ENY~~\*\*/)
+    assert.match(detail, /\*\*~~ONS~~\*\*/)
+    assert.match(detail, /^Other \*\*~~DX~~\*\*$/m)
   })
 
   test('the WARC bands score nothing, and say so', async () => {

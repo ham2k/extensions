@@ -220,7 +220,34 @@ test('a points-only event is titled by the event and names no distance', () => {
   assert.equal(tally.label, 'VHF Jan: 3 points')
   assert.equal(tally.longSummary!.split('\n')[0], '2 QSOs, 3 pts')
   assert.doesNotMatch(tally.longSummary!, /km/)
-  assert.match(tally.longSummary!, /^\*\*6m\*\*: 1 QSOs$/m)
+  assert.match(tally.longSummary!, /^\*\*6m\*\*: 1 QSO, 1 pt$/m)
+})
+
+// A band line that counted only contacts would hide that 1.25m is worth twice
+// 6m per QSO here, which is the reason an operator moves up a band.
+test('a points-only event gives each band its points, in band order', () => {
+  const ref = { type: 'arrl-vhf-tests', ref: 'ARRL-VHF-JAN' }
+  const { sheet } = run([qso('K2DEF', '1.25m', 'FM18'), qso('K1ABC', '6m', 'FM18'), qso('K3GHI', '1.25m', 'FM18')], { grid: 'FN31' }, ref)
+  const tally = ARRLVHFScorer.summarizeScore({ scoresheet: sheet, operation: {}, ref, scope: 'operation' }, ctx)['arrl-vhf-tests']
+  assert.equal(tally.longSummary, '3 QSOs, 5 pts\n\n**6m**: 1 QSO, 1 pt\n**1.25m**: 2 QSOs, 4 pts')
+})
+
+// The distance points are the band's score; the longest contact is a note
+// beside it, and both come from the band's own contacts, not the log's.
+test('a distance event gives each band its points and its longest contact', () => {
+  const ref = { type: 'arrl-vhf-tests', ref: 'ARRL-222' }
+  const { sheet, scores } = run([qso('K1ABC', '1.25m', 'FN20aa')], { grid: 'FN31' }, ref)
+  const tally = ARRLVHFScorer.summarizeScore({ scoresheet: sheet, operation: {}, ref, scope: 'operation' }, ctx)['arrl-vhf-tests']
+  const km = scores[0].distance as number
+  assert.match(tally.longSummary!, new RegExp(`^\\*\\*1\\.25m\\*\\*: 1 QSO, ${scores[0].value} pts • Longest: ${km} km$`, 'm'))
+})
+
+// Checkpoints cached by an older version have no per-band points.
+test('a scoresheet without per-band points still summarizes its bands', () => {
+  const ref = { type: 'arrl-vhf-tests', ref: 'ARRL-VHF-JAN' }
+  const stale = { worked: {}, bands: { '6m': 2 }, qsos: 2, points: 2, distanceTotal: 0, maxDistance: 0, maxDistancePerBand: {} } as never
+  const tally = ARRLVHFScorer.summarizeScore({ scoresheet: stale, operation: {}, ref, scope: 'operation' }, ctx)['arrl-vhf-tests']
+  assert.match(tally.longSummary!, /^\*\*6m\*\*: 2 QSOs$/m)
 })
 
 // A distance total and the QSO-points bonus belong to the whole entry, so a
