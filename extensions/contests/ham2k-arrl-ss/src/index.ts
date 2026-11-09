@@ -34,7 +34,7 @@ import { MODES, nearestMode, nextContestDate, relevanceFor } from "./schedule.ts
 import type { SSMode } from "./schedule.ts"
 import { SSScorer, TYPE, contestTitle } from "./scorer.ts"
 import { ALL_SECTIONS } from "./sections.ts"
-import { normalizeSection, preferredSections } from "./exchange.ts"
+import { normalizeSection, preferredSections, stateForSection } from "./exchange.ts"
 import { HISTORY_STEMS, loadHistory, parseHistory, removeHistory, suggestedExchange } from "./history.ts"
 import {
   CHECK_PATTERN,
@@ -415,6 +415,14 @@ const ActivityHook = {
     const decided = qsoRef && ['theirSerial', 'theirPrecedence', 'theirCheck', 'theirSection'].some((key) => key in qsoRef)
     const patch: Record<string, JSONValue> = {}
     if (decided) patch.their = { exchange: theirExchange(args.qso) }
+    // Their State, from the section they sent: a station's own word on where
+    // it is, ahead of whatever a lookup guessed. Re-filled on every save, so
+    // fixing a mistyped section fixes the State with it. A section that names
+    // no single state leaves the State alone.
+    const their = (args.qso.their as Record<string, JSONValue> | undefined) ?? {}
+    const currentState = str(their.state).toUpperCase()
+    const state = stateForSection(normalizeSection(qsoRef?.theirSection), str(their.call), currentState)
+    if (state && state !== str(their.state)) patch.their = { ...(patch.their as Record<string, JSONValue> | undefined), state }
     // A stored copy of ours doesn't follow the serial: an edit clears it
     // rather than leave the row showing a number the exports don't carry.
     const our = args.qso.our as Record<string, JSONValue> | undefined
