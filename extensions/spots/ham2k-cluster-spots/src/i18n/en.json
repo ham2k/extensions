@@ -10,5 +10,16 @@
   "invalidCall": "The cluster cannot take that call",
   "invalidFrequency": "The spot needs a frequency",
   "refused": "The cluster node said: {{message}}",
-  "notPosted": "The spot was not posted"
+  "notPosted": "The spot was not posted",
+  "settingsTitle": "Cluster Spots",
+  "spotterContinentLabel": "Spots heard from",
+  "spotterContinentDescription": "Show spots posted by stations in this continent. Spots whose posting station cannot be located are still shown.",
+  "continentAll": "All continents",
+  "continentAF": "Africa",
+  "continentAN": "Antarctica",
+  "continentAS": "Asia",
+  "continentEU": "Europe",
+  "continentNA": "North America",
+  "continentOC": "Oceania",
+  "continentSA": "South America"
 }

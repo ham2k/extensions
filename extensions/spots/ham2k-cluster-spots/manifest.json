@@ -19,8 +19,12 @@
   ],
   "hooks": [
     "cluster",
+    "settingsPanel",
     "spots"
   ],
+  "settings": {
+    "section": "spotting"
+  },
   "requiresClusterCommand": true,
   "sharedDependencies": {
     "@ham2k/lib-callsigns": "^1.0.0",
