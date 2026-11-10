@@ -23,23 +23,23 @@ webhooks, and HamAlert's alerts.
 
 ## What is here
 
-113 extensions, grouped by the manifest's own `category`:
+115 extensions, grouped by the manifest's own `category`:
 
 | directory | manifest `category` | n | of which |
 |---|---|--:|---|
 | `extensions/activities/` | `activity` | 21 | 18 ported built-ins, 3 new programs |
 | `extensions/contests/` | `contest` | 72 | 14 ported built-ins, 4 new contests, 49 QSO party events, 5 park events |
 | `extensions/awards/` | `award` | 2 | 2 new award checklists |
-| `extensions/lookups/` | `lookup` | 5 | 5 ported built-ins |
+| `extensions/lookups/` | `lookup` | 7 | 5 ported built-ins, 2 offline callsign sets |
 | `extensions/spots/` | `spots` | 7 | 1 ported built-in, 6 new spotting sources |
 | `extensions/dashboard/` | `dashboard` | 6 | 1 ported built-in, 2 new panels, 3 SVG reference panels |
-| **total** | | **113** | **39 ported, 71 new, 3 SVG reference panels** |
+| **total** | | **115** | **39 ported, 73 new, 3 SVG reference panels** |
 
-The 39 are the app's own extensions, ported one for one. The 71 are new:
+The 39 are the app's own extensions, ported one for one. The 73 are new:
 three activity programs, four contests and events the app has never shipped
 separately, five state-park
 events, six spotting sources, two award programs, Worked All States and
-DXCC checklists, a rate chart and a band map:
+DXCC checklists, two offline callsign sets, a rate chart and a band map:
 
 - **`ham2k-hota`** — [History on the Air](https://cqhota.app), historic sites
   over 200 years old, written for the catalog from cqhota.app's own
@@ -258,6 +258,19 @@ DXCC checklists, a rate chart and a band map:
   operator's own login on that node — so it subscribes at the board's first
   fetch and lets go ten minutes after its last, and the app closes the session
   when idle.
+
+- **`ham2k-offline-calls-all`** and **`ham2k-offline-calls-hf`** keep one of
+  services.ham2k.net's callsign sets on the device, so a lookup answers with
+  no network: `all` is every public callsign in the US, Canada, Germany and
+  Norway (about 980,000, some 225 MB on the device), `hf` those with HF
+  privileges (about 560,000, some 125 MB). Each is a `ham2k` data file
+  (extension API 22): a snapshot the first time, then the day's changes. The
+  record-to-answer mapping, shared with `ham2k-lookup`, is
+  `packages/lib-ham2k-calls` (the offline half behind its `./offline`
+  entry, so `ham2k-lookup` bundles none of it). The lookup registers below
+  `ham2k-lookup`, so with a network the online record answers first and is
+  stored as one, and it answers under its own `source`: the app reads a
+  stored answer from `services.ham2k.net` as one that took the network.
 
 The SVG reference panels carry `ki2d-` keys and install from a file.
 See [dashboard development](extensions/dashboard/README.md) for building and
