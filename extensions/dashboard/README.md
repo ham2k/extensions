@@ -1,6 +1,9 @@
 # Dashboard extensions
 
-`ham2k-custom-text` provides the text panel. The `ki2d-` panels live here
+`ham2k-custom-text` provides the text panel, and `ham2k-rotator` the Rotator
+panel: the station's rotators on a map of the world centred on it, turned with
+a click, which the app ships pre-loaded and updates from the catalog. Needs
+extension API 23. The `ki2d-` panels live here
 rather than being bundled into HaLo — three SVG reference panels, and a rate
 chart and a band map drawn as the app's native panel scenes:
 
