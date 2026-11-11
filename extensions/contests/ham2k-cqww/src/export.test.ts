@@ -123,21 +123,23 @@ test("the Cabrillo file comes out of the export hook", async () => {
   assert.equal(delegated.length, 0, 'a Cabrillo file is written here, not delegated')
 })
 
-test("the RTTY Cabrillo carries a QTH on both sides, DX for a station that sends none", async () => {
-  const operation = { uuid: 'op-1', stationCall: 'N0DEV', refs: [{ type: 'cqww', mode: 'RTTY', zone: '4', qth: 'MN' }] }
+test("RTTY Cabrillo uses RY and two-digit zones and retains off-band RTTY contacts", async () => {
+  const operation = { uuid: 'op-1', stationCall: 'N0DEV', refs: [{ type: 'cqww', mode: 'RTTY', zone: '4', qth: 'MN', band: '20M' }] }
   const qsos = [
     { uuid: 'r1', their: { call: 'W1AW' }, band: '20m', mode: 'RTTY', freq: 14080, startAtMillis: Date.UTC(2026, 8, 26, 12, 0), refs: [{ type: 'cqww', theirZone: '5', theirQth: 'CT' }] },
-    { uuid: 'r2', their: { call: 'DL1ABC' }, band: '20m', mode: 'RTTY', freq: 14085, startAtMillis: Date.UTC(2026, 8, 26, 12, 1), refs: [{ type: 'cqww', theirZone: '14' }] },
+    { uuid: 'r2', their: { call: 'DL1ABC' }, band: '40m', mode: 'RTTY-LSB', freq: 7045, startAtMillis: Date.UTC(2026, 8, 26, 12, 1), refs: [{ type: 'cqww', theirZone: '14' }] },
+    { uuid: 'r3', their: { call: 'W2ABC' }, band: '20m', mode: 'FT8', freq: 14074, startAtMillis: Date.UTC(2026, 8, 26, 12, 2), refs: [{ type: 'cqww', theirZone: '5', theirQth: 'NY' }] },
   ]
   const result = (await contest.runHook('export', 'generateExport', { operation, qsos, exportType: 'cqww-cabrillo' })) as { content: string }
   assert.ok(result.content.split('\n').some((line) => line.trim() === 'LOCATION: MN'))
-  const lines = result.content.split('\n').filter((line) => line.startsWith('QSO:')).map((line) => line.split(/\s+/).slice(5).join(' '))
-  assert.deepEqual(lines, ['N0DEV 599 4 MN W1AW 599 5 CT', 'N0DEV 599 4 MN DL1ABC 599 14 DX'])
+  const lines = result.content.split('\n').filter((line) => line.startsWith('QSO:')).map((line) => line.split(/\s+/))
+  assert.deepEqual(lines.map((line) => line.slice(1, 3)), [['14080', 'RY'], ['7045', 'RY']])
+  assert.deepEqual(lines.map((line) => line.slice(5).join(' ')), ['N0DEV 599 04 MN W1AW 599 05 CT', 'N0DEV 599 04 MN DL1ABC 599 14 DX'])
 
   // A W/VE station whose QTH is missing is a dash, never DX.
   const unset = { ...operation, refs: [{ type: 'cqww', mode: 'RTTY', zone: '4' }] }
   const blank = (await contest.runHook('export', 'generateExport', { operation: unset, qsos, exportType: 'cqww-cabrillo' })) as { content: string }
-  assert.ok(blank.content.includes('N0DEV 599 4 - W1AW'))
+  assert.ok(blank.content.includes('N0DEV 599 04 - W1AW'))
 })
 
 test("the Cabrillo header carries the declared entry and our LOCATION", async () => {
