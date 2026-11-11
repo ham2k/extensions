@@ -7,7 +7,11 @@
 //
 // Three scoring shapes share one scorer, selected by the running event's
 // `score` kind (events.ts):
-//   * `points` — a fixed value per band (Jan/Jun/Sep VHF).
+//   * `points` — a fixed value per band, times the grid squares worked on each
+//     band (Jan/Jun/Sep VHF, rules 5.3–5.4). A rover adds one multiplier for
+//     each grid square it made a contact from (5.4.2). A fixed station may not
+//     move (6.3), so a log made from more than one grid is a rover's, whatever
+//     its call says.
 //   * `distance` — `round(great-circle km) * multipliers[band]` (222 MHz+).
 //   * `distanceAndPoints` — the distance formula plus `points.qso` ONCE per
 //     unique callsign per band (10 GHz+, rules 5.1–5.4). The QSO points are
@@ -39,7 +43,7 @@ import { fmtInteger } from "@ham2k/lib-format-tools"
 import { distanceOnEarth, gridToLocation } from "@ham2k/lib-geo-tools"
 
 import { eventFor } from "./events.ts"
-import { trimmedGrid } from "./exchange.ts"
+import { isRover, trimmedGrid } from "./exchange.ts"
 import { tFor } from "./i18n.ts"
 
 import manifest from "../manifest.json" with { type: "json" }
@@ -56,6 +60,11 @@ export type ARRLVHFScoresheet = {
   /// before it existed has none, and its band lines show no points until the
   /// log is rescored.
   bandPoints?: Record<string, number>
+  /// band → the grid squares worked on it: the multipliers of a `points`
+  /// event. Optional, like `bandPoints`.
+  bandGrids?: Record<string, string[]>
+  /// The grid squares a contact was made from — a rover's own multipliers.
+  ourGrids?: string[]
   qsos: number
   points: number
   /// The two halves of `points` for `distanceAndPoints` events — the summary
@@ -98,7 +107,7 @@ function distanceKm(ourGrid: string, theirGrid: string): number | null {
 export const ARRLVHFScorer: ContestScorer<ARRLVHFScoresheet> = {
   startScoresheet(): ARRLVHFScoresheet {
     return {
-      worked: {}, qsoPointsTaken: {}, bands: {}, bandPoints: {}, qsos: 0, points: 0, distancePoints: 0, qsoPoints: 0,
+      worked: {}, qsoPointsTaken: {}, bands: {}, bandPoints: {}, bandGrids: {}, ourGrids: [], qsos: 0, points: 0, distancePoints: 0, qsoPoints: 0,
       distanceTotal: 0, maxDistance: 0, maxDistancePerBand: {},
     }
   },
@@ -114,6 +123,8 @@ export const ARRLVHFScorer: ContestScorer<ARRLVHFScoresheet> = {
     base.distancePoints ??= 0
     base.qsoPoints ??= 0
     base.bandPoints ??= {}
+    base.bandGrids ??= {}
+    base.ourGrids ??= []
 
     const event = eventFor(str(ref?.ref))
     if (!event) return { scoresheet: base, score: { value: 0 } }
@@ -160,8 +171,13 @@ export const ARRLVHFScorer: ContestScorer<ARRLVHFScoresheet> = {
     let distance: number | null = null
     let distancePoints = 0
     let qsoPoints = 0
+    let newMult = false
     if (event.score === 'points') {
       value = event.points?.[band] ?? 0
+      const grids = (base.bandGrids[band] ??= [])
+      newMult = !grids.includes(theirGrid)
+      if (newMult) grids.push(theirGrid)
+      if (!base.ourGrids.includes(ourGrid)) base.ourGrids.push(ourGrid)
     } else {
       // Both grids are present here (the earlier `!ourGrid`/`!theirGrid`
       // checks already handled the missing-exchange case) — a null result
@@ -204,13 +220,16 @@ export const ARRLVHFScorer: ContestScorer<ARRLVHFScoresheet> = {
     // a rover in a new square is not a repeat — which is what makes the host's
     // core scorer step aside rather than mark it by call, band and mode.
     const score: QsoScoreVerdict = { value, band, dupe: false }
-    if (newBand) score.notices = ['newBand']
+    const notices: string[] = []
+    if (newMult) notices.push('newMult')
+    if (newBand) notices.push('newBand')
+    if (notices.length > 0) score.notices = notices
     if (distance !== null) score.distance = distance
     if (alerts.length > 0) score.alerts = alerts
     return { scoresheet: base, score }
   },
 
-  summarizeScore({ scoresheet, ref, scope }, ctx) {
+  summarizeScore({ scoresheet, operation, ref, scope }, ctx) {
     const event = eventFor(str(ref?.ref))
     const t = tFor(ctx)
     const counted = (count: number, noun: string) =>
@@ -222,16 +241,28 @@ export const ARRLVHFScorer: ContestScorer<ARRLVHFScoresheet> = {
       ? `${counted(scoresheet.distancePoints ?? 0, 'distancePoint')} + ${counted(scoresheet.qsoPoints ?? 0, 'qsoPoint')}`
       : null
 
-    // No multipliers: every event here scores points or distance alone.
+    // A checkpoint cached before the grids were kept has none to count, and
+    // scoring it as zero multipliers would show a zero score until the log is
+    // rescored; its points alone stand until then.
+    const gridMults = event?.score === 'points' && scoresheet.bandGrids ? scoresheet.bandGrids : undefined
+    const ourGrids = scoresheet.ourGrids ?? []
+    const rover = ourGrids.length > 1 || isRover(str(operation?.stationCall))
+    const gridsWorked = gridMults ? Object.values(gridMults).reduce((sum, grids) => sum + grids.length, 0) : 0
+    const gridsActivated = rover ? ourGrids.length : 0
+    const mults = gridMults ? gridsWorked + gridsActivated : undefined
+    const total = mults === undefined ? scoresheet.points : scoresheet.points * mults
+
     const bandLines = bandBreakdown(
       Object.entries(scoresheet.bands).map(([band, qsos]) => ({
         band,
         qsos,
         points: scoresheet.bandPoints?.[band],
+        mults: gridMults ? (gridMults[band]?.length ?? 0) : undefined,
         // A points-only event measures no distance, so it has no longest one.
         more: usesDistance ? [t('longest', { formatted: fmtInteger(scoresheet.maxDistancePerBand[band] ?? 0) })] : [],
       })),
       ctx,
+      { multNoun: (count) => counted(count, 'grid') },
     )
 
     return contestSummary(
@@ -240,17 +271,19 @@ export const ARRLVHFScorer: ContestScorer<ARRLVHFScoresheet> = {
         scope,
         icon: 'radio-tower',
         title: contestTitle(ref),
-        total: scoresheet.points,
+        total,
         arithmetic: contestArithmetic(
           {
             qsos: scoresheet.qsos,
             points: scoresheet.points,
+            mults,
+            multParts: gridsActivated > 0 ? [counted(gridsWorked, 'gridWorked'), counted(gridsActivated, 'gridActivated')] : [],
             more: usesDistance ? [`${fmtInteger(scoresheet.distanceTotal)} km`] : [],
           },
           ctx,
         ),
         detail: [...(split ? [split, ''] : []), bandLines].join('\n'),
-        extra: { qsos: scoresheet.qsos },
+        extra: { qsos: scoresheet.qsos, ...(mults === undefined ? {} : { points: scoresheet.points, mults }) },
       },
       ctx,
     )
