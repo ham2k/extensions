@@ -18,7 +18,7 @@ const operation: Qson = {
   refs: [{ type: 'cwt', ref: '2026-09-23-1300' }],
 }
 const ctx: HookContext = { online: false, locale: 'en' }
-const file = '!!Order!!,Call,Name,Exch1\n# CWOPS\nK1ABC,Al Bert,4567\nK2ABC,Bob,CWA\nK4ABC,Dan,\n'
+const file = '!!Order!!,Call,Name,Exch1\n# CWOPS\nK1ABC,Al Bert,4567\nK2ABC,Bob,CWA\nK3ABC,Carl,PA\nK4ABC,Dan,\n'
 
 // Minimal activity boundary; the registered-hook tests use the real CWT activity.
 const baseActivity: ActivityHook = {
@@ -74,7 +74,7 @@ test('scoring connects UUID-less controls to current history, with per-field fal
   assert.equal(textInput(controls, 'name').suggestedValue, 'AL', 'file name is normalized to its first word')
   assert.equal(textInput(controls, 'number').suggestedValue, '9876', 'current correction overrides the file')
   const results = await prefill.lookup.lookupCall(
-    { operation, qso: {}, callInfo: { call: 'K1ABC' } }, { ...context, locale: 'es' },
+    { operation, qso: { their: { call: 'K1ABC' } }, callInfo: { call: 'K1ABC' } }, { ...context, locale: 'es' },
   )
   assert.equal(results[0]?.source, 'ham2k-cwt')
   const note = String(results[0]?.notes?.[0] ?? '')
@@ -160,4 +160,73 @@ test('wrapping preserves other activity methods and unrelated controls', async (
   assert.equal(activity.processQsoBeforeSave, saving)
   assert.deepEqual(await activity.loggingControls({ operation }, ctx), [unrelated])
   assert.deepEqual(await (await setup({})).activity.loggingControls({ operation }, ctx), [])
+})
+
+test('selection surfaces a compact CWT exchange and retains curated notes and explicit clearing', async () => {
+  const { lookup } = await setup()
+  const select = async (call: string, refs: Qson[] = [], note?: string) =>
+    (await lookup.lookupCall({
+      operation,
+      qso: { their: { call, guess: { state: 'WI' } }, refs },
+      callInfo: { call, ...{ note } },
+    }, ctx))[0] as { note?: string; notes?: string[] } | undefined
+
+  for (const [call, hint] of [
+    ['K1ABC/P', 'CWT: AL 4567'],
+    ['K2ABC', 'CWT: BOB CWA'],
+    ['K3ABC', 'CWT: CARL PA'],
+    ['K3ABC/P', 'CWT: CARL'],
+    ['K4ABC', 'CWT: DAN'],
+  ]) {
+    assert.equal((await select(call))?.note, hint)
+  }
+  assert.equal(await select('W9ZZZ'), undefined)
+  assert.equal((await select('K1ABC', [{ type: 'cwt', name: 'Pat', number: '' }]))?.note, 'CWT: PAT')
+  assert.equal((await select('K1ABC', [{ type: 'cwt', name: '', number: '' }]))?.note, undefined)
+  const curated = await select('K1ABC', [], 'Existing callsign note')
+  assert.equal(curated?.note, undefined)
+  assert.match(curated?.notes?.[0] ?? '', /exchange 4567 \(selected file\)/)
+})
+
+test('board-wide and mismatched lookups never read local history', async () => {
+  const { lookup } = await setup()
+  const getHistoryForCall = async () => {
+    assert.fail('An unselected spot does not need local log history')
+  }
+  for (const qso of [{}, { their: { call: 'K2ABC' } }] as Qson[]) {
+    assert.deepEqual(await lookup.lookupCall(
+      { operation, qso, callInfo: { call: 'K1ABC' } },
+      { ...ctx, getHistoryForCall },
+    ), [])
+  }
+})
+
+test('adds a candidate badge from the cached file without changing scorer verdicts', async () => {
+  const cache = createFileCache()
+  const base = contestScorer(CWTScorer, { scope: { refTypes: ['cwt'] } })
+  assert.ok(base.scoreCandidates)
+  const scorer = createPrefill(cache, baseActivity).scoring(base)
+  const candidate = (call: string, band = '20m', mode = 'CW') => ({
+    key: call,
+    qso: { their: { call, guess: { state: 'WI' } }, band, mode },
+  })
+  const candidates = [
+    candidate('K1ABC/P'), candidate('K2ABC'), candidate('K3ABC/P'),
+    candidate('K4ABC', '20m', 'SSB'), candidate('K1ABC', '30m'), candidate('W9ZZZ'),
+  ]
+  const args = { operation, candidates, qsos: [] }
+  const baseline = await base.scoreCandidates(args, ctx)
+  assert.deepEqual(await scorer.scoreCandidates?.(args, ctx), baseline)
+  await cache.replace({ schema: 1, body: file, url: 'file.txt', fetchedAt: '2026-09-19T15:00:00.000Z' })
+  const marker = { icon: 'card-account-details-outline', color: '#4527A0' }
+  assert.deepEqual(await scorer.scoreCandidates?.(args, ctx), {
+    ...baseline,
+    'K1ABC/P': { ...baseline['K1ABC/P'], ...marker },
+    K2ABC: { ...baseline.K2ABC, ...marker },
+    'K3ABC/P': { ...baseline['K3ABC/P'], ...marker },
+  })
+  const other = { ...args, operation: {} }
+  assert.deepEqual(await scorer.scoreCandidates?.(other, ctx), await base.scoreCandidates(other, ctx))
+  await cache.remove()
+  assert.deepEqual(await scorer.scoreCandidates?.(args, ctx), baseline)
 })
