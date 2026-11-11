@@ -1,6 +1,6 @@
 {
   "name": "@ham2k/ext-ham2k-band-scope",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "A radio's band scope, with the band plan and the spots on it",
   "author": "Sebastian Delmont <sd@ham2k.com>",
@@ -13,7 +13,7 @@
     "pack": "npm run build && h2kext-pack build --force-name"
   },
   "devDependencies": {
-    "@ham2k/extension-sdk": "^1.23.0",
+    "@ham2k/extension-sdk": "^1.23.2",
     "@ham2k/extension-tools": "^1.23.0",
     "@ham2k/lib-operation-data": "^1.2.1",
     "esbuild": "^0.25.5"
