@@ -208,12 +208,8 @@ and copyright remain intact.
 
 ## Spots
 
-Enable RBN to supply reports to the native Spots panel. CWT call-history
-filtering is optional: first download **CWops CWT call history** under
-**Settings → Accounts, Services & Data Sources** (called **Data Files**
-in earlier app builds). Then open
-**Settings → Spotting → RBN → Spots — Who I might hear → Call-history filter** and
-select **CWT call-history file**. Choose **All calls** in the same selector
-to disable call-history filtering. Existing saved choices are preserved.
-
-See [RBN spots](SPOTS.md) for matching behavior and verification.
+Enable RBN to supply reports to the native Spots panel. Use the native source,
+band, and mode filters to browse those reports. The RBN call-history selector
+was removed because newer hosts reject the legacy cross-extension hook.
+HaLo does not yet offer a native call-history filter. See [RBN spots](SPOTS.md)
+for legacy compatibility and verification.
