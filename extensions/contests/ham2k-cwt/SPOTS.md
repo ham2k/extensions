@@ -1,4 +1,12 @@
-# Legacy call-history spot filter
+# CWT in Spots
+
+In a CWT operation, an ID-card icon can mark CW spots with cached CWT history
+on rows that show source details. Select a spot to see the known exchange in
+the logging call info. If a curated callsign note already occupies the compact
+line, open the call details to see the CWT source note. Spot rows keep their
+source labels, and the history hint does not determine the QSO score.
+
+## Legacy call-history spot filter
 
 RBN now supplies spots without the CWT station filter. Older RBN bundles
 can still select the **CWT call-history file** filter on hosts that allow the
