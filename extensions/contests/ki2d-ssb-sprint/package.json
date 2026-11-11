@@ -1,6 +1,6 @@
 {
   "name": "@ham2k/ext-ki2d-ssb-sprint",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "private": true,
   "description": "Ham2K Logger extension: North American SSB Sprint",
   "author": "Sebastian Delmont <sd@ham2k.com>",

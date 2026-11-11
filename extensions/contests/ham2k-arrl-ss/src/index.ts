@@ -406,8 +406,12 @@ const ActivityHook = {
     // no single state leaves the State alone.
     const their = (args.qso.their as Record<string, JSONValue> | undefined) ?? {}
     const currentState = str(their.state).toUpperCase()
-    const state = stateForSection(normalizeSection(qsoRef?.theirSection), str(their.call), currentState)
+    const section = normalizeSection(qsoRef?.theirSection)
+    const state = stateForSection(section, str(their.call), currentState)
     if (state && state !== str(their.state)) patch.their = { ...(patch.their as Record<string, JSONValue> | undefined), state }
+    // And their ARRL Section itself, where ADIF's ARRL_SECT reads it: nothing
+    // else in a Sweepstakes log carries it, the contest's own files included.
+    if (section && section !== their.arrlSection) patch.their = { ...(patch.their as Record<string, JSONValue> | undefined), arrlSection: section }
     // A stored copy of ours doesn't follow the serial: an edit clears it
     // rather than leave the row showing a number the exports don't carry.
     const our = args.qso.our as Record<string, JSONValue> | undefined

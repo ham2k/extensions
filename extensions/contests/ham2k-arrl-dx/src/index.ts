@@ -11,6 +11,7 @@
 
 import { exportTypeDefinition } from "@ham2k/extension-sdk"
 import { qsonToCabrillo } from "@ham2k/lib-qson-cabrillo"
+import { theirStateFields } from "@ham2k/lib-contest-exchange"
 import { rulesNotes, withRules } from "@ham2k/lib-contest-rules"
 import { cabrilloClub, cabrilloOperators, clubField } from "@ham2k/lib-contest-station"
 import { adifForExport, contestScorer, defineExtension, exportFilename, host, startMillisOf } from "@ham2k/extension-sdk"
@@ -263,7 +264,7 @@ const ActivityHook = {
   /// (non-contest) ADIF export both come up empty on a contest log.
   ///
   /// Only ever a projection: the ref stays the source of truth, and the patch
-  /// touches exactly one field.
+  /// touches `their.exchange` and, on a DX station's log, `their.state`.
   async processQsoBeforeSave(
     args: { qso: Record<string, JSONValue>; operation: Record<string, JSONValue> },
     _ctx: HookContext,
@@ -277,7 +278,12 @@ const ActivityHook = {
     // save's `their.exchange` showing in the QSO row and in a plain ADIF export,
     // so a cleared exchange has to project the blank.
     if (!exchange) return qsoRef && 'theirExchange' in qsoRef ? { their: { exchange: '' } } : null
-    return { their: { exchange } }
+    // A W/VE station sends a DX one its state or province, which also reaches
+    // `their.state`: ADIF's STATE, the SOTA and POTA files and Worked All
+    // States read it there. What a W/VE station receives is a power level.
+    const their = args.qso.their as Record<string, JSONValue> | undefined
+    const state = weAreWve(args.operation, refOfType(args.operation, TYPE)) ? {} : theirStateFields(their, exchange)
+    return { their: { exchange, ...state } }
   },
 }
 

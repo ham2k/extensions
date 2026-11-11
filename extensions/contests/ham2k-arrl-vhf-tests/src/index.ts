@@ -19,7 +19,7 @@ import { exportTypeDefinition } from "@ham2k/extension-sdk"
 import { qsonToCabrillo } from "@ham2k/lib-qson-cabrillo"
 import { NO_RESTRICTIONS, rulesNote } from "@ham2k/lib-contest-rules"
 import { cabrilloOperators } from "@ham2k/lib-contest-station"
-import { needsGuess, stampedExchange } from "@ham2k/lib-contest-exchange"
+import { needsGuess, stampedExchange, theirGridFields, withTheirFields } from "@ham2k/lib-contest-exchange"
 import { adifForExport, contestScorer, defineExtension, exportFilename, operationForQso, startMillisOf } from "@ham2k/extension-sdk"
 import type {
   ActivitySuggestion,
@@ -178,12 +178,16 @@ const ActivityHook = {
     // Our sent exchange is the operation's grid, the same on every QSO, so
     // it is not projected into `our.exchange` — the QSO row would repeat it
     // on every line; the exports read `operation.grid` directly.
-    return stampedExchange(TYPE, qsoRef, {
+    let theirGrid = ''
+    const patch = stampedExchange(TYPE, qsoRef, {
       grid: {
         read: (value) => trimmedGrid(str(value), event),
         guess: () => guess,
       },
-    }, ({ grid }) => grid)
+    }, ({ grid }) => (theirGrid = grid))
+    // The grid also reaches `their.grid`, which every other reader takes it
+    // from: the ADIF and SOTA exports' GRIDSQUARE, the map, distances.
+    return withTheirFields(patch, theirGridFields(qso.their as Record<string, JSONValue> | undefined, theirGrid))
   },
 }
 

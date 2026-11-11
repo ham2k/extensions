@@ -296,8 +296,21 @@ describe('what the log carries', () => {
     const patch = (await fd.runHook('activity', 'processQsoBeforeSave', {
       qso: contestQso('K1AAA', { band: '20m', mode: 'SSB', theirClass: '2A', section: 'ENY' }),
       operation: { refs: [{ type: 'fd', ourClass: '1D' }] },
-    })) as { their?: { exchange?: string } } | null
+    })) as { their?: { exchange?: string; arrlSection?: string } } | null
     assert.equal(patch?.their?.exchange, '2A ENY')
+    // The section also reaches the field ARRL_SECT is read from, in a POTA or
+    // SOTA file of the same operation.
+    assert.equal(patch?.their?.arrlSection, 'ENY')
+  })
+
+  test('MX and DX are not ARRL sections, and fill no ARRL_SECT', async () => {
+    for (const section of ['MX', 'DX']) {
+      const patch = (await fd.runHook('activity', 'processQsoBeforeSave', {
+        qso: contestQso('XE1ABC', { band: '20m', mode: 'SSB', theirClass: '1A', section }),
+        operation: { refs: [{ type: 'fd', ourClass: '1D' }] },
+      })) as { their?: Record<string, unknown> } | null
+      assert.equal('arrlSection' in (patch?.their ?? {}), false, section)
+    }
   })
 })
 

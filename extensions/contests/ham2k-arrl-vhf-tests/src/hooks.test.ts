@@ -60,6 +60,24 @@ async function generate(args: Record<string, unknown>) {
   return (await vhf.runHook('export', 'generateExport', args)) as { filename: string; content: string }
 }
 
+test('the received grid reaches their.grid, where the ADIF and SOTA exports read it', async () => {
+  const save = async (their: Record<string, JSONValue>) =>
+    (await vhf.runHook('activity', 'processQsoBeforeSave', {
+      operation: operationFor(),
+      qso: { band: '2m', mode: 'CW', their: { call: 'W1AW/P', ...their }, refs: [{ type: TYPE, grid: 'fn42' }] },
+    })) as { their?: Record<string, JSONValue> } | null
+
+  for (const their of [{}, { guess: { grid: 'FN31PR', lat: 41.7, lon: -72.7 } }] as Record<string, JSONValue>[]) {
+    const patch = await save(their)
+    assert.equal(patch?.their?.exchange, 'FN42')
+    assert.deepEqual([patch?.their?.grid, patch?.their?.lat, patch?.their?.lon], ['FN42', 42.5, -71])
+  }
+
+  // A lookup's finer square inside the one received already says it.
+  const patch = await save({ guess: { grid: 'FN42AB' } })
+  assert.equal('grid' in (patch?.their ?? {}), false)
+})
+
 test('each event links to its own rules, and no event links nowhere', async () => {
   // The family's events do not share one rules document, so with no event
   // picked there is no one document to send the operator to.

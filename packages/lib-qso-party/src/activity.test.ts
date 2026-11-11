@@ -468,7 +468,7 @@ test('the exchange is mirrored into the field the rest of the app reads', async 
     qso: { refs: [{ type: CA.refType, location: 'butt', theirSerial: '34', ourSerial: '12' }] },
     operation: operation({ location: 'ALAM' }, CA),
   }, ctx)
-  assert.deepEqual(patch!.their, { exchange: '34 BUTT', state: 'CA' })
+  assert.deepEqual(patch!.their, { exchange: '34 BUTT', state: 'CA', county: 'CA,Butte' })
   assert.deepEqual(patch!.our, { exchange: '12 ALAM' })
 })
 
@@ -530,6 +530,27 @@ test("their State is filled from what they sent: a county's state, a state or pr
   }
 })
 
+test("their County is filled from what they sent, as ADIF names it, over the lookup's", async () => {
+  const countyFor = async (params: QsoPartyParams, location: string, their: Record<string, JSONValue> = {}) => {
+    const patch = await qsoPartyActivity(params).processQsoBeforeSave!({
+      qso: { their: { call: 'W1ABC', ...their }, refs: [{ type: params.refType, location, theirSerial: '1' }] },
+      operation: operation({ location: Object.keys(params.counties)[0] }, params),
+    }, ctx)
+    return (patch?.their as Record<string, string> | undefined)?.county
+  }
+
+  // The state, then the county's name without "County".
+  assert.equal(await countyFor(CA, 'butt'), 'CA,Butte')
+  // A mobile's home county, from the lookup, gives way to the one it sent.
+  assert.equal(await countyFor(CA, 'BUTT', { guess: { state: 'CA', county: 'Alameda' } }), 'CA,Butte')
+  // Already said: nothing to write.
+  assert.equal(await countyFor(CA, 'BUTT', { county: 'CA,Butte' }), undefined)
+  // A county line names no one county, so the lookup's is cleared, not kept.
+  assert.equal(await countyFor(CA, 'BUTT/ALAM', { guess: { county: 'Alameda' } }), '')
+  // A state, a province or DX says nothing about a county.
+  for (const location of ['OR', 'ON', 'DX']) assert.equal(await countyFor(CA, location), undefined, location)
+})
+
 /// An operation logged when the parties were one extension: the party's code
 /// on the operation's `qp` ref, and each contact's exchange on a bare one.
 const LEGACY_CA: QsoPartyParams = { ...CA, legacyRefs: [{ type: 'qp', prefix: 'ca' }] }
@@ -555,7 +576,7 @@ test('on a log kept under the old combined extension, the exchange is mirrored f
     qso: { refs: [{ type: 'qp', location: 'butt', theirSerial: '34', ourSerial: 12 }] },
     operation: legacyOperation('ALAM'),
   }, ctx)
-  assert.deepEqual(patch!.their, { exchange: '34 BUTT', state: 'CA' })
+  assert.deepEqual(patch!.their, { exchange: '34 BUTT', state: 'CA', county: 'CA,Butte' })
   assert.deepEqual(patch!.our, { exchange: '12 ALAM' })
 })
 
@@ -567,7 +588,7 @@ test('a contact app-polo logged keeps its serials when it is saved again here', 
     qso: { refs: [{ type: 'qp', location: 'BUTT', theirNumber: '34', ourNumber: '12' }] },
     operation: legacyOperation('ALAM'),
   }, ctx)
-  assert.deepEqual(patch!.their, { exchange: '34 BUTT', state: 'CA' })
+  assert.deepEqual(patch!.their, { exchange: '34 BUTT', state: 'CA', county: 'CA,Butte' })
   assert.deepEqual(patch!.our, { exchange: '12 ALAM' })
 })
 

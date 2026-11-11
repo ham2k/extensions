@@ -281,6 +281,21 @@ describe("their State, from the section they sent", () => {
     return patch.their.state
   }
 
+  test("the section also fills the ARRL Section, which ARRL_SECT reads; MX and DX do not", async () => {
+    const sectionFor = async (call: string, section: string) => {
+      const qso = contestQso(call, { band: '20m', mode: 'SSB', section })
+      qso.refs = [{ ...(qso.refs as Record<string, JSONValue>[])[0], class: '2A' }]
+      const patch = (await wfd.runHook('activity', 'processQsoBeforeSave', {
+        qso,
+        operation: { refs: [{ type: 'wfd', ourClass: '1H' }] },
+      })) as { their: Record<string, string> }
+      return patch.their.arrlSection
+    }
+    assert.equal(await sectionFor('W2ABC', 'NLI'), 'NLI')
+    assert.equal(await sectionFor('XE1ABC', 'MX'), undefined)
+    assert.equal(await sectionFor('G4ABC', 'DX'), undefined)
+  })
+
   test("a section that is its state, one of a split state's, and a Canadian one", async () => {
     assert.equal(await stateFor('W1AW', 'CT'), 'CT')
     assert.equal(await stateFor('K6ABC', 'SDG'), 'CA')

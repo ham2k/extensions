@@ -115,9 +115,10 @@ test("saving stamps the guesses and projects both exchanges", async () => {
     operation: configured,
     qso: { their: { call: 'W1AW' }, refs: [{ type: 'ssb-sprint', theirSerial: '7', name: 'HAL', location: 'CT' }] },
   })
+  // The location they sent also fills their State, which the lookup left empty.
   assert.deepEqual(later, {
     refs: [{ type: 'ssb-sprint', name: 'HAL', location: 'CT' }],
-    their: { exchange: '7 HAL CT' },
+    their: { exchange: '7 HAL CT', state: 'CT' },
   })
 })
 
@@ -154,7 +155,7 @@ test("a contact just saved puts the QSY rule on the FYI line, as HaLo saves it; 
   assert.equal(fyi.length, 2)
   assert.equal(fyi[1].category, 'warning')
   assert.equal(fyi[1].text, '**QSY:** 1.0 kHz more to call, 5.0 kHz more to CQ')
-  assert.deepEqual(patch, { refs: [{ type: 'ssb-sprint', name: 'HAL', location: 'CT' }], their: { exchange: '7 HAL CT' } })
+  assert.deepEqual(patch, { refs: [{ type: 'ssb-sprint', name: 'HAL', location: 'CT' }], their: { exchange: '7 HAL CT', state: 'CT' } })
 
   // An operation that names itself is judged by its log, which outranks the
   // last contact watched: there, the one before was on 14.262.

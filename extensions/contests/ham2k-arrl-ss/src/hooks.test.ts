@@ -78,7 +78,7 @@ test("saving projects only their exchange, so the QSO row shows what was copied 
     operation: configured,
     qso: { their: { call: 'W9JJ' }, refs: [{ type: 'arrl-ss', ourSerial: 123, theirSerial: '043', theirPrecedence: 'm', theirCheck: '31', theirSection: 'il' }] },
   })
-  assert.deepEqual(patch, { their: { exchange: '43 M 31 IL', state: 'IL' } })
+  assert.deepEqual(patch, { their: { exchange: '43 M 31 IL', state: 'IL', arrlSection: 'IL' } })
 
   // Nothing of theirs entered yet: nothing projects.
   const ours = await contest.runHook("activity", "processQsoBeforeSave", {
@@ -213,5 +213,5 @@ test("editing a contact that holds a copy of ours clears it", async () => {
     qso: { their: { call: 'W9JJ' }, our: { exchange: '123 A 79 CT' }, refs: [{ type: 'arrl-ss', ourSerial: 124, theirSerial: '43', theirPrecedence: 'M', theirCheck: '31', theirSection: 'IL' }] },
   })
   // Left alone, the row would keep showing 123 after the serial became 124.
-  assert.deepEqual(patch, { their: { exchange: '43 M 31 IL', state: 'IL' }, our: { exchange: '' } })
+  assert.deepEqual(patch, { their: { exchange: '43 M 31 IL', state: 'IL', arrlSection: 'IL' }, our: { exchange: '' } })
 })

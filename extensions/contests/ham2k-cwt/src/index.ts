@@ -21,7 +21,7 @@ import { exportTypeDefinition } from "@ham2k/extension-sdk"
 import { qsonToCabrillo } from "@ham2k/lib-qson-cabrillo"
 import { NO_RESTRICTIONS, rulesNote } from "@ham2k/lib-contest-rules"
 import { cabrilloOperators } from "@ham2k/lib-contest-station"
-import { needsGuess, stampedExchange } from "@ham2k/lib-contest-exchange"
+import { needsGuess, stampedExchange, theirStateFields, withTheirFields } from "@ham2k/lib-contest-exchange"
 import { adifForExport, contestScorer, defineExtension, exportFilename, startMillisOf } from "@ham2k/extension-sdk"
 import type {
   ActivitySuggestion,
@@ -277,10 +277,15 @@ const ActivityHook = {
     const qsoRef = refOfType(qso, TYPE)
     const name = needsGuess(qsoRef, ['name']) ? await suggestedName(ctx, operation, qso) : ''
     // The number is never guessed — only what the operator typed is recorded.
-    return stampedExchange(TYPE, qsoRef, {
+    let theirNumber = ''
+    const received = stampedExchange(TYPE, qsoRef, {
       name: { read: firstName, guess: () => name },
       number: { read: normalizeNumber },
-    }, ({ name, number }) => [name, number].filter((x) => x).join(' '))
+    }, ({ name, number }) => ((theirNumber = number), [name, number].filter((x) => x).join(' ')))
+    // A non-member sends a state, province or country for the number; a state
+    // or province also reaches `their.state`, where ADIF's STATE, the SOTA and
+    // POTA files and Worked All States read it.
+    return withTheirFields(received, theirStateFields(qso.their as Record<string, JSONValue> | undefined, theirNumber))
   },
 }
 

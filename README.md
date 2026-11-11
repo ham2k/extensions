@@ -395,7 +395,14 @@ saying publishes to `stable`.
     earlier ones, for the order every contest's prefill follows: this
     operation, then the contest's call history file, then earlier runnings,
     then the lookup and the country file — the lookup ahead of earlier
-    runnings for a part that says where the station is.
+    runnings for a part that says where the station is. `theirGridFields`
+    and `theirStateFields` project a received grid or state/province into the
+    contact's own `their.grid` (with the square's center as `lat`/`lon`) and
+    `their.state`, which every reader outside the contest takes them from —
+    ADIF's GRIDSQUARE and STATE, the SOTA and POTA files, Worked All States,
+    the map; a part left only on the ref is invisible to all of them, and
+    they show the lookup's home address instead. `withTheirFields` merges
+    either into a `stampedExchange` patch.
   - `@ham2k/lib-naqp-exchange` — NAQP's exchange, a name and a location: the
     states, provinces and North American entities it accepts, which of them
     are multipliers, and the guesses from the callsign lookup and the country

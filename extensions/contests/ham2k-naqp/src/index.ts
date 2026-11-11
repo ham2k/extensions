@@ -15,7 +15,7 @@
 import { exportTypeDefinition } from "@ham2k/extension-sdk"
 import { qsonToCabrillo } from "@ham2k/lib-qson-cabrillo"
 import { cabrilloOperators } from "@ham2k/lib-contest-station"
-import { needsGuess, stampedExchange } from "@ham2k/lib-contest-exchange"
+import { needsGuess, stampedExchange, theirStateFields, withTheirFields } from "@ham2k/lib-contest-exchange"
 import { adifForExport, annotateCallAgainstCountryFile, contestScorer, defineExtension, exportFilename, host, startMillisOf } from "@ham2k/extension-sdk"
 import type {
   ActivitySuggestion,
@@ -242,10 +242,14 @@ const ActivityHook = {
     const guess: Exchange = needsGuess(qsoRef, ['name', 'location'])
       ? await suggestedExchange(ctx, args.operation, args.qso)
       : { name: '', location: '' }
-    return stampedExchange(TYPE, qsoRef, {
+    let theirLocation = ''
+    const received = stampedExchange(TYPE, qsoRef, {
       name: { read: firstName, guess: () => guess.name },
       location: { read: normalizeLocation, guess: () => guess.location },
-    }, ({ name, location }) => [name, location].filter((x) => x).join(' '))
+    }, ({ name, location }) => ((theirLocation = location), [name, location].filter((x) => x).join(' ')))
+    // The location also reaches `their.state`, where ADIF's STATE, the SOTA
+    // and POTA files and Worked All States read it.
+    return withTheirFields(received, theirStateFields(args.qso.their as Record<string, JSONValue> | undefined, theirLocation))
   },
 }
 

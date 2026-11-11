@@ -283,8 +283,12 @@ const ActivityHook = {
     // it is, ahead of whatever a lookup guessed. Re-filled on every save, so
     // fixing a mistyped section fixes the State with it. `MX`, `DX` and a
     // section that names no single state leave the State alone.
-    const state = stateForSection(str(qsoRef?.location).toUpperCase(), str(their.call), str(their.state).toUpperCase())
-    return { their: { ...their, exchange, ...(state ? { state } : {}) } as unknown as JSONValue }
+    const section = str(qsoRef?.location).toUpperCase()
+    const state = stateForSection(section, str(their.call), str(their.state).toUpperCase())
+    // And their ARRL Section itself, where ADIF's ARRL_SECT reads it in the
+    // files this extension does not write: a POTA activation's, a SOTA one's.
+    const arrlSection = section in ALL_SECTIONS && section !== their.arrlSection ? { arrlSection: section } : {}
+    return { their: { ...their, exchange, ...(state ? { state } : {}), ...arrlSection } as unknown as JSONValue }
   },
 
   /// Two fields per QSO, both writing to the same ref, which the core folds
