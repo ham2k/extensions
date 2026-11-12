@@ -1,6 +1,6 @@
 {
   "name": "@ham2k/ext-offline-calls-hf",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Ham2K Logger extension: Offline Lookups, HF callsigns",
   "author": "Sebastian Delmont <sd@ham2k.com>",

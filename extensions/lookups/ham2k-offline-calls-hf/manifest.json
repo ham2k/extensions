@@ -1,7 +1,7 @@
 {
   "key": "ham2k-offline-calls-hf",
   "name": "Offline Lookups: HF Callsigns",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "api": 22,
   "description": "Callsign lookups with no internet connection, for stations with HF privileges in the US, Canada, Germany and Norway. Needs about 125 MB of storage",
   "category": "lookup",
@@ -14,6 +14,9 @@
   "hooks": [
     "dataFile",
     "lookup"
+  ],
+  "domains": [
+    "services.ham2k.net"
   ],
   "sharedDependencies": {
     "@ham2k/lib-callsigns": "^1.0.0",
