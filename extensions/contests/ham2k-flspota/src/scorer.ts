@@ -21,11 +21,12 @@
 //     occupies carries our park. An activation at two listed parks at once is a
 //     contact in both logs, and scores in both.
 //   * A STATION AT SEVERAL PARKS IS SEVERAL CONTACTS. §7.4 asks for "the
-//     recommended POTA log format", which writes one record per park hunted, and
-//     those records are what the sponsor counts. So an activator's contact is
-//     worth one per park of theirs — every POTA park, not only Florida's, since
-//     the record is written either way. A park they had not given us in a slot
-//     reopens it, which is also how a rover is worked again.
+//     recommended POTA log format"; this file carries POTA's fields as one
+//     record per park hunted, and those records are what the sponsor counts.
+//     So an activator's contact is worth one per park of theirs — every POTA
+//     park, not only Florida's, since the record is written either way. A park
+//     they had not given us in a slot reopens it, which is also how a rover is
+//     worked again.
 //
 // A hunter's contact is one the sponsor finds in an ACTIVATOR's log, so for an
 // operation in no listed park only contacts with listed parks count.
