@@ -23,7 +23,7 @@ webhooks, and HamAlert's alerts.
 
 ## What is here
 
-115 extensions, grouped by the manifest's own `category`:
+116 extensions, grouped by the manifest's own `category`:
 
 | directory | manifest `category` | n | of which |
 |---|---|--:|---|
@@ -31,14 +31,14 @@ webhooks, and HamAlert's alerts.
 | `extensions/contests/` | `contest` | 72 | 14 ported built-ins, 4 new contests, 49 QSO party events, 5 park events |
 | `extensions/awards/` | `award` | 2 | 2 new award checklists |
 | `extensions/lookups/` | `lookup` | 7 | 5 ported built-ins, 2 offline callsign sets |
-| `extensions/spots/` | `spots` | 7 | 1 ported built-in, 6 new spotting sources |
+| `extensions/spots/` | `spots` | 8 | 1 ported built-in, 7 new spotting sources |
 | `extensions/dashboard/` | `dashboard` | 6 | 1 ported built-in, 2 new panels, 3 SVG reference panels |
 | **total** | | **115** | **39 ported, 73 new, 3 SVG reference panels** |
 
 The 39 are the app's own extensions, ported one for one. The 73 are new:
 three activity programs, four contests and events the app has never shipped
 separately, five state-park
-events, six spotting sources, two award programs, Worked All States and
+events, seven spotting sources, two award programs, Worked All States and
 DXCC checklists, two offline callsign sets, a rate chart and a band map:
 
 - **`ham2k-hota`** — [History on the Air](https://cqhota.app), historic sites
@@ -232,6 +232,10 @@ DXCC checklists, two offline callsign sets, a rate chart and a band map:
   [github.com/hamalert](https://github.com/hamalert), which is where the
   record's fields come from; a `v1` API with a server-sent event stream is
   drafted there and not yet deployed, and is the better target once it is.
+- **`m0trt-spothole`** uses [Spothole](https://spothole.app)
+  as a spot provider, putting all the spots it aggregates from 18 different
+  sources onto the spots board. These include spots from the DX Cluster, POTA,
+  SOTA etc. as well as some less-well-known sources.
 - **`ham2k-cluster-spots`** reads the one telnet connection the app holds to
   the node picked in Settings › DX Cluster (extension API 10), and turns every
   `DX de` line the node sends into a spot on the board, under the spot

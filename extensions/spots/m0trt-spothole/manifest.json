@@ -1,0 +1,38 @@
+{
+  "key": "m0trt-spothole",
+  "name": "M0TRT's Spothole",
+  "shortName": "Spothole",
+  "version": "0.1.0",
+  "api": 1,
+  "description": "Provides all the spots aggregated by Spothole on your spots board",
+  "category": "spots",
+  "icon": "triangle-outline",
+  "accentColor": "#B71C1C",
+  "keywords": [
+    "spots",
+    "spotting",
+    "spothole",
+    "dx",
+    "cluster",
+    "pota",
+    "sota",
+    "wwff",
+    "xota"
+  ],
+  "hooks": [
+    "spots"
+  ],
+  "domains": [
+    "spothole.app"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  }
+}
