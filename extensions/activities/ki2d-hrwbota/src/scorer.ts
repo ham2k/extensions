@@ -133,6 +133,7 @@ export function hrwbotaScorer(deps: ScorerDeps): ContestScorer<Scoresheet> {
         label,
         icon: deps.icon,
         summary: deps.points(scoresheet.total, ctx),
+        summaryWithDetail: true,
         longSummary: [summary, ...(lines.length ? ["", ...lines] : [])].join("\n"),
       }),
     }
@@ -193,6 +194,7 @@ export function hrwbotaScorer(deps: ScorerDeps): ContestScorer<Scoresheet> {
           label,
           icon: deps.icon,
           summary: deps.points(scoresheet.total, ctx),
+          summaryWithDetail: true,
           longSummary: [summary, ...(lines.length ? ["", ...lines] : [])].join("\n"),
         }),
       }

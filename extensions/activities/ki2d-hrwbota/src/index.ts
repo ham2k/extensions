@@ -25,6 +25,7 @@ import type {
   ActivitySuggestion,
   HookContext,
   JSONValue,
+  LoggingControlDescriptor,
   LookupHook,
   LookupResult,
   PostResult,
@@ -180,6 +181,25 @@ const uploader = new Uploader(
 let toldNoKey = false
 
 const Activity: ActivityHook = {
+  /// What the operation setup pane draws the activity with: without a control
+  /// claiming its type, the app shows the reference as one no extension
+  /// handles. A reference list rather than a form, as there is nothing to set
+  /// up: adding it stays one tap, and the options row searches this
+  /// activity's own suggestion.
+  async operationControls(_args, ctx: HookContext): Promise<LoggingControlDescriptor[]> {
+    return [
+      {
+        key: `${TYPE}/event`,
+        label: tFor(ctx)("activityLabel"),
+        icon: manifest.icon,
+        color: manifest.accentColor,
+        order: 10,
+        optionType: "optional",
+        input: { kind: "refList", refType: TYPE },
+      },
+    ]
+  },
+
   async suggest({ operation, searchTerm }: SuggestArgs, ctx: HookContext): Promise<ActivitySuggestion[]> {
     if (hasActivity(operation)) return []
     const words = (searchTerm ?? "").trim().toUpperCase().split(/\s+/).filter(Boolean)

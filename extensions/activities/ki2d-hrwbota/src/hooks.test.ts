@@ -65,6 +65,13 @@ test("it is one activity, with the hooks the manifest promises", () => {
   assert.deepEqual(ext.categories(), ["account", "activity", "lookup", "ref:hrwbota", "scoring", "spots"])
 })
 
+test("the operation setup pane draws the activity with the workbench icon", async () => {
+  const [control] = (await ext.runHook("activity", "operationControls", { operation: {} })) as Data[]
+  assert.equal(control.icon, "table-furniture")
+  assert.equal(control.color, "#1D5A44")
+  assert.deepEqual({ kind: (control.input as Data).kind, refType: (control.input as Data).refType }, { kind: "refList", refType: "hrwbota" })
+})
+
 test("the key field shows only for a host, or for whoever already entered a key", async () => {
   operatorCall = "K2ABC"
   assert.deepEqual(await ext.runHook("account", "fields"), [])
@@ -130,6 +137,7 @@ test("a chaser scores each host once per mode group, at the best value, inside t
   const tally = Object.values(result.operationSummary).find((t) => t.key === "hrwbota")!
   assert.equal(tally.total, 18.52)
   assert.equal(tally.summary, "18.52 pts")
+  assert.equal(tally.summaryWithDetail, true, "the total stands beside the title, above its detail")
   assert.match(String(tally.longSummary), /^18\.52 pts from 2 hosts · 1 QSO outside the event hours\n/)
 })
 

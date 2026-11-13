@@ -2,7 +2,7 @@
   "key": "ki2d-hrwbota",
   "name": "HRWBOTA",
   "shortName": "HRWBOTA",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "api": 19,
   "description": "Ham Radio Workbenches On The Air: spots for the hosts on the air and your score as you work them, and for hosts, contacts and status sent to the event's tracker",
   "category": "activity",
