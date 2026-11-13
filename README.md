@@ -71,6 +71,21 @@ DXCC checklists, two offline callsign sets, a rate chart and a band map:
   check a PIN short of posting a spot, so the account's test only says the
   two are filled in.
 
+- **`ki2d-hrwbota`** — [Ham Radio Workbenches On The Air](https://hrwbota.com),
+  a three-hour event of hosts on the air from their workbenches, against its
+  own tracker (`tracker.hrwbota.com`, whose `docs/spotting-api.md` is the
+  contract). One extension for both sides: the hosts on the air as spots; for
+  a chaser, a note on a host's call and a running score kept by the
+  tracker's rules; for a host, the logger key from their host card entered as
+  an account (offered only once the profile's callsign is on the host list),
+  and then each contact and the status it implies sent as it is logged, only
+  from operations under the key's own host call, with a host's operation
+  scored as the points its log gives its listeners. Its
+  ref type, `hrwbota`, the activity both sides add, is new and permanent in
+  the same way, and so is the spot source `hrwbota`. The host list is kept in
+  the extension's settings, since the scorer is synchronous and has to have
+  it at hand.
+
 - **The state-park events** — `ham2k-txspota`, `ham2k-flspota`,
   `ham2k-gaspota`, `ham2k-ohspota` and `ham2k-wispota` — are one extension
   each, written for the catalog from each sponsor's own rules rather than
