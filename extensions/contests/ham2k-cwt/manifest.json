@@ -4,6 +4,7 @@
   "shortName": "CWT",
   "version": "0.2.3",
   "description": "The weekly CWops mini-tests: one hour of CW, name and member number, four sessions a week",
+  "about": "Add **CWT** to an operation to log a [CWops Test](https://cwops.org/cwops-tests/).\nChoose the session and set the exchange you’ll send.\n\nEnter a callsign and Ham2K can suggest a name and exchange from past CWT\ncontacts and N1MM call history. Check what you copy and edit or clear the\nsuggestion as needed.\n\nUse **Exports** to save an ADIF or Cabrillo log for the session.\n\nEnable one CWT extension at a time.",
   "category": "contest",
   "icon": "clock-fast",
   "accentColor": "#4527A0",
