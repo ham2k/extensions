@@ -16,8 +16,9 @@
 // short of three contacts in a row on one frequency. It is kept live instead,
 // on the FYI line, as the dial turns (qsy.ts).
 
+import { bandBreakdown, counted } from "@ham2k/lib-contest-summary"
 import { fmtInteger } from "@ham2k/lib-format-tools"
-import type { ContestScorer, JSONValue, QsoScoreVerdict } from "@ham2k/extension-sdk"
+import type { ContestScorer, HookContext, JSONValue, QsoScoreVerdict } from "@ham2k/extension-sdk"
 import { contestArithmetic, contestSummary } from "@ham2k/extension-sdk"
 
 import { TYPE, ourExchange, refOfType, str } from "./exchange.ts"
@@ -25,8 +26,8 @@ import { firstName } from "./history.ts"
 import { tFor } from "./i18n.ts"
 import { CANADIAN_PROVINCES, US_STATES, isMultiplier, isNorthAmerican, isValidLocation, locationKind, normalizeLocation } from "./locations.ts"
 
-/// "20, 40 and 80 meters only", in the order the summary lists them.
-export const VALID_BANDS = ['20m', '40m', '80m']
+/// "20, 40 and 80 meters only".
+export const VALID_BANDS = ['80m', '40m', '20m']
 
 /// "SSB only": the radio may report the sideband.
 const PHONE_MODES = ['SSB', 'USB', 'LSB']
@@ -37,6 +38,9 @@ export type SprintScoresheet = {
   /// Contacts per multiplier — once for the whole contest.
   mults: Record<string, number>
   bands: Record<string, number>
+  /// Band → multipliers first worked on it, so the band lines add up to the
+  /// multiplier. Missing from a checkpoint scored before it existed.
+  bandFirstMults?: Record<string, number>
   qsos: number
 }
 
@@ -56,7 +60,7 @@ export function weAreNorthAmerican(operation: Record<string, JSONValue> | undefi
 
 export const SprintScorer: ContestScorer<SprintScoresheet> = {
   startScoresheet(): SprintScoresheet {
-    return { workedByCall: {}, mults: {}, bands: {}, qsos: 0 }
+    return { workedByCall: {}, mults: {}, bands: {}, bandFirstMults: {}, qsos: 0 }
   },
 
   // Mutates and returns the given scoresheet — see ContestScorer.scoreQso.
@@ -95,7 +99,10 @@ export const SprintScorer: ContestScorer<SprintScoresheet> = {
     const score: QsoScoreVerdict = { value: 1, band, dupe: false }
     const notices: string[] = []
     if (isMultiplier(location)) {
-      if (sheet.mults[location] === undefined) notices.push('newMult')
+      if (sheet.mults[location] === undefined) {
+        notices.push('newMult')
+        ;(sheet.bandFirstMults ??= {})[band] = (sheet.bandFirstMults[band] ?? 0) + 1
+      }
       sheet.mults[location] = (sheet.mults[location] ?? 0) + 1
     }
     if (heardBefore) notices.push('newBand')
@@ -145,7 +152,7 @@ export const SprintScorer: ContestScorer<SprintScoresheet> = {
           },
           ctx,
         ),
-        detail: [...multsChecklist(scoresheet, t), ...bandBreakdown(scoresheet, t)].join('\n\n'),
+        detail: [...multsChecklist(scoresheet, t), ...bands(scoresheet, ctx)].join('\n\n'),
         grid: true,
         extra: { points: scoresheet.qsos, mults: keys.length, qsos: scoresheet.qsos },
       },
@@ -180,12 +187,16 @@ function multsChecklist(sheet: SprintScoresheet, t: ReturnType<typeof tFor>): st
   return parts
 }
 
-/// QSOs per band, in band order.
-function bandBreakdown(sheet: SprintScoresheet, t: ReturnType<typeof tFor>): string[] {
+/// The band lines under the QSO count. A point a QSO, so a band's points are
+/// its QSOs.
+function bands(sheet: SprintScoresheet, ctx: Pick<HookContext, 'locale'>): string[] {
   if (sheet.qsos === 0) return []
-  const qsos = (count: number) => (count === 1 ? t('qsoOne') : t('qsoMany', { formatted: fmtInteger(count) }))
   return [
-    `### ${qsos(sheet.qsos)}`,
-    VALID_BANDS.map((band) => `**${band}**: ${sheet.bands[band] ? qsos(sheet.bands[band]) : '—'}`).join('\n'),
+    `### ${counted(sheet.qsos, 'qso', ctx)}`,
+    bandBreakdown(
+      Object.entries(sheet.bands).map(([band, qsos]) => ({ band, qsos, points: qsos, mults: sheet.bandFirstMults?.[band] ?? 0 })),
+      ctx,
+      { bands: VALID_BANDS },
+    ),
   ]
 }

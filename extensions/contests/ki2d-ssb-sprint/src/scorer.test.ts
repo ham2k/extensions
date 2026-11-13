@@ -113,8 +113,18 @@ test('the summary multiplies contacts by multipliers and checks off the states a
   assert.match(detail, /### 1 of 13 Canadian Provinces\n\nAB BC MB NB NL NS NT NU \*\*~~ON~~\*\* PE QC SK YT\n\n/)
   // The countries worked, alone.
   assert.match(detail, /### 1 NA Country\n\n\*\*~~XE~~\*\*\n\n/)
-  assert.match(detail, /### 4 QSOs\n\n\*\*20m\*\*: 2 QSOs\n\*\*40m\*\*: 1 QSO\n\*\*80m\*\*: 1 QSO$/)
+  assert.match(detail, /### 4 QSOs\n\n\*\*80m\*\*: 1 QSO, 1 pt, 1 mult\n\*\*40m\*\*: 1 QSO, 1 pt, 1 mult\n\*\*20m\*\*: 2 QSOs, 2 pts, 2 mults$/)
   assert.doesNotMatch(detail, /missing/)
+})
+
+test('each multiplier counts on the band it was first worked on, so the band lines add up', () => {
+  // A multiplier counts once for the whole contest. Crediting CT again on 40m
+  // would show three multipliers across the bands when the score multiplies by
+  // two; and 80m reads first however late it was worked.
+  const { summary } = run([qso('W1AW', 'CT'), qso('W1AW', 'CT', '40m'), qso('VE3ABC', 'ON', '40m'), qso('W2ABC', 'NY', '80m')])
+  const lines = (summary.longSummary ?? '').split('\n').filter((line) => /^\*\*\d+m\*\*/.test(line))
+  assert.deepEqual(lines, ['**80m**: 1 QSO, 1 pt, 1 mult', '**40m**: 2 QSOs, 2 pts, 1 mult', '**20m**: 1 QSO, 1 pt, 1 mult'])
+  assert.equal(summary.total, 4 * 3)
 })
 
 test('the day carries the score too, as a badge for the date header', () => {

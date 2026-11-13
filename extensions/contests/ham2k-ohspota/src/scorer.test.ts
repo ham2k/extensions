@@ -164,7 +164,7 @@ test("each park we operate from is its own entry, and a station counts again at 
   assert.equal(summary().total, 8)
   assert.equal(summary().label, 'OSPOTA: 8 points')
   // Each entry's product, never one product over the pooled contacts (5 × 2).
-  assert.equal(String(summary().longSummary).split('\n')[0], '5 QSOs, 6 + 2')
+  assert.equal(String(summary().longSummary).split('\n')[0], '5 QSOs, 2 entries: 6 + 2')
   assert.match(String(summary().longSummary), /\*\*PUN:\*\* 3 × 2 = 6/)
 })
 
@@ -207,4 +207,11 @@ test("offers no per-day summary", () => {
   const operation = operationFor('PUN')
   const { sheet } = run(contacts(3, 1), operation)
   assert.deepEqual(OhspotaScorer.summarizeScore({ scoresheet: sheet, operation, ref: OWN_REF, scope: 'day' }, ctx), {})
+})
+
+// Every contact is a point, so a band's points are its contacts; and with two
+// entries a park is a multiplier in each, so no band could hold it once.
+test("each band line carries its points, and no multipliers", () => {
+  const { summary } = run([qso({ call: 'W8AAA', band: '40m', park: 'ADA' }), qso({ call: 'W8BBB', band: '20m' }), qso({ call: 'W8CCC', band: '20m' })])
+  assert.match(String(summary().longSummary), /^\*\*40m\*\*: 1 QSO, 1 pt\n\*\*20m\*\*: 2 QSOs, 2 pts$/m)
 })

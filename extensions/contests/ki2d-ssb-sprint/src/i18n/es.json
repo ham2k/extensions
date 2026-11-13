@@ -41,7 +41,5 @@
   "statesHeading": "{{worked}} de {{total}} estados de EE. UU.",
   "provincesHeading": "{{worked}} de {{total}} provincias canadienses",
   "countriesHeadingOne": "1 país norteamericano",
-  "countriesHeadingMany": "{{formatted}} países norteamericanos",
-  "qsoOne": "1 QSO",
-  "qsoMany": "{{formatted}} QSOs"
+  "countriesHeadingMany": "{{formatted}} países norteamericanos"
 }

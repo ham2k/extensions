@@ -1,6 +1,12 @@
 # Dashboard extensions
 
-`ham2k-custom-text` provides the text panel. The `ki2d-` panels live here
+`ham2k-custom-text` provides the text panel, and `ham2k-rotator` the Rotator
+panel: the station's rotators on a map of the world centred on it, turned with
+a click, which the app ships pre-loaded and updates from the catalog. Needs
+extension API 23. `ham2k-band-scope` is the Band Scope panel, a radio's
+spectrum and waterfall with the band plan and the spots on the band, also
+pre-loaded; it draws the plan `ham2k-band-plan` (under `spots/`) gives as band
+annotations. Band Scope needs extension API 23, Band Plan 20. The `ki2d-` panels live here
 rather than being bundled into HaLo — three SVG reference panels, and a rate
 chart and a band map drawn as the app's native panel scenes:
 

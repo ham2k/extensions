@@ -13,6 +13,7 @@
 import { exportTypeDefinition } from "@ham2k/extension-sdk"
 import { qsonToCabrillo } from "@ham2k/lib-qson-cabrillo"
 import { rulesNotes, withRules } from "@ham2k/lib-contest-rules"
+import { cabrilloClub, cabrilloOperators, clubField } from "@ham2k/lib-contest-station"
 import { adifForExport, contestScorer, defineExtension, exportFilename, host, startMillisOf } from "@ham2k/extension-sdk"
 import type {
   ActivitySuggestion,
@@ -34,7 +35,7 @@ import { MODES, nearestMode, nextContestDate, relevanceFor } from "./schedule.ts
 import type { SSMode } from "./schedule.ts"
 import { SSScorer, TYPE, contestTitle } from "./scorer.ts"
 import { ALL_SECTIONS } from "./sections.ts"
-import { normalizeSection, preferredSections } from "./exchange.ts"
+import { normalizeSection, preferredSections, stateForSection } from "./exchange.ts"
 import { HISTORY_STEMS, loadHistory, parseHistory, removeHistory, suggestedExchange } from "./history.ts"
 import {
   CHECK_PATTERN,
@@ -42,8 +43,6 @@ import {
   PRECEDENCE_PATTERN,
   cabrilloCategories,
   contestRules,
-  declaredClub,
-  declaredOperators,
   normalizeCheck,
   normalizePrecedence,
   ourPrecedence,
@@ -154,17 +153,17 @@ async function ourSectionDefault(): Promise<string> {
   return lastKnownSection
 }
 
-/// The operator's name, email and club from their profile, for the Cabrillo
-/// header. All optional and free-form in the profile, so each may be ''. A
-/// host that cannot answer costs these lines, never the log itself.
-async function profileDetails(): Promise<{ name: string; email: string; club: string }> {
+/// The operator's name and email from their profile, for the Cabrillo header.
+/// Both optional and free-form in the profile, so each may be ''. A host that
+/// cannot answer costs these lines, never the log itself.
+async function profileDetails(): Promise<{ name: string; email: string }> {
   try {
     const settings = (await host.getSettings()) as Record<string, JSONValue> | undefined
     const line = (value: JSONValue | undefined) => str(value).replace(/\s+/g, ' ').trim()
-    return { name: line(settings?.operatorName), email: line(settings?.operatorEmail), club: line(settings?.operatorClub) }
+    return { name: line(settings?.operatorName), email: line(settings?.operatorEmail) }
   } catch (e) {
-    console.warn(`[arrl-ss] profile settings unavailable, exporting without name, email and profile club:`, e)
-    return { name: '', email: '', club: '' }
+    console.warn(`[arrl-ss] profile settings unavailable, exporting without name and email:`, e)
+    return { name: '', email: '' }
   }
 }
 
@@ -255,21 +254,7 @@ const ActivityHook = {
               },
               // What the rules allow, following the entry above.
               ...rulesNotes(ctx, 'entry', ENTRY_CLASSES, contestRules),
-              {
-                type: 'field',
-                fieldType: 'text',
-                key: 'operators',
-                label: t('operatorsLabel'),
-                placeholder: t('operatorsPlaceholder'),
-                uppercase: true,
-              },
-              {
-                type: 'field',
-                fieldType: 'text',
-                key: 'club',
-                label: t('clubLabel'),
-                placeholder: t('clubPlaceholder'),
-              },
+              await clubField(ctx, 'arrl-ss'),
             ],
           },
         },
@@ -415,6 +400,18 @@ const ActivityHook = {
     const decided = qsoRef && ['theirSerial', 'theirPrecedence', 'theirCheck', 'theirSection'].some((key) => key in qsoRef)
     const patch: Record<string, JSONValue> = {}
     if (decided) patch.their = { exchange: theirExchange(args.qso) }
+    // Their State, from the section they sent: a station's own word on where
+    // it is, ahead of whatever a lookup guessed. Re-filled on every save, so
+    // fixing a mistyped section fixes the State with it. A section that names
+    // no single state leaves the State alone.
+    const their = (args.qso.their as Record<string, JSONValue> | undefined) ?? {}
+    const currentState = str(their.state).toUpperCase()
+    const section = normalizeSection(qsoRef?.theirSection)
+    const state = stateForSection(section, str(their.call), currentState)
+    if (state && state !== str(their.state)) patch.their = { ...(patch.their as Record<string, JSONValue> | undefined), state }
+    // And their ARRL Section itself, where ADIF's ARRL_SECT reads it: nothing
+    // else in a Sweepstakes log carries it, the contest's own files included.
+    if (section && section !== their.arrlSection) patch.their = { ...(patch.their as Record<string, JSONValue> | undefined), arrlSection: section }
     // A stored copy of ours doesn't follow the serial: an edit clears it
     // rather than leave the row showing a number the exports don't carry.
     const our = args.qso.our as Record<string, JSONValue> | undefined
@@ -547,14 +544,12 @@ const ExportHook = {
         headers: [
           ['CONTEST', contestId(operation)],
           ['CALLSIGN', ourCall],
-          // The calls listed at setup — required for a multioperator entry —
-          // else the app's own operator call.
-          ['OPERATORS', declaredOperators(opRef) || str((operation.local as Record<string, JSONValue>)?.operatorCall)],
+          ['OPERATORS', cabrilloOperators(operation, args.qsos)],
           // For an ARRL contest, LOCATION is the section.
           ['LOCATION', section],
           ...cabrilloCategories(opRef),
           ['GRID-LOCATOR', str(operation.grid)],
-          ['CLUB', declaredClub(opRef) || profile.club],
+          ['CLUB', await cabrilloClub(opRef, 'arrl-ss')],
           ['NAME', profile.name],
           ['EMAIL', profile.email],
         ],

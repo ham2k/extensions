@@ -46,7 +46,7 @@ test("the setup seeds our section from the profile", async () => {
   const controls = (await contest.runHook("activity", "operationControls", { operation: fixtureOperation() })) as Control[]
   const elements = controls[0].input.form!.elements
   // The rules line, one note per verdict, sits between the exchange and the rest of the entry.
-  assert.deepEqual(elements.map((e) => e.key ?? e.type), ['mode', 'entry', 'check', 'section', 'markdown', 'markdown', 'operators', 'club'])
+  assert.deepEqual(elements.map((e) => e.key ?? e.type), ['mode', 'entry', 'check', 'section', 'markdown', 'markdown', 'club'])
   assert.equal(elements.find((e) => e.key === 'section')!.value, 'ENY')
 })
 
@@ -78,7 +78,7 @@ test("saving projects only their exchange, so the QSO row shows what was copied 
     operation: configured,
     qso: { their: { call: 'W9JJ' }, refs: [{ type: 'arrl-ss', ourSerial: 123, theirSerial: '043', theirPrecedence: 'm', theirCheck: '31', theirSection: 'il' }] },
   })
-  assert.deepEqual(patch, { their: { exchange: '43 M 31 IL' } })
+  assert.deepEqual(patch, { their: { exchange: '43 M 31 IL', state: 'IL', arrlSection: 'IL' } })
 
   // Nothing of theirs entered yet: nothing projects.
   const ours = await contest.runHook("activity", "processQsoBeforeSave", {
@@ -86,6 +86,39 @@ test("saving projects only their exchange, so the QSO row shows what was copied 
     qso: { their: { call: 'W9JJ' }, refs: [{ type: 'arrl-ss', ourSerial: 7 }] },
   })
   assert.equal(ours, null)
+})
+
+test("their State is filled from the section they sent", async () => {
+  const stateFor = async (call: string, section: string, state?: string) => {
+    const patch = (await contest.runHook("activity", "processQsoBeforeSave", {
+      operation: configured,
+      qso: { their: { call, ...(state ? { state } : {}) }, refs: [{ type: 'arrl-ss', theirSerial: '1', theirPrecedence: 'A', theirCheck: '79', theirSection: section }] },
+    })) as { their: Record<string, string> }
+    return patch.their.state
+  }
+  // A section that is its state, one of a split state's, and a Canadian one.
+  assert.equal(await stateFor('W1AW', 'CT'), 'CT')
+  assert.equal(await stateFor('K6ABC', 'sdg'), 'CA')
+  assert.equal(await stateFor('W2ABC', 'NLI'), 'NY')
+  assert.equal(await stateFor('VE3ABC', 'GH'), 'ON')
+  assert.equal(await stateFor('VE2ABC', 'QC'), 'QC')
+  // The section is the station's own word, so it replaces a lookup's state...
+  assert.equal(await stateFor('K6ABC', 'SDG', 'NY'), 'CA')
+  // ...and one already right is left alone.
+  assert.equal(await stateFor('K6ABC', 'SDG', 'CA'), undefined)
+  // MDC is Maryland and DC both: a DC station stays DC.
+  assert.equal(await stateFor('W3ABC', 'MDC'), 'MD')
+  assert.equal(await stateFor('W3ABC', 'MDC', 'DC'), undefined)
+  // PAC is Hawaii, but not for a Pacific possession.
+  assert.equal(await stateFor('KH6ABC', 'PAC'), 'HI')
+  assert.equal(await stateFor('AH6Y', 'PAC'), 'HI')
+  assert.equal(await stateFor('KH2ABC', 'PAC'), undefined)
+  // No single state: Puerto Rico, the Virgin Islands, the Territories.
+  for (const [call, section] of [['KP4ABC', 'PR'], ['KP2ABC', 'VI'], ['VY1ABC', 'TER']]) {
+    assert.equal(await stateFor(call, section), undefined, section)
+  }
+  // Nor does a section that isn't one.
+  assert.equal(await stateFor('W9JJ', 'ILL'), undefined)
 })
 
 test("a part that isn't a valid value is kept as typed, so the exchange never looks complete when it isn't", async () => {
@@ -180,5 +213,5 @@ test("editing a contact that holds a copy of ours clears it", async () => {
     qso: { their: { call: 'W9JJ' }, our: { exchange: '123 A 79 CT' }, refs: [{ type: 'arrl-ss', ourSerial: 124, theirSerial: '43', theirPrecedence: 'M', theirCheck: '31', theirSection: 'IL' }] },
   })
   // Left alone, the row would keep showing 123 after the serial became 124.
-  assert.deepEqual(patch, { their: { exchange: '43 M 31 IL' }, our: { exchange: '' } })
+  assert.deepEqual(patch, { their: { exchange: '43 M 31 IL', state: 'IL', arrlSection: 'IL' }, our: { exchange: '' } })
 })

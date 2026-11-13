@@ -10,7 +10,7 @@
 import type { JSONValue } from "@ham2k/extension-sdk"
 import { annotateCallAgainstCountryFile } from "@ham2k/extension-sdk"
 
-import { ALL_SECTIONS, CALL_AREA_FOR_SECTION, PREFIX_TO_LOCATION } from "./sections.ts"
+import { ALL_SECTIONS, CALL_AREA_FOR_SECTION, PREFIX_TO_LOCATION, STATE_FOR_SECTION } from "./sections.ts"
 
 function str(value: JSONValue | undefined): string {
   return typeof value === 'string' ? value.trim() : ''
@@ -30,6 +30,30 @@ export function normalizeSection(value: JSONValue | undefined): string {
 export function isWVE(call: string): boolean {
   const entity = String(annotateCallAgainstCountryFile(call).entityPrefix ?? '')
   return !entity || entity === 'K' || entity === 'VE' || /^K[HLP]/.test(entity)
+}
+
+/// The sections that place a station in no one state or province: Puerto Rico
+/// and the Virgin Islands are in none, and Territories is Yukon, the Northwest
+/// Territories or Nunavut, with nothing to say which.
+const NO_STATE_SECTIONS = new Set(['PR', 'VI', 'TER'])
+
+/// The state or province a station's [section] puts them in, for the
+/// contact's State; '' where it names none. [current] is the State already
+/// on the contact, kept where the section agrees with it but maps elsewhere:
+/// MDC is Maryland AND DC, so a DC station keeps DC.
+///
+/// PAC is Hawaii and the Pacific possessions, so it is Hawaii only for a call
+/// the country file doesn't place in a possession (KH0 to KH5, KH8, KH9, each
+/// its own entity). It reads Hawaii's own calls as `KH6`, or as plain `K`
+/// for some (`AH6`), so the test is "not a possession" rather than "is KH6".
+export function stateForSection(section: string, call: string, current: string): string {
+  if (!section || NO_STATE_SECTIONS.has(section)) return ''
+  if (section === 'MDC' && current === 'DC') return 'DC'
+  if (section === 'PAC') {
+    const entity = String(annotateCallAgainstCountryFile(call).entityPrefix ?? '')
+    if (entity.startsWith('KH') && entity !== 'KH6') return ''
+  }
+  return STATE_FOR_SECTION[section] ?? section
 }
 
 /// A US state or Canadian province, as a lookup reports it, that IS a section

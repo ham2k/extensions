@@ -10,6 +10,7 @@
 import { exportTypeDefinition } from "@ham2k/extension-sdk"
 import { qsonToCabrillo } from "@ham2k/lib-qson-cabrillo"
 import { rulesNotes, withRules } from "@ham2k/lib-contest-rules"
+import { cabrilloClub, cabrilloOperators, clubField } from "@ham2k/lib-contest-station"
 import { needsGuess, stampedExchange } from "@ham2k/lib-contest-exchange"
 import { adifForExport, contestScorer, defineExtension, exportFilename, host, startMillisOf } from "@ham2k/extension-sdk"
 import type {
@@ -31,7 +32,7 @@ import { tFor } from "./i18n.ts"
 import { MODES, nearestMode, nextContestDate, relevanceFor } from "./schedule.ts"
 import { CQWWScorer, ZONE_PATTERN, contestTitle, cqwwCallInfo, normalizeZone } from "./scorer.ts"
 import { QTH_PATTERN, cabrilloLocation, guessedQth, normalizeQth, sendsQth } from "./qth.ts"
-import { BAND_CLASSES, OPERATOR_CLASSES, OVERLAY_CLASSES, POWER_CLASSES, cabrilloCategories, contestRules, declaredClub, declaredOperators, transmitterColumns } from "./entry.ts"
+import { BAND_CLASSES, OPERATOR_CLASSES, OVERLAY_CLASSES, POWER_CLASSES, cabrilloCategories, contestRules, transmitterColumns } from "./entry.ts"
 
 import manifest from "../manifest.json" with { type: "json" }
 
@@ -67,17 +68,17 @@ function ourQth(operation: Record<string, JSONValue>): string {
   return normalizeQth(ref?.qth) || guessedQth({ call })
 }
 
-/// The operator's name, email and club from their profile, for the Cabrillo
-/// header. All optional and free-form in the profile, so each may be ''. A
-/// host that cannot answer costs these lines, never the log itself.
-async function profileDetails(): Promise<{ name: string; email: string; club: string }> {
+/// The operator's name and email from their profile, for the Cabrillo header.
+/// Both optional and free-form in the profile, so each may be ''. A host that
+/// cannot answer costs these lines, never the log itself.
+async function profileDetails(): Promise<{ name: string; email: string }> {
   try {
     const settings = (await host.getSettings()) as Record<string, JSONValue> | undefined
     const line = (value: JSONValue | undefined) => str(value).replace(/\s+/g, ' ').trim()
-    return { name: line(settings?.operatorName), email: line(settings?.operatorEmail), club: line(settings?.operatorClub) }
+    return { name: line(settings?.operatorName), email: line(settings?.operatorEmail) }
   } catch (e) {
-    console.warn(`[cqww] profile settings unavailable, exporting without name, email and profile club:`, e)
-    return { name: '', email: '', club: '' }
+    console.warn(`[cqww] profile settings unavailable, exporting without name and email:`, e)
+    return { name: '', email: '' }
   }
 }
 
@@ -191,21 +192,7 @@ const ActivityHook = {
               // The entry we are making, for the Cabrillo header. Each starts
               // undeclared: see entry.ts.
               ...entrySelects(t),
-              {
-                type: 'field',
-                fieldType: 'text',
-                key: 'operators',
-                label: t('operatorsLabel'),
-                placeholder: t('operatorsPlaceholder'),
-                uppercase: true,
-              },
-              {
-                type: 'field',
-                fieldType: 'text',
-                key: 'club',
-                label: t('clubLabel'),
-                placeholder: t('clubPlaceholder'),
-              },
+              await clubField(ctx, 'cqww'),
             ],
           },
         },
@@ -462,14 +449,11 @@ const ExportHook = {
         headers: [
           ['CONTEST', mode ? `CQ-WW-${mode}` : 'CQ-WW'],
           ['CALLSIGN', ourCall],
-          // The calls listed at setup — required for a multi-operator entry —
-          // else the app's own operator call.
-          ['OPERATORS', declaredOperators(refOfType(operation, TYPE)) || str((operation.local as Record<string, JSONValue>)?.operatorCall)],
+          ['OPERATORS', cabrilloOperators(operation, args.qsos)],
           ['LOCATION', cabrilloLocation(ourCall, refOfType(operation, TYPE)?.qth)],
           ...cabrilloCategories(refOfType(operation, TYPE)),
           ['GRID-LOCATOR', str(operation.grid)],
-          // The club typed at setup, else the profile's.
-          ['CLUB', declaredClub(refOfType(operation, TYPE)) || profile.club],
+          ['CLUB', await cabrilloClub(refOfType(operation, TYPE), 'cqww')],
           ['NAME', profile.name],
           ['EMAIL', profile.email],
         ],

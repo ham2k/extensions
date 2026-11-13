@@ -39,9 +39,11 @@
 
 import { fmtInteger } from "@ham2k/lib-format-tools"
 import { contestArithmetic, contestSummary } from "@ham2k/extension-sdk"
-import type { ContestScorer, JSONValue, QsoScoreVerdict } from "@ham2k/extension-sdk"
+import type { ContestScorer, HookContext, JSONValue, QsoScoreVerdict } from "@ham2k/extension-sdk"
+import { bandBreakdown } from "@ham2k/lib-contest-summary"
 
 import { BANDS, MIN_CONTACTS, MIN_OTHER_PARKS, PARKS, TYPE, slotMode } from "./event.ts"
+import { tFor } from "./i18n.ts"
 import { isOurRef, ourPark, theirExchange, theirPark } from "./parks.ts"
 
 import manifest from "../manifest.json" with { type: "json" }
@@ -173,6 +175,10 @@ export const OhspotaScorer: ContestScorer<OhspotaScoresheet> = {
     const total = entries.reduce((sum, [park, entry]) => sum + scoreOf(park, entry), 0)
     const single = entries.length === 1 ? entries[0] : undefined
     const mults = single ? (multipliersOf(single[0], single[1]) || 1) : undefined
+    // With several entries, the clause says what is being added — `2 entries:
+    // 6 + 2` — since a bare `6 + 2` beside the QSOs reads as nothing in
+    // particular; each entry's own product is in the detail.
+    const entryScores = entries.map(([park, entry]) => fmtInteger(scoreOf(park, entry))).join(' + ')
 
     return contestSummary({
       key: 'ohspota',
@@ -182,23 +188,29 @@ export const OhspotaScorer: ContestScorer<OhspotaScoresheet> = {
       total,
       arithmetic: mults !== undefined
         ? contestArithmetic({ qsos, points: qsos, mults }, ctx)
-        : contestArithmetic({ qsos, more: entries.length > 1 ? [entries.map(([park, entry]) => fmtInteger(scoreOf(park, entry))).join(' + ')] : [] }, ctx),
-      detail: longSummaryFor(sheet),
+        : contestArithmetic({ qsos, more: entries.length > 1 ? [tFor(ctx)('entriesSum', { formatted: fmtInteger(entries.length), sum: entryScores })] : [] }, ctx),
+      detail: longSummaryFor(sheet, ctx),
       extra: { points: qsos, qsos, ...(mults !== undefined ? { mults } : {}) },
     }, ctx)
   },
 }
 
-function longSummaryFor(sheet: OhspotaScoresheet): string {
+function longSummaryFor(sheet: OhspotaScoresheet, ctx: HookContext): string {
+  const t = tFor(ctx)
   const parts: string[] = []
 
   for (const [park, entry] of Object.entries(sheet.entries)) {
     const mults = multipliersOf(park, entry) || 1
-    const lines = [`**${park || 'Not in a park'}:** ${fmtInteger(entry.qsos)} × ${fmtInteger(mults)} = ${fmtInteger(scoreOf(park, entry))}`]
+    const lines = [`**${park || t('notInAPark')}:** ${fmtInteger(entry.qsos)} × ${fmtInteger(mults)} = ${fmtInteger(scoreOf(park, entry))}`]
     if (park) {
       const otherParks = Object.keys(entry.hunted).filter((their) => their !== park).length
       if (entry.qsos < MIN_CONTACTS || otherParks < MIN_OTHER_PARKS) {
-        lines.push(`Needs ${MIN_CONTACTS} contacts, ${MIN_OTHER_PARKS} with other parks: ${fmtInteger(entry.qsos)} and ${fmtInteger(otherParks)} so far`)
+        lines.push(t('entryNeeds', {
+          contacts: fmtInteger(MIN_CONTACTS),
+          parks: fmtInteger(MIN_OTHER_PARKS),
+          haveContacts: fmtInteger(entry.qsos),
+          haveParks: fmtInteger(otherParks),
+        }))
       }
     }
     parts.push(lines.join('\n'))
@@ -206,12 +218,13 @@ function longSummaryFor(sheet: OhspotaScoresheet): string {
 
   const worked = new Set(Object.values(sheet.entries).flatMap((entry) => Object.keys(entry.hunted)))
   const parkList = PARKS.map((park) => (worked.has(park.abbreviation) ? `**~~${park.abbreviation}~~**` : park.abbreviation)).join(' ')
-  parts.push(`### ${fmtInteger(worked.size)} of ${fmtInteger(PARKS.length)} parks worked\n${parkList}`)
+  parts.push(`### ${t('parksWorkedOf', { worked: fmtInteger(worked.size), total: fmtInteger(PARKS.length) })}\n${parkList}`)
 
-  const bands = Object.keys(sheet.bands).sort()
-  if (bands.length > 0) {
-    parts.push(bands.map((band) => `**${band}**: ${fmtInteger(sheet.bands[band])} QSOs`).join('\n'))
-  }
+  // Every contact is a point. No multipliers on the band lines: each entry
+  // counts its own parks, so a park belongs to an entry, not to a band, and
+  // with several entries the same park is a multiplier in each.
+  const bands = bandBreakdown(Object.entries(sheet.bands).map(([band, qsos]) => ({ band, qsos, points: qsos })), ctx)
+  if (bands) parts.push(bands)
 
   return parts.join('\n\n')
 }

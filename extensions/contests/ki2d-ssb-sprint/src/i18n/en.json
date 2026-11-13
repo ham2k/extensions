@@ -41,7 +41,5 @@
   "statesHeading": "{{worked}} of {{total}} US States",
   "provincesHeading": "{{worked}} of {{total}} Canadian Provinces",
   "countriesHeadingOne": "1 NA Country",
-  "countriesHeadingMany": "{{formatted}} NA Countries",
-  "qsoOne": "1 QSO",
-  "qsoMany": "{{formatted}} QSOs"
+  "countriesHeadingMany": "{{formatted}} NA Countries"
 }

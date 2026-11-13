@@ -14,7 +14,8 @@
 import { exportTypeDefinition } from "@ham2k/extension-sdk"
 import { qsonToCabrillo } from "@ham2k/lib-qson-cabrillo"
 import { rulesNotes, withRules } from "@ham2k/lib-contest-rules"
-import { needsGuess, stampedExchange } from "@ham2k/lib-contest-exchange"
+import { cabrilloOperators } from "@ham2k/lib-contest-station"
+import { needsGuess, stampedExchange, theirStateFields, withTheirFields } from "@ham2k/lib-contest-exchange"
 import { adifForExport, contestScorer, defineExtension, exportFilename, host, startMillisOf } from "@ham2k/extension-sdk"
 import type {
   ActivitySuggestion,
@@ -329,12 +330,16 @@ const ActivityHook = {
     const guess: Exchange = needsGuess(qsoRef, ['name', 'location'])
       ? await suggestedExchange(ctx, args.operation, args.qso)
       : { name: '', location: '' }
-    const received = stampedExchange(TYPE, qsoRef, {
+    let theirLocation = ''
+    const stamped = stampedExchange(TYPE, qsoRef, {
       // Read into the exchange as typed, and left on the ref as typed.
       theirSerial: { read: serialOf, stamp: false },
       name: { read: firstName, guess: () => guess.name },
       location: { read: normalizeLocation, guess: () => guess.location },
-    }, ({ theirSerial, name, location }) => [theirSerial, name, location].filter((part) => part).join(' '))
+    }, ({ theirSerial, name, location }) => ((theirLocation = location), [theirSerial, name, location].filter((part) => part).join(' ')))
+    // The location also reaches `their.state`, where ADIF's STATE, the SOTA
+    // and POTA files and Worked All States read it.
+    const received = withTheirFields(stamped, theirStateFields(args.qso.their as Record<string, JSONValue> | undefined, theirLocation))
 
     await watchQsy(args.qso, args.operation, ctx)
 
@@ -479,8 +484,9 @@ const ExportHook = {
           ['LOCATION', ours.location],
           ['NAME', profile.name || ours.name],
           ['EMAIL', profile.email],
-          // Single operator only: the one at the microphone.
-          ['OPERATORS', str((operation.local as Record<string, JSONValue>)?.operatorCall) || ourCall],
+          // Whoever the log says operated: the rules allow one, and a guest at
+          // someone else's station names its owner after them.
+          ['OPERATORS', cabrilloOperators(operation, args.qsos)],
         ],
         // After freq, mode, date and time: call, nr, name and location sent,
         // then received — `QSO: 14240 PH 2020-11-01 0001 KA9FOX 5 SCOTT WI N3QE 2 TIM MD`.

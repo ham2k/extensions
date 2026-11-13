@@ -14,7 +14,8 @@
 
 import { exportTypeDefinition } from "@ham2k/extension-sdk"
 import { qsonToCabrillo } from "@ham2k/lib-qson-cabrillo"
-import { needsGuess, stampedExchange } from "@ham2k/lib-contest-exchange"
+import { cabrilloOperators } from "@ham2k/lib-contest-station"
+import { needsGuess, stampedExchange, theirStateFields, withTheirFields } from "@ham2k/lib-contest-exchange"
 import { adifForExport, annotateCallAgainstCountryFile, contestScorer, defineExtension, exportFilename, host, startMillisOf } from "@ham2k/extension-sdk"
 import type {
   ActivitySuggestion,
@@ -33,7 +34,7 @@ import { LOCATION_PATTERN, VALID_LOCATIONS, firstName, normalizeLocation, ourExc
 
 import { type Exchange, TYPE, suggestedExchange } from "./exchange.ts"
 import { tFor } from "./i18n.ts"
-import { OPERATOR_CLASSES, POWER_CLASSES, cabrilloCategories, declaredOperators } from "./entry.ts"
+import { OPERATOR_CLASSES, POWER_CLASSES, cabrilloCategories } from "./entry.ts"
 import { MODES, nearestMode, nextContestDate, relevanceFor } from "./schedule.ts"
 import { NAQPScorer, contestTitle } from "./scorer.ts"
 
@@ -162,14 +163,6 @@ const ActivityHook = {
               // The entry we are making, for the Cabrillo header. Each starts
               // undeclared: see entry.ts.
               ...entrySelects(t),
-              {
-                type: 'field',
-                fieldType: 'text',
-                key: 'operators',
-                label: t('operatorsLabel'),
-                placeholder: t('operatorsPlaceholder'),
-                uppercase: true,
-              },
               { type: 'markdown', text: t('rulesLink') },
             ],
           },
@@ -249,10 +242,14 @@ const ActivityHook = {
     const guess: Exchange = needsGuess(qsoRef, ['name', 'location'])
       ? await suggestedExchange(ctx, args.operation, args.qso)
       : { name: '', location: '' }
-    return stampedExchange(TYPE, qsoRef, {
+    let theirLocation = ''
+    const received = stampedExchange(TYPE, qsoRef, {
       name: { read: firstName, guess: () => guess.name },
       location: { read: normalizeLocation, guess: () => guess.location },
-    }, ({ name, location }) => [name, location].filter((x) => x).join(' '))
+    }, ({ name, location }) => ((theirLocation = location), [name, location].filter((x) => x).join(' ')))
+    // The location also reaches `their.state`, where ADIF's STATE, the SOTA
+    // and POTA files and Worked All States read it.
+    return withTheirFields(received, theirStateFields(args.qso.their as Record<string, JSONValue> | undefined, theirLocation))
   },
 }
 
@@ -397,8 +394,7 @@ const ExportHook = {
         headers: [
           ['CONTEST', mode ? `NAQP-${mode}` : 'NAQP'],
           ['CALLSIGN', ourCall],
-          // The calls listed at setup, else the app's own operator call.
-          ['OPERATORS', declaredOperators(opRef) || str((operation.local as Record<string, JSONValue>)?.operatorCall)],
+          ['OPERATORS', cabrilloOperators(operation, args.qsos)],
           ['LOCATION', ours.location],
           ...cabrilloCategories(opRef),
           ['GRID-LOCATOR', str(operation.grid)],
