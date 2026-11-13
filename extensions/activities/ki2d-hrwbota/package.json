@@ -1,6 +1,6 @@
 {
   "name": "@ham2k/ext-ki2d-hrwbota",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Ham2K Logger extension: Ham Radio Workbenches On The Air, with host spots, a chaser's score, and a host's contacts and status sent to the HRWBOTA tracker",
   "author": "Sebastian Delmont <sd@ham2k.com>",

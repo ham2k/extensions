@@ -1,8 +1,8 @@
 {
   "key": "ki2d-hrwbota",
-  "name": "KI2D’s HRWBOTA",
+  "name": "HRWBOTA",
   "shortName": "HRWBOTA",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "api": 19,
   "description": "Ham Radio Workbenches On The Air: spots for the hosts on the air and your score as you work them, and for hosts, contacts and status sent to the event's tracker",
   "category": "activity",
@@ -38,7 +38,7 @@
   },
   "translations": {
     "es": {
-      "name": "HRWBOTA de KI2D",
+      "name": "HRWBOTA",
       "description": "Ham Radio Workbenches On The Air: spots de los anfitriones en el aire y tu puntaje mientras los trabajas, y para los anfitriones, contactos y estado enviados al tracker del evento",
       "keywords": [
         "hrwbota",
