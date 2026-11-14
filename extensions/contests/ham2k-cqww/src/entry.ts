@@ -5,7 +5,7 @@
 // Cabrillo `CATEGORY-` lines it becomes. The log robot reads these to place
 // the entry, and "failure to fill out the header correctly may result in the
 // entry being placed in the wrong category or reclassified as a Checklog"
-// (rules X.3). None of it changes the score.
+// (rules X.3). The declared band limits the claimed score on RTTY.
 //
 // NOTHING is defaulted, as in the QSO parties: each answer is a claim about
 // how we operated, so an unanswered question writes no line rather than a
@@ -37,6 +37,25 @@ function declared<T extends string>(value: JSONValue | undefined, allowed: reado
   return allowed.find((option) => option === upper)
 }
 
+/// Earlier versions of the CQ WW preview stored the category under different
+/// keys. A value on the current key, including a clear, always takes priority.
+export function entryOperator(ref: Record<string, JSONValue> | undefined): OperatorClass | undefined {
+  if (ref && 'operator' in ref) return declared(ref.operator, OPERATOR_CLASSES)
+  const legacy = declared(ref?.categoryOperator, OPERATOR_CLASSES)
+  return legacy === 'SINGLE-OP' && ref?.categoryAssisted === 'ASSISTED' ? 'SINGLE-OP-ASSISTED' : legacy
+}
+
+export function entryBand(ref: Record<string, JSONValue> | undefined) {
+  if (entryOperator(ref)?.startsWith('MULTI-')) return 'ALL'
+  const value = ref && 'band' in ref ? ref.band : ref?.categoryBand
+  const band = declared(typeof value === 'string' && /^\d+$/.test(value) ? value + 'M' : value, BAND_CLASSES)
+  return ref?.mode === 'RTTY' && band === '160M' ? undefined : band
+}
+
+export function entryPower(ref: Record<string, JSONValue> | undefined) {
+  return declared(ref && 'power' in ref ? ref.power : ref?.categoryPower, POWER_CLASSES)
+}
+
 const TRANSMITTER_FOR: Partial<Record<OperatorClass, string>> = {
   'MULTI-ONE': 'ONE',
   'MULTI-TWO': 'TWO',
@@ -48,14 +67,10 @@ const TRANSMITTER_FOR: Partial<Record<OperatorClass, string>> = {
 /// the Cabrillo writer.
 export function cabrilloCategories(ref: Record<string, JSONValue> | undefined): [string, string | undefined][] {
   const mode = typeof ref?.mode === 'string' ? ref.mode : ''
-  const operator = declared(ref?.operator, OPERATOR_CLASSES)
+  const operator = entryOperator(ref)
   const single = operator === 'SINGLE-OP' || operator === 'SINGLE-OP-ASSISTED'
   const multi = operator?.startsWith('MULTI-') ?? false
 
-  // Multi-operator categories are "all-band operation only" (V.C), so their
-  // band is not a question. RTTY runs no 160m, so that answer is no entry.
-  const band = multi ? 'ALL' : declared(ref?.band, BAND_CLASSES)
-  const validBand = mode === 'RTTY' && band === '160M' ? undefined : band
   // Overlays are for single operators only, and Classic not for an assisted
   // one; anything else would be a claim the robot rejects.
   const overlay = declared(ref?.overlay, OVERLAY_CLASSES)
@@ -66,8 +81,8 @@ export function cabrilloCategories(ref: Record<string, JSONValue> | undefined): 
     // Single Operator is defined as unassisted, and multi-operator entries
     // may use assistance, so each class answers this line itself.
     ['CATEGORY-ASSISTED', operator === 'SINGLE-OP' ? 'NON-ASSISTED' : operator === 'SINGLE-OP-ASSISTED' || multi ? 'ASSISTED' : undefined],
-    ['CATEGORY-BAND', validBand],
-    ['CATEGORY-POWER', declared(ref?.power, POWER_CLASSES)],
+    ['CATEGORY-BAND', entryBand(ref)],
+    ['CATEGORY-POWER', entryPower(ref)],
     ['CATEGORY-MODE', mode || undefined],
     ['CATEGORY-TRANSMITTER', operator ? TRANSMITTER_FOR[operator] : undefined],
     // Multi-Distributed is declared by this line with MULTI-OP (V.C.4).
@@ -108,7 +123,7 @@ const LOGS_TRANSMITTER: readonly OperatorClass[] = ['MULTI-ONE', 'MULTI-TWO']
 /// Counted over the contacts the Cabrillo writer writes, so an event row or
 /// a deleted contact never takes up a number.
 export function transmitterColumns(ref: Record<string, JSONValue> | undefined, qsos: Record<string, JSONValue>[]): (qso: Record<string, JSONValue>) => string[] {
-  const operator = declared(ref?.operator, OPERATOR_CLASSES)
+  const operator = entryOperator(ref)
   if (!operator || !LOGS_TRANSMITTER.includes(operator)) return () => []
   const written = qsos.filter((qso) => qso.band !== 'event' && qso.deleted !== true)
   const positions = [...new Set(written.map(positionOf).filter((label) => label))].sort(byPosition)

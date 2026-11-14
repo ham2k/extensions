@@ -109,3 +109,9 @@ test("an event row or a deleted contact takes up no transmitter", () => {
 test("a log with no transmitter column writes none", () => {
   for (const operator of ['SINGLE-OP', 'MULTI-MULTI', 'MULTI-DISTRIBUTED', '']) assert.deepEqual(columns(operator, [{ multiIdentifier: '1' }, { multiIdentifier: '2' }]), ['', ''])
 })
+
+test('old preview categories survive a switch to the official extension', () => {
+  const legacy = { mode: 'RTTY', categoryOperator: 'SINGLE-OP', categoryAssisted: 'ASSISTED', categoryBand: '20', categoryPower: 'LOW' }
+  assert.deepEqual(lines(legacy), lines({ mode: 'RTTY', operator: 'SINGLE-OP-ASSISTED', band: '20M', power: 'LOW' }))
+  assert.deepEqual(lines({ ...legacy, operator: '', band: '', power: '' }), lines({ mode: 'RTTY' }))
+})
