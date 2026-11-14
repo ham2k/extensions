@@ -40,6 +40,7 @@
 
 import type { JSONValue } from "@ham2k/extension-sdk"
 
+import { listenerExchange, sentSerial } from "./exchange.ts"
 import { baseCall, wattsOf } from "./rules.ts"
 import { API_BASE, parseJson } from "./tracker.ts"
 
@@ -137,8 +138,9 @@ function stationOf(operation: Data): string {
   return baseCall(call) ?? call.toUpperCase()
 }
 
-/// The tracker's contact, from the app's (QSON).
-export function qsoBody(id: string, qso: Data): Data {
+/// The tracker's contact, from the app's (QSON), with the exchange the
+/// host logged on its `type` ref.
+export function qsoBody(id: string, qso: Data, type: string): Data {
   const our = sub(qso.our)
   const their = sub(qso.their)
   const body: Data = {
@@ -155,6 +157,10 @@ export function qsoBody(id: string, qso: Data): Data {
   if (text(our.sent)) body.rstSent = text(our.sent)!
   if (text(their.sent)) body.rstRcvd = text(their.sent)!
   if (text(their.state)) body.state = text(their.state)!
+  const serial = sentSerial(qso, type)
+  if (serial !== undefined) body.serialSent = serial
+  const exchange = listenerExchange(qso, type)
+  if (exchange) body.exchange = exchange
   return body
 }
 
@@ -195,6 +201,10 @@ export class Uploader {
   /// The ids the tracker holds, by operation.
   private held = new Map<string, Set<string>>()
   private swept = new Set<string>()
+  /// Contacts sent without the serial the host sent: the later calls of a
+  /// call list, which the logger numbers only after they are handed over.
+  /// Each goes again once the log holds it with its serial.
+  private serialless = new Set<string>()
   private status: StatusInput | undefined
   private statusStation = ""
   /// When a self-spot last took the host off the air (QRT): contacts logged
@@ -254,6 +264,14 @@ export class Uploader {
     if (before && isContact(before)) {
       const was = qsoId(operationUuid, before)
       if (!isContact(qso) || was !== qsoId(operationUuid, qso)) this.remove(operationUuid, was)
+    }
+
+    if (this.serialless.size > 0) {
+      for (const stored of log) {
+        if (!isContact(stored) || (text(qso.uuid) && stored.uuid === qso.uuid)) continue
+        const id = qsoId(operationUuid, stored)
+        if (this.serialless.has(id) && sentSerial(stored, this.ownType) !== undefined) this.post(operationUuid, station, id, stored)
+      }
     }
 
     if (!this.swept.has(operationUuid)) {
@@ -329,11 +347,15 @@ export class Uploader {
 
   private post(operationUuid: string, station: string, id: string, qso: Data): void {
     this.deletions.delete(id)
-    this.posts.set(id, { id, operationUuid, station, body: qsoBody(id, qso) })
+    const body = qsoBody(id, qso, this.ownType)
+    if (body.serialSent === undefined) this.serialless.add(id)
+    else this.serialless.delete(id)
+    this.posts.set(id, { id, operationUuid, station, body })
   }
 
   private remove(operationUuid: string, id: string): void {
     this.posts.delete(id)
+    this.serialless.delete(id)
     this.heldBy(operationUuid).delete(id)
     this.deletions.set(id, operationUuid)
   }

@@ -2,9 +2,9 @@
   "key": "ki2d-hrwbota",
   "name": "HRWBOTA",
   "shortName": "HRWBOTA",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "api": 19,
-  "description": "Ham Radio Workbenches On The Air: spots for the hosts on the air and your score as you work them, and for hosts, contacts and status sent to the event's tracker",
+  "description": "Ham Radio Workbenches On The Air: spots for the hosts on the air and your score as you work them",
   "category": "activity",
   "icon": "table-furniture",
   "accentColor": "#1D5A44",
@@ -18,6 +18,7 @@
   "hooks": [
     "account",
     "activity",
+    "adifFields",
     "lookup",
     "ref:hrwbota",
     "scoring",
@@ -39,7 +40,7 @@
   "translations": {
     "es": {
       "name": "HRWBOTA",
-      "description": "Ham Radio Workbenches On The Air: spots de los anfitriones en el aire y tu puntaje mientras los trabajas, y para los anfitriones, contactos y estado enviados al tracker del evento",
+      "description": "Ham Radio Workbenches On The Air: spots de los anfitriones en el aire y tu puntaje mientras los trabajas",
       "keywords": [
         "hrwbota",
         "ham radio workbench",

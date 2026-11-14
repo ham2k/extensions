@@ -80,9 +80,13 @@ DXCC checklists, two offline callsign sets, a rate chart and a band map:
   an account (offered only once the profile's callsign is on the host list),
   and then each contact and the status it implies sent as it is logged, only
   from operations under the key's own host call, with a host's operation
-  scored as the points its log gives its listeners. Its
+  scored as the points its log gives its listeners. Both sides log the
+  event's exchange on the contact's `hrwbota` ref (`ourSerial`, `theirIrons`
+  and `theirBrand` for a host, `theirSerial` for a listener, whose own
+  `irons`, `brand` and `state` are on the operation's ref), joined into
+  `their.exchange` for the log row and ADIF's `STX_STRING`/`SRX_STRING`. Its
   ref type, `hrwbota`, the activity both sides add, is new and permanent in
-  the same way, and so is the spot source `hrwbota`. The host list is kept in
+  the same way, and so are those field names and the spot source `hrwbota`. The host list is kept in
   the extension's settings, since the scorer is synchronous and has to have
   it at hand.
 

@@ -62,14 +62,60 @@ const ext = await loadExtension(() => import("./index.ts"), {
 const withKey = (key: string | undefined): Partial<HookContext> => ({ account: key ? { credentials: { key } } : undefined })
 
 test("it is one activity, with the hooks the manifest promises", () => {
-  assert.deepEqual(ext.categories(), ["account", "activity", "lookup", "ref:hrwbota", "scoring", "spots"])
+  assert.deepEqual(ext.categories(), ["account", "activity", "adifFields", "lookup", "ref:hrwbota", "scoring", "spots"])
 })
 
-test("the operation setup pane draws the activity with the workbench icon", async () => {
-  const [control] = (await ext.runHook("activity", "operationControls", { operation: {} })) as Data[]
-  assert.equal(control.icon, "table-furniture")
-  assert.equal(control.color, "#1D5A44")
-  assert.deepEqual({ kind: (control.input as Data).kind, refType: (control.input as Data).refType }, { kind: "refList", refType: "hrwbota" })
+test("the operation setup pane draws the activity with the workbench icon: a listener's asks what they send", async () => {
+  const [listener] = (await ext.runHook("activity", "operationControls", { operation: { stationCall: "K2ABC" } })) as Data[]
+  assert.equal(listener.icon, "table-furniture")
+  assert.equal(listener.color, "#1D5A44")
+  const input = listener.input as Data
+  assert.deepEqual({ kind: input.kind, refType: input.refType }, { kind: "form", refType: "hrwbota" })
+  const fields = ((input.form as Data).elements as Data[]).filter((e) => e.type === "field").map((e) => e.key)
+  assert.deepEqual(fields, ["irons", "brand", "state"])
+
+  // A host has nothing to set up: adding the activity stays one tap.
+  const [host] = (await ext.runHook("activity", "operationControls", { operation: { stationCall: "K4SWL" } })) as Data[]
+  assert.equal(host.icon, "table-furniture")
+  assert.deepEqual({ kind: (host.input as Data).kind, refType: (host.input as Data).refType }, { kind: "refList", refType: "hrwbota" })
+})
+
+test("a host logs the serial they send and the listener's irons and brand; a listener the host's serial", async () => {
+  const hostOp = { uuid: "host-op", stationCall: "K4SWL", refs: [{ type: "hrwbota" }] }
+  const hostControls = (await ext.runHook("activity", "loggingControls", { operation: hostOp })) as Data[]
+  assert.deepEqual(
+    hostControls.map((c) => [c.key, (c.input as Data).kind, (c.input as Data).field]),
+    [
+      ["hrwbota/ourSerial", "serial", "ourSerial"],
+      ["hrwbota/theirIrons", "text", "theirIrons"],
+      ["hrwbota/theirBrand", "text", "theirBrand"],
+    ],
+  )
+  const listenerOp = { uuid: "chaser-op", stationCall: "K2ABC", refs: [{ type: "hrwbota", irons: "3", brand: "hakko", state: "ny" }] }
+  const [serial] = (await ext.runHook("activity", "loggingControls", { operation: listenerOp })) as Data[]
+  assert.equal(serial.key, "hrwbota/theirSerial")
+  assert.equal((serial.input as Data).ourExchange, "3 HAKKO NY", "what the listener sends, beside the field")
+  assert.deepEqual(await ext.runHook("activity", "loggingControls", { operation: { stationCall: "K2ABC", refs: [] } }), [])
+
+  // The row shows each side's copy of the other's exchange.
+  const hostQso = { their: { call: "K2ABC" }, startAtMillis: Date.UTC(2026, 10, 21, 18, 34), mode: "CW", refs: [{ type: "hrwbota", ourSerial: 7, theirIrons: "3", theirBrand: "hakko" }] }
+  assert.deepEqual(await ext.runHook("activity", "processQsoBeforeSave", { qso: hostQso, operation: hostOp }), { their: { exchange: "3 HAKKO" } })
+  const listenerQso = { their: { call: "K4SWL" }, startAtMillis: Date.UTC(2026, 10, 21, 18, 34), mode: "CW", refs: [{ type: "hrwbota", theirSerial: "007" }] }
+  saved.length = 0
+  assert.deepEqual(await ext.runHook("activity", "processQsoBeforeSave", { qso: listenerQso, operation: listenerOp }), { their: { exchange: "7" } })
+  assert.deepEqual(saved, [{ ns: "ki2d-hrwbota", values: { ownExchange: { irons: "3", brand: "hakko", state: "ny" } } }], "kept for the next setup")
+
+  // ADIF: the serials, and each side's exchange whole.
+  assert.deepEqual(await ext.runHook("adifFields", "fieldsForOneQSO", { qso: hostQso, operation: hostOp }), [
+    { name: "STX", value: "7" },
+    { name: "STX_STRING", value: "7" },
+    { name: "SRX_STRING", value: "3 HAKKO" },
+  ])
+  assert.deepEqual(await ext.runHook("adifFields", "fieldsForOneQSO", { qso: listenerQso, operation: listenerOp }), [
+    { name: "SRX", value: "7" },
+    { name: "STX_STRING", value: "3 HAKKO NY" },
+    { name: "SRX_STRING", value: "7" },
+  ])
 })
 
 test("the key field shows only for a host, or for whoever already entered a key", async () => {
@@ -115,15 +161,17 @@ test("only a host's operation with the activity and a key reads its log to send 
   assert.deepEqual(reads, ["host-op"])
 })
 
-test("a chaser scores each host once per mode group, at the best value, inside the event", async () => {
+test("a chaser scores each host once per band and mode group, at the best value, inside the event", async () => {
   const at = (minute: number) => Date.UTC(2026, 10, 21, 18, minute)
   const qsos = [
     { uuid: "1", their: { call: "K4SWL" }, startAtMillis: at(1), band: "20m", mode: "SSB" },
-    { uuid: "2", their: { call: "K4SWL/P" }, startAtMillis: at(2), band: "40m", mode: "SSB" },
+    { uuid: "2", their: { call: "K4SWL/P" }, startAtMillis: at(2), band: "20m", mode: "SSB" },
     { uuid: "3", their: { call: "K4SWL" }, startAtMillis: at(3), band: "20m", mode: "CW" },
     { uuid: "4", their: { call: "W1WC" }, startAtMillis: at(4), band: "20m", mode: "FT8" },
     { uuid: "5", their: { call: "W9XYZ" }, startAtMillis: at(5), band: "20m", mode: "CW" },
     { uuid: "6", their: { call: "N6MTS" }, startAtMillis: Date.UTC(2026, 10, 21, 22, 0), band: "20m", mode: "CW" },
+    // The same host on another band scores again.
+    { uuid: "7", their: { call: "K4SWL" }, startAtMillis: at(7), band: "40m", mode: "SSB" },
   ]
   const result = (await ext.runHook("scoring", "scoreQsos", {
     operation: { uuid: "chaser-op", stationCall: "K2ABC", refs: [{ type: "hrwbota" }] },
@@ -131,21 +179,22 @@ test("a chaser scores each host once per mode group, at the best value, inside t
   })) as { qsoScores: Record<string, Data>; operationSummary: Record<string, Data> }
   assert.deepEqual(
     qsos.map((q) => result.qsoScores[q.uuid]?.value),
-    [4, 0, 8, 6.52, 0, 0],
+    [4, 0, 8, 6.52, 0, 0, 4],
   )
   assert.equal(result.qsoScores["2"].dupe, true)
   const tally = Object.values(result.operationSummary).find((t) => t.key === "hrwbota")!
-  assert.equal(tally.total, 18.52)
-  assert.equal(tally.summary, "18.52 pts")
+  assert.equal(tally.total, 22.52)
+  assert.equal(tally.summary, "22.52 pts")
   assert.equal(tally.summaryWithDetail, true, "the total stands beside the title, above its detail")
-  assert.match(String(tally.longSummary), /^18\.52 pts from 2 hosts · 1 QSO outside the event hours\n/)
+  assert.match(String(tally.longSummary), /^22\.52 pts from 2 hosts · 1 QSO outside the event hours\n/)
+  assert.match(String(tally.longSummary), /- \*\*K4SWL\*\*: 20m CW 8, 20m Phone 4, 40m Phone 4/)
 })
 
-test("a host's own operation counts the points its log gives, each listener once per mode group", async () => {
+test("a host's own operation counts the points its log gives, each listener once per band and mode group", async () => {
   const at = (minute: number) => Date.UTC(2026, 10, 21, 18, minute)
   const qsos = [
     { uuid: "1", their: { call: "K2ABC" }, power: 5, startAtMillis: at(1), band: "20m", mode: "CW" },
-    { uuid: "2", their: { call: "K2ABC/P" }, power: "5", startAtMillis: at(2), band: "40m", mode: "CW" },
+    { uuid: "2", their: { call: "K2ABC/P" }, power: "5", startAtMillis: at(2), band: "20m", mode: "CW" },
     { uuid: "3", their: { call: "K2ABC" }, power: "50W", startAtMillis: at(3), band: "20m", mode: "SSB" },
     { uuid: "4", their: { call: "W1AW" }, startAtMillis: at(4), band: "20m", mode: "FT8" },
     { uuid: "5", their: { call: "N0XYZ" }, startAtMillis: Date.UTC(2026, 10, 21, 22, 0), band: "20m", mode: "CW" },
@@ -154,7 +203,8 @@ test("a host's own operation counts the points its log gives, each listener once
     operation: { uuid: "host-op", stationCall: "K4SWL", refs: [{ type: "hrwbota" }] },
     qsos,
   })) as { qsoScores: Record<string, Data>; operationSummary: Record<string, Data>; daySections: Data[] }
-  // QRP CW 8; the same listener on CW again adds nothing; 50 W SSB is 100 W class, 2; no power logged: the card's QRP, digital 4.
+  // QRP CW 8; the same listener on CW on the same band adds nothing; 50 W SSB is 100 W class, 2; no power logged: the card's
+  // QRP, digital 4.
   assert.deepEqual(
     qsos.map((q) => result.qsoScores[q.uuid]?.value),
     [8, 0, 2, 4, 0],
@@ -202,4 +252,20 @@ test("self-spotting is offered only to a host's operation with the activity and 
   assert.equal(((await ext.runHook("spots", "isSelfSpotEnabled", { operation: host }, { ctx: withKey("hrwb_good") })) as Data).enabled, true)
   assert.equal(((await ext.runHook("spots", "isSelfSpotEnabled", { operation: host })) as Data).enabled, false)
   assert.equal(((await ext.runHook("spots", "isSelfSpotEnabled", { operation: chaser }, { ctx: withKey("hrwb_good") })) as Data).enabled, false)
+})
+
+test("a contact with no band can't score a host again beside a banded one, as on the tracker", async () => {
+  const { slotFor } = await import("./scorer.ts")
+  const best: Record<string, number> = {}
+  // Band-less first: a slot of its own...
+  assert.equal(slotFor(best, "K4SWL", "cw", undefined), "K4SWL|cw|?")
+  best["K4SWL|cw|?"] = 8
+  // ...which the first banded contact takes over, as the same contact.
+  assert.equal(slotFor(best, "K4SWL", "cw", "20M"), "K4SWL|cw|20m")
+  assert.deepEqual(best, { "K4SWL|cw|20m": 8 })
+  Object.assign(best, { "K4SWL|cw|40m": 4 })
+  // Another band-less one can only raise the lowest.
+  assert.equal(slotFor(best, "K4SWL", "cw", ""), "K4SWL|cw|40m")
+  // The linked networks: one slot, whatever the band.
+  assert.equal(slotFor(best, "K4SWL", "dmr", "70cm"), "K4SWL|dmr|")
 })

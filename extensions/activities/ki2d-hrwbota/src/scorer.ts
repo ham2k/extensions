@@ -2,14 +2,15 @@
 // SPDX-License-Identifier: MIT
 //
 // A chaser's running score, kept the way the tracker keeps the leaderboard
-// (rules.ts): each host once per mode group, at the best value worked, inside
-// the event's hours. The tracker scores chasers from the hosts' logs, not from
-// this one, so this is the chaser's own count of what they should see there.
+// (rules.ts): each host once per band and mode group, at the best value
+// worked, inside the event's hours. The tracker scores chasers from the hosts'
+// logs, not from this one, so this is the chaser's own count of what they
+// should see there.
 //
 // In a host's own operation (its station call is on the host list) the same
 // rules count the other way: the points this host's log gives its listeners,
-// each listener once per mode group at the best value, with each contact's
-// power class from the power logged for it, else the host's card.
+// each listener once per band and mode group at the best value, with each
+// contact's power class from the power logged for it, else the host's card.
 //
 // Contacts outside the event's hours score nothing, as on the tracker, and
 // the summary says how many there are. In the app's developer mode the hours
@@ -32,8 +33,9 @@ export interface Scoresheet {
   [key: string]: JSONValue
   /// The host whose operation this is; null for a chaser's.
   host: string | null
-  /// The best value, by `<base call>|<mode group>`: the host's call for a
-  /// chaser, the listener's for a host.
+  /// The best value, by `<base call>|<mode group>|<band>`: the host's call
+  /// for a chaser, the listener's for a host. The band is empty for the linked
+  /// networks, and `?` for a contact logged without one.
   best: Record<string, number>
   total: number
   /// A host's contacts inside the event, by mode group.
@@ -67,6 +69,31 @@ export interface ScorerDeps {
 
 const GROUP_LABELS: Record<ModeGroup, string> = { cw: "CW", phone: "Phone", digital: "Digital", dmr: "DMR" }
 
+/// The slot a contact scores in, as the tracker places it. The linked
+/// networks have no band of their own: one slot per call. A contact with no
+/// band may be on a band already scored, so it takes a slot of its own only
+/// when there is no banded one yet, and otherwise can only raise the lowest;
+/// a first banded contact takes over that band-less slot.
+export function slotFor(best: Record<string, number>, call: string, group: ModeGroup, band: JSONValue | undefined): string {
+  const pair = `${call}|${group}|`
+  if (group === "dmr") return pair
+  const banded = Object.keys(best).filter((key) => key.startsWith(pair) && key !== `${pair}?`)
+  const logged = typeof band === "string" ? band.replace(/\s+/g, "").toLowerCase() : ""
+  if (logged) {
+    if (banded.length === 0 && `${pair}?` in best) {
+      best[pair + logged] = best[`${pair}?`]
+      delete best[`${pair}?`]
+    }
+    return pair + logged
+  }
+  return banded.length === 0 ? `${pair}?` : banded.reduce((a, b) => (best[b] < best[a] ? b : a))
+}
+
+const bandOf = (slot: string): string => {
+  const band = slot.split("|")[2] ?? ""
+  return band === "?" ? "" : band
+}
+
 export function hrwbotaScorer(deps: ScorerDeps): ContestScorer<Scoresheet> {
   /// Whether a contact at `at` counts; one outside the hours is tallied as such.
   function counts(scoresheet: Scoresheet, at: number): boolean {
@@ -93,7 +120,7 @@ export function hrwbotaScorer(deps: ScorerDeps): ContestScorer<Scoresheet> {
     if (!host || !listener || typeof at !== "number" || !counts(scoresheet, at)) return { scoresheet, score: { value: 0 } }
     const group = modeGroupFor(typeof qso.mode === "string" ? qso.mode : "")
     const points = qsoPoints(powerClassForWatts(wattsOf(qso.power), group) ?? host.powerClass, group, host.pointsOverride)
-    const slot = `${listener}|${group}`
+    const slot = slotFor(scoresheet.best, listener, group, qso.band)
     const before = scoresheet.best[slot] ?? 0
     const gain = roundPoints(Math.max(0, points - before))
     if (points > before) scoresheet.best[slot] = points
@@ -159,7 +186,7 @@ export function hrwbotaScorer(deps: ScorerDeps): ContestScorer<Scoresheet> {
       }
       const group = modeGroupFor(typeof qso.mode === "string" ? qso.mode : "")
       const points = qsoPoints(host.powerClass, group, host.pointsOverride)
-      const slot = `${baseCall(host.call) ?? host.call}|${group}`
+      const slot = slotFor(scoresheet.best, baseCall(host.call) ?? host.call, group, qso.band)
       const before = scoresheet.best[slot] ?? 0
       const gain = roundPoints(Math.max(0, points - before))
       if (points > before) scoresheet.best[slot] = points
@@ -182,9 +209,10 @@ export function hrwbotaScorer(deps: ScorerDeps): ContestScorer<Scoresheet> {
       if (scoresheet.host !== null) return summarizeGiven(scoresheet, ctx)
       const slots = Object.entries(scoresheet.best)
       const byHost = new Map<string, string[]>()
-      for (const [slot, points] of slots) {
+      for (const [slot, points] of slots.sort(([a], [b]) => a.localeCompare(b))) {
         const [call, group] = slot.split("|")
-        byHost.set(call, [...(byHost.get(call) ?? []), `${GROUP_LABELS[group as ModeGroup] ?? group} ${points}`])
+        const what = [bandOf(slot), GROUP_LABELS[group as ModeGroup] ?? group].filter((part) => part).join(" ")
+        byHost.set(call, [...(byHost.get(call) ?? []), `${what} ${points}`])
       }
       const label = deps.label(ctx)
       const summary = withNotes(deps.summary({ points: scoresheet.total, hosts: byHost.size }, ctx), scoresheet, ctx)

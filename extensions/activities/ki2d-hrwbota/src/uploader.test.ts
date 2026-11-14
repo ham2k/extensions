@@ -9,7 +9,7 @@ import assert from "node:assert/strict"
 
 import type { JSONValue } from "@ham2k/extension-sdk"
 
-import { FIRST_BACKOFF_MS, HEARTBEAT_MS, SEND_DELAY_MS, UNREACHABLE_NOTICE_MS, Uploader, qsoId, statusRefs } from "./uploader.ts"
+import { FIRST_BACKOFF_MS, HEARTBEAT_MS, SEND_DELAY_MS, UNREACHABLE_NOTICE_MS, Uploader, qsoBody, qsoId, statusRefs } from "./uploader.ts"
 import type { FetchAnswer, Problem } from "./uploader.ts"
 
 type Data = Record<string, JSONValue>
@@ -124,6 +124,28 @@ test("contacts at the same time with different calls are different contacts", as
   const ids = (h.sent.find((s) => s.path === "/qsos")!.body.qsos as Data[]).map((q) => q.id)
   assert.deepEqual(ids, [idAt(0), idAt(0, "W1AW")])
   assert.ok(ids.every((id) => String(id).length <= 64))
+})
+
+test("a call list's later contacts, numbered after they were handed over, go again with their serial", async () => {
+  const h = harness(ok)
+  const numbered = (minute: number, call: string, serial?: number) =>
+    contact(minute, { uuid: call, their: { call }, refs: [{ type: "hrwbota", ...(serial !== undefined && { ourSerial: serial }) }] })
+  h.uploader.saving({ key: "k", operation, qso: numbered(0, "K2ABC", 1), log: [] })
+  h.uploader.saving({ key: "k", operation, qso: numbered(0, "N2DEF"), log: [numbered(0, "K2ABC", 1)] })
+  await h.advance(SEND_DELAY_MS)
+  const posted = () => h.sent.filter((s) => s.path === "/qsos").flatMap((s) => s.body.qsos as Data[])
+  assert.deepEqual(posted().map((q) => [q.call, q.serialSent]), [["K2ABC", 1], ["N2DEF", undefined]])
+
+  h.sent.length = 0
+  h.uploader.saving({ key: "k", operation, qso: numbered(1, "W3GHI", 3), log: [numbered(0, "K2ABC", 1), numbered(0, "N2DEF", 2)] })
+  await h.advance(SEND_DELAY_MS)
+  assert.deepEqual(posted().map((q) => [q.call, q.serialSent]).sort(), [["N2DEF", 2], ["W3GHI", 3]])
+
+  // Once it has gone with one, it doesn't go again.
+  h.sent.length = 0
+  h.uploader.saving({ key: "k", operation, qso: numbered(2, "K4JKL", 4), log: [numbered(0, "K2ABC", 1), numbered(0, "N2DEF", 2), numbered(1, "W3GHI", 3)] })
+  await h.advance(SEND_DELAY_MS)
+  assert.deepEqual(posted().map((q) => q.call), ["K4JKL"])
 })
 
 test("the status repeats only when it changes or the heartbeat is due", async () => {
@@ -358,4 +380,24 @@ test("only the operation's own activations are status refs, under the hunter's t
     statusRefs({ refs: [{ type: "hrwbota" }, { type: "potaActivation", ref: "US-2093" }, { type: "sotaActivation", ref: "W4C/CM-001" }, { type: "pota", ref: "US-1" }] }, "hrwbota"),
     [{ type: "pota", ref: "US-2093" }, { type: "sota", ref: "W4C/CM-001" }],
   )
+})
+
+test("a contact goes to the tracker with the serial sent and the listener's irons and brand", () => {
+  const qso = {
+    their: { call: "K2ABC", state: "NY" },
+    startAtMillis: Date.UTC(2026, 10, 21, 18, 34),
+    mode: "CW",
+    refs: [{ type: "hrwbota", ourSerial: 7, theirIrons: "3", theirBrand: "hakko" }],
+  }
+  assert.deepEqual(qsoBody("q", qso, "hrwbota"), {
+    id: "q",
+    call: "K2ABC",
+    time: Date.UTC(2026, 10, 21, 18, 34),
+    mode: "CW",
+    state: "NY",
+    serialSent: 7,
+    exchange: "3 HAKKO",
+  })
+  // Nothing logged, nothing sent.
+  assert.equal("exchange" in qsoBody("q", { ...qso, refs: [] }, "hrwbota"), false)
 })

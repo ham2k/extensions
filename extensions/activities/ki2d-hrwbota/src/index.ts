@@ -13,6 +13,9 @@
 //   their call that carries the activity then sends its contacts, and the
 //   status they imply, to the tracker (uploader.ts), and a self-spot goes to
 //   the tracker as their status.
+// - Both log the event's exchange (exchange.ts): a host the serial they send
+//   and the listener's soldering irons and brand, a listener the host's
+//   serial, with their own irons, brand and state asked once in the setup.
 //
 // The host list and the event's hours come from the tracker, are refreshed
 // every REFRESH_MS while hooks are being called, and are kept in this
@@ -37,6 +40,7 @@ import type {
   SuggestArgs,
 } from "@ham2k/extension-sdk"
 
+import { hasListenerExchange, listenerExchange, ownExchange, refOf, serialText } from "./exchange.ts"
 import { tFor } from "./i18n.ts"
 import { baseCall, qsoPoints } from "./rules.ts"
 import type { ModeGroup } from "./rules.ts"
@@ -180,24 +184,124 @@ const uploader = new Uploader(
 
 let toldNoKey = false
 
+const str = (value: JSONValue | undefined): string => (typeof value === "string" ? value.trim() : typeof value === "number" ? String(value) : "")
+
+type OwnExchange = { irons: string; brand: string; state: string }
+
+/// A listener's irons, brand and state from the last setup, offered to the
+/// next one: they rarely change between operations. The JSON last saved, so
+/// an unchanged setup isn't written again.
+let savedOwn: string | undefined
+
+async function lastOwnExchange(): Promise<OwnExchange> {
+  try {
+    const saved = settingsGroup(await host.getSettings()).ownExchange as Data | undefined
+    return { irons: str(saved?.irons), brand: str(saved?.brand), state: str(saved?.state) }
+  } catch (error) {
+    host.log(`HRWBOTA: could not read the last exchange: ${error instanceof Error ? error.message : String(error)}`)
+    return { irons: "", brand: "", state: "" }
+  }
+}
+
+async function rememberOwnExchange(operation: Data): Promise<void> {
+  const opRef = refOf(operation, TYPE)
+  if (!opRef) return
+  const own: OwnExchange = { irons: str(opRef.irons), brand: str(opRef.brand), state: str(opRef.state) }
+  const json = JSON.stringify(own)
+  if (json === savedOwn || !(own.irons || own.brand || own.state)) return
+  try {
+    await host.setSettings({ ownExchange: own })
+    savedOwn = json
+  } catch (error) {
+    host.log(`HRWBOTA: could not keep the exchange for the next operation: ${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
+/// The contact's exchange as the log row shows it, in the generic
+/// `their.exchange`: a host's copy of the listener's irons and brand, a
+/// listener's of the host's serial. Projected whenever the fields have said
+/// anything, blank included, so clearing them clears the row too.
+function exchangePatch(qso: Data, isHost: boolean): Data | null {
+  if (isHost) return hasListenerExchange(qso, TYPE) ? { their: { exchange: listenerExchange(qso, TYPE) } } : null
+  const ref = refOf(qso, TYPE)
+  return ref && "theirSerial" in ref ? { their: { exchange: serialText(ref.theirSerial) } } : null
+}
+
 const Activity: ActivityHook = {
   /// What the operation setup pane draws the activity with: without a control
   /// claiming its type, the app shows the reference as one no extension
-  /// handles. A reference list rather than a form, as there is nothing to set
-  /// up: adding it stays one tap, and the options row searches this
-  /// activity's own suggestion.
-  async operationControls(_args, ctx: HookContext): Promise<LoggingControlDescriptor[]> {
+  /// handles. A host has nothing to set up, so theirs is a reference list:
+  /// adding it stays one tap. A listener's is a form for what they send.
+  async operationControls({ operation }, ctx: HookContext): Promise<LoggingControlDescriptor[]> {
+    const t = tFor(ctx)
+    const base = { key: `${TYPE}/event`, label: t("activityLabel"), icon: manifest.icon, color: manifest.accentColor, order: 10, optionType: "optional" as const }
+    await ensureHosts(ctx)
+    if (stationHost(operation)) return [{ ...base, input: { kind: "refList", refType: TYPE } }]
+    // Seeds a new setup only; a configured one keeps its own values.
+    const last = await lastOwnExchange()
     return [
       {
-        key: `${TYPE}/event`,
-        label: tFor(ctx)("activityLabel"),
-        icon: manifest.icon,
-        color: manifest.accentColor,
-        order: 10,
-        optionType: "optional",
-        input: { kind: "refList", refType: TYPE },
+        ...base,
+        input: {
+          kind: "form",
+          refType: TYPE,
+          form: {
+            title: t("activityDescription"),
+            elements: [
+              { type: "markdown", text: t("setupText") },
+              { type: "field", fieldType: "text", key: "irons", label: t("ownIronsLabel"), placeholder: "3", value: last.irons },
+              { type: "field", fieldType: "text", key: "brand", label: t("ownBrandLabel"), placeholder: "Hakko", uppercase: true, value: last.brand },
+              { type: "field", fieldType: "text", key: "state", label: t("ownStateLabel"), placeholder: "NY", uppercase: true, value: last.state },
+            ],
+          },
+        },
       },
-    ]
+    ] as LoggingControlDescriptor[]
+  },
+
+  /// The exchange, on the logging row: a host's serial and the listener's
+  /// irons and brand, typed straight through with Auto-advance Fields on
+  /// ("3HAKKO": a letter ends the count); a listener's copy of the host's
+  /// serial, with what they send beside it. The state a host copies goes in
+  /// the logger's own State field.
+  async loggingControls({ operation }, ctx: HookContext): Promise<LoggingControlDescriptor[]> {
+    if (!hasActivity(operation)) return []
+    await ensureHosts(ctx)
+    const t = tFor(ctx)
+    const control = (key: string, label: string, order: number) => ({
+      key: `${TYPE}/${key}`,
+      label: t(label),
+      shortLabel: t(`${label}Short`),
+      icon: manifest.icon,
+      color: manifest.accentColor,
+      order,
+    })
+    if (stationHost(operation)) {
+      return [
+        {
+          ...control("ourSerial", "ourSerialLabel", 10),
+          skipFocus: true,
+          input: { kind: "serial", refType: TYPE, field: "ourSerial", sequence: { key: "serial" }, placeholder: "#" },
+        },
+        {
+          ...control("theirIrons", "theirIronsLabel", 20),
+          group: "their",
+          input: { kind: "text", refType: TYPE, field: "theirIrons", numeric: true, maxLength: 3, chars: { min: 2, ideal: 3, max: 4 }, autoadvanceBefore: "[0-9]*[A-Z]" },
+        },
+        {
+          ...control("theirBrand", "theirBrandLabel", 30),
+          group: "their",
+          input: { kind: "text", refType: TYPE, field: "theirBrand", uppercase: true, maxLength: 20, chars: { min: 6, ideal: 10, max: 16 } },
+        },
+      ] as LoggingControlDescriptor[]
+    }
+    const sending = ownExchange(refOf(operation, TYPE))
+    return [
+      {
+        ...control("theirSerial", "theirSerialLabel", 20),
+        input: { kind: "text", refType: TYPE, field: "theirSerial", numeric: true, maxLength: 5, ...(sending ? { ourExchange: sending } : {}) },
+      },
+    ] as LoggingControlDescriptor[]
   },
 
   async suggest({ operation, searchTerm }: SuggestArgs, ctx: HookContext): Promise<ActivitySuggestion[]> {
@@ -212,12 +316,17 @@ const Activity: ActivityHook = {
     if (!hasActivity(operation)) return null
     locale = ctx.locale ?? locale
     await ensureHosts(ctx)
-    if (!stationHost(operation)) return null
+    const isHost = !!stationHost(operation)
+    const patch = exchangePatch(qso, isHost)
+    if (!isHost) {
+      await rememberOwnExchange(operation)
+      return patch
+    }
     const key = keyOf(ctx)
     if (!key) {
       if (!toldNoKey) notice({ key: "noKey" })
       toldNoKey = true
-      return null
+      return patch
     }
     toldNoKey = false
     // A null log (no uuid, or one the host does not know) is no log at all,
@@ -231,7 +340,28 @@ const Activity: ActivityHook = {
       host.log(`HRWBOTA: could not read the operation's log: ${error instanceof Error ? error.message : String(error)}`)
     }
     uploader.saving({ key, operation, qso, log })
-    return null
+    return patch
+  },
+}
+
+/// The exchange in ADIF's fields: the serials, and each side's exchange
+/// whole, as sent and received. Read from what each side logs, so a host's
+/// contact and a listener's both come out right.
+const AdifFields = {
+  async fieldsForOneQSO({ qso, operation }: { qso: Data; operation: Data }, _ctx: HookContext): Promise<{ name: string; value: string }[]> {
+    if (!hasActivity(operation)) return []
+    const ref = refOf(qso, TYPE)
+    const fields: { name: string; value: string }[] = []
+    const add = (name: string, value: string) => {
+      if (value) fields.push({ name, value })
+    }
+    const ourSerial = serialText(ref?.ourSerial)
+    const theirSerial = serialText(ref?.theirSerial)
+    add("STX", ourSerial)
+    add("SRX", theirSerial)
+    add("STX_STRING", [ourSerial, ownExchange(refOf(operation, TYPE))].filter((part) => part).join(" "))
+    add("SRX_STRING", [theirSerial, listenerExchange(qso, TYPE)].filter((part) => part).join(" "))
+    return fields
   },
 }
 
@@ -356,6 +486,7 @@ defineExtension({
     registerHook(`ref:${TYPE}`, { hook: RefHandler, key: manifest.key })
     registerHook("spots", { hook: Spots, key: manifest.key })
     registerHook("lookup", { hook: Lookup, key: manifest.key })
+    registerHook("adifFields", { hook: AdifFields, key: manifest.key })
     registerHook("scoring", {
       key: manifest.key,
       hook: contestScorer(

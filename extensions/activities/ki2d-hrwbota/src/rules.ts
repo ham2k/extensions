@@ -10,8 +10,9 @@
 //   1. DMR, AllStar, D-STAR and the other linked voice networks are a flat 2.
 //   A wildcard guest's card carries its own flat value (6.52), which replaces
 //   the whole calculation.
-// - Each host counts once per mode group (CW, voice, digital, networked
-//   voice), at the best value worked.
+// - Each host counts once per band and mode group (CW, voice, digital), at
+//   the best value worked; the linked networked voice modes once per host,
+//   whatever the band.
 // - Only contacts inside the event's hours count.
 // - A prefixed or suffixed call (VE3/K2ABC/P) is the base call.
 
