@@ -40,7 +40,7 @@ import type {
   SuggestArgs,
 } from "@ham2k/extension-sdk"
 
-import { hasListenerExchange, listenerExchange, ownExchange, refOf, serialText } from "./exchange.ts"
+import { hasListenerExchange, listenerExchange, listenerIrons, ownExchange, refOf, serialText } from "./exchange.ts"
 import { tFor } from "./i18n.ts"
 import { baseCall, qsoPoints } from "./rules.ts"
 import type { ModeGroup } from "./rules.ts"
@@ -478,6 +478,11 @@ function counted({ qsos, points, listeners }: { qsos: number; points: number; li
   }
 }
 
+/// "3 irons"
+function ironsText(irons: number, ctx: HookContext): string {
+  return tFor(ctx)(irons === 1 ? "ironsOne" : "ironsOther", { count: String(irons) })
+}
+
 defineExtension({
   ...manifest,
   onActivation({ registerHook }) {
@@ -495,8 +500,10 @@ defineExtension({
           event: () => event,
           label: (ctx) => tFor(ctx)("activityLabel"),
           points: (total, ctx) => tFor(ctx)("pointsShort", { points: String(total) }),
+          hostPoints: ({ points, irons }, ctx) => tFor(ctx)("hostPointsShort", { points: String(points), irons: ironsText(irons, ctx) }),
+          irons: (qso) => listenerIrons(qso, TYPE),
           summary: ({ points, hosts: count }, ctx) => tFor(ctx)(count === 1 ? "scoreSummaryOne" : "scoreSummaryOther", { points: String(points), count: String(count) }),
-          hostSummary: (args, ctx) => tFor(ctx)("hostSummary", counted(args, ctx)),
+          hostSummary: ({ irons, ...args }, ctx) => tFor(ctx)("hostSummary", { ...counted(args, ctx), irons: ironsText(irons, ctx) }),
           hostGroupLine: ({ group, ...args }, ctx) => tFor(ctx)("hostGroupLine", { group, ...counted(args, ctx) }),
           outsideNote: (qsos, ctx) => tFor(ctx)("outsideHours", { qsos: counted({ qsos, points: 0, listeners: 0 }, ctx).qsos }),
           anyTimeNote: (ctx) => tFor(ctx)("anyTime"),

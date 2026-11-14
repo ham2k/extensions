@@ -65,9 +65,9 @@ test("it is one activity, with the hooks the manifest promises", () => {
   assert.deepEqual(ext.categories(), ["account", "activity", "adifFields", "lookup", "ref:hrwbota", "scoring", "spots"])
 })
 
-test("the operation setup pane draws the activity with the workbench icon: a listener's asks what they send", async () => {
+test("the operation setup pane draws the activity with the soldering iron icon: a listener's asks what they send", async () => {
   const [listener] = (await ext.runHook("activity", "operationControls", { operation: { stationCall: "K2ABC" } })) as Data[]
-  assert.equal(listener.icon, "table-furniture")
+  assert.equal(listener.icon, "soldering-iron")
   assert.equal(listener.color, "#1D5A44")
   const input = listener.input as Data
   assert.deepEqual({ kind: input.kind, refType: input.refType }, { kind: "form", refType: "hrwbota" })
@@ -76,7 +76,7 @@ test("the operation setup pane draws the activity with the workbench icon: a lis
 
   // A host has nothing to set up: adding the activity stays one tap.
   const [host] = (await ext.runHook("activity", "operationControls", { operation: { stationCall: "K4SWL" } })) as Data[]
-  assert.equal(host.icon, "table-furniture")
+  assert.equal(host.icon, "soldering-iron")
   assert.deepEqual({ kind: (host.input as Data).kind, refType: (host.input as Data).refType }, { kind: "refList", refType: "hrwbota" })
 })
 
@@ -193,11 +193,11 @@ test("a chaser scores each host once per band and mode group, at the best value,
 test("a host's own operation counts the points its log gives, each listener once per band and mode group", async () => {
   const at = (minute: number) => Date.UTC(2026, 10, 21, 18, minute)
   const qsos = [
-    { uuid: "1", their: { call: "K2ABC" }, power: 5, startAtMillis: at(1), band: "20m", mode: "CW" },
-    { uuid: "2", their: { call: "K2ABC/P" }, power: "5", startAtMillis: at(2), band: "20m", mode: "CW" },
-    { uuid: "3", their: { call: "K2ABC" }, power: "50W", startAtMillis: at(3), band: "20m", mode: "SSB" },
-    { uuid: "4", their: { call: "W1AW" }, startAtMillis: at(4), band: "20m", mode: "FT8" },
-    { uuid: "5", their: { call: "N0XYZ" }, startAtMillis: Date.UTC(2026, 10, 21, 22, 0), band: "20m", mode: "CW" },
+    { uuid: "1", their: { call: "K2ABC" }, power: 5, startAtMillis: at(1), band: "20m", mode: "CW", refs: [{ type: "hrwbota", theirIrons: "3" }] },
+    { uuid: "2", their: { call: "K2ABC/P" }, power: "5", startAtMillis: at(2), band: "20m", mode: "CW", refs: [{ type: "hrwbota", theirIrons: "lots" }] },
+    { uuid: "3", their: { call: "K2ABC" }, power: "50W", startAtMillis: at(3), band: "20m", mode: "SSB", refs: [{ type: "hrwbota", theirIrons: "4" }] },
+    { uuid: "4", their: { call: "W1AW" }, startAtMillis: at(4), band: "20m", mode: "FT8", refs: [{ type: "hrwbota", theirIrons: "2" }] },
+    { uuid: "5", their: { call: "N0XYZ" }, startAtMillis: Date.UTC(2026, 10, 21, 22, 0), band: "20m", mode: "CW", refs: [{ type: "hrwbota", theirIrons: "5" }] },
   ]
   const result = (await ext.runHook("scoring", "scoreQsos", {
     operation: { uuid: "host-op", stationCall: "K4SWL", refs: [{ type: "hrwbota" }] },
@@ -211,13 +211,14 @@ test("a host's own operation counts the points its log gives, each listener once
   )
   const tally = Object.values(result.operationSummary).find((t) => t.key === "hrwbota")!
   assert.equal(tally.total, 14)
-  // The log's day header: the day's points. The 22:00 contact is the same UTC day.
+  // Each listener's irons count once, as last logged: K2ABC's 4 (a count that isn't a number is skipped) and W1AW's 2. The log's
+  // day header says the same for the day. The 22:00 contact is the same UTC day.
   assert.deepEqual(
     result.daySections.map((d) => (d.scores as Record<string, Data>).hrwbota?.summary),
-    ["14 pts"],
+    ["6 irons, 14 pts"],
   )
-  assert.equal(tally.summary, "14 pts")
-  assert.match(String(tally.longSummary), /^4 QSOs, 14 pts given to 2 listeners · 1 QSO outside the event hours\n/)
+  assert.equal(tally.summary, "6 irons, 14 pts")
+  assert.match(String(tally.longSummary), /^4 QSOs, 14 pts given to 2 listeners with 6 irons · 1 QSO outside the event hours\n/)
   assert.match(String(tally.longSummary), /- CW: 2 QSOs, 8 pts to 1 listener\n- Phone: 1 QSO, 2 pts to 1 listener\n- Digital: 1 QSO, 4 pts to 1 listener/)
 
   // Developer mode ignores the event's hours, for trying the score before the event.
@@ -228,7 +229,28 @@ test("a host's own operation counts the points its log gives, each listener once
     { ctx: { developerMode: true } },
   )) as { operationSummary: Record<string, Data> }
   const anyTimeTally = Object.values(anyTime.operationSummary).find((t) => t.key === "hrwbota")!
-  assert.match(String(anyTimeTally.longSummary), /^5 QSOs, 22 pts given to 3 listeners · event hours ignored \(developer mode\)\n/)
+  assert.match(String(anyTimeTally.longSummary), /^5 QSOs, 22 pts given to 3 listeners with 11 irons · event hours ignored \(developer mode\)\n/)
+})
+
+test("each day's header counts the irons of that day's listeners; the operation counts each listener once", async () => {
+  const irons = (n: string) => [{ type: "hrwbota", theirIrons: n }]
+  const qsos = [
+    { uuid: "1", their: { call: "K2ABC" }, startAtMillis: Date.UTC(2026, 10, 21, 23, 0), band: "20m", mode: "CW", refs: irons("3") },
+    { uuid: "2", their: { call: "W1AW" }, startAtMillis: Date.UTC(2026, 10, 21, 23, 5), band: "20m", mode: "CW", refs: irons("2") },
+    { uuid: "3", their: { call: "K2ABC" }, startAtMillis: Date.UTC(2026, 10, 22, 1, 0), band: "40m", mode: "CW", refs: irons("4") },
+  ]
+  // Developer mode, so contacts on two UTC days both count.
+  const result = (await ext.runHook(
+    "scoring",
+    "scoreQsos",
+    { operation: { uuid: "host-op", stationCall: "K4SWL", refs: [{ type: "hrwbota" }] }, qsos },
+    { ctx: { developerMode: true } },
+  )) as { operationSummary: Record<string, Data>; daySections: Data[] }
+  assert.deepEqual(
+    result.daySections.map((d) => (d.scores as Record<string, Data>).hrwbota?.summary),
+    ["5 irons, 16 pts", "4 irons, 8 pts"],
+  )
+  assert.equal(Object.values(result.operationSummary).find((t) => t.key === "hrwbota")!.summary, "6 irons, 24 pts")
 })
 
 test("a call being logged is marked as a host, with its worth in the mode at hand", async () => {

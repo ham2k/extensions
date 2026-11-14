@@ -43,7 +43,7 @@
   "batchRefused": "El tracker rechazó un lote de contactos: {{message}}",
   "statusRefused": "El tracker no aceptó tu estado: {{message}}",
   "unreachable": "El tracker de HRWBOTA no responde desde hace un rato. Tus contactos se guardan y se envían cuando responda, mientras la app siga abierta.",
-  "hostSummary": "{{qsos}}, {{points}} pts dados a {{listeners}}",
+  "hostSummary": "{{qsos}}, {{points}} pts dados a {{listeners}} con {{irons}}",
   "hostGroupLine": "{{group}}: {{qsos}}, {{points}} pts a {{listeners}}",
   "qsosOne": "1 QSO",
   "qsosOther": "{{count}} QSOs",
@@ -51,5 +51,8 @@
   "listenersOther": "{{count}} oyentes",
   "outsideHours": "{{qsos}} fuera del horario del evento",
   "anyTime": "horario del evento ignorado (modo desarrollador)",
-  "pointsShort": "{{points}} pts"
+  "pointsShort": "{{points}} pts",
+  "hostPointsShort": "{{irons}}, {{points}} pts",
+  "ironsOne": "1 soldador",
+  "ironsOther": "{{count}} soldadores"
 }

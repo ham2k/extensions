@@ -11,6 +11,8 @@
 // rules count the other way: the points this host's log gives its listeners,
 // each listener once per band and mode group at the best value, with each
 // contact's power class from the power logged for it, else the host's card.
+// Beside those points it counts the soldering irons its listeners have: each
+// listener's count once, as last logged.
 //
 // Contacts outside the event's hours score nothing, as on the tracker, and
 // the summary says how many there are. In the app's developer mode the hours
@@ -48,6 +50,10 @@ export interface Scoresheet {
   /// host for a chaser, any for a host), for the log's day headers.
   dayPoints: number
   dayContacts: number
+  /// A host's listeners' soldering irons, by base call, as last logged: for
+  /// the operation, and for the current day.
+  irons: Record<string, number>
+  dayIrons: Record<string, number>
 }
 
 export interface ScorerDeps {
@@ -56,8 +62,12 @@ export interface ScorerDeps {
   label(ctx: HookContext): string
   /// The short score beside the label: "14 pts".
   points(total: number, ctx: HookContext): string
+  /// A host's short score: "3 irons, 14 pts".
+  hostPoints(args: { points: number; irons: number }, ctx: HookContext): string
+  /// The soldering irons a host logged for the listener on this contact.
+  irons(qso: Record<string, JSONValue>): number | undefined
   summary(args: { points: number; hosts: number }, ctx: HookContext): string
-  hostSummary(args: { qsos: number; points: number; listeners: number }, ctx: HookContext): string
+  hostSummary(args: { qsos: number; points: number; listeners: number; irons: number }, ctx: HookContext): string
   hostGroupLine(args: { group: string; qsos: number; points: number; listeners: number }, ctx: HookContext): string
   /// "3 QSOs outside the event hours"
   outsideNote(qsos: number, ctx: HookContext): string
@@ -88,6 +98,8 @@ export function slotFor(best: Record<string, number>, call: string, group: ModeG
   }
   return banded.length === 0 ? `${pair}?` : banded.reduce((a, b) => (best[b] < best[a] ? b : a))
 }
+
+const sum = (counts: Record<string, number> | undefined): number => Object.values(counts ?? {}).reduce((total, n) => total + n, 0)
 
 const bandOf = (slot: string): string => {
   const band = slot.split("|")[2] ?? ""
@@ -127,6 +139,11 @@ export function hrwbotaScorer(deps: ScorerDeps): ContestScorer<Scoresheet> {
     scoresheet.total = roundPoints(scoresheet.total + gain)
     scoresheet.dayPoints = roundPoints((scoresheet.dayPoints ?? 0) + gain)
     scoresheet.qsos[group] = (scoresheet.qsos[group] ?? 0) + 1
+    const irons = deps.irons(qso)
+    if (irons !== undefined) {
+      scoresheet.irons = { ...scoresheet.irons, [listener]: irons }
+      scoresheet.dayIrons = { ...scoresheet.dayIrons, [listener]: irons }
+    }
     const score: QsoScoreVerdict = { value: gain, dupe: before > 0 && gain === 0 }
     if (gain > 0) {
       score.icon = deps.icon
@@ -146,9 +163,10 @@ export function hrwbotaScorer(deps: ScorerDeps): ContestScorer<Scoresheet> {
       groups.set(group, entry)
       listeners.add(call)
     }
-    const qsos = Object.values(scoresheet.qsos).reduce((sum, n) => sum + n, 0)
+    const qsos = sum(scoresheet.qsos)
     const label = deps.label(ctx)
-    const summary = withNotes(deps.hostSummary({ qsos, points: scoresheet.total, listeners: listeners.size }, ctx), scoresheet, ctx)
+    const irons = sum(scoresheet.irons)
+    const summary = withNotes(deps.hostSummary({ qsos, points: scoresheet.total, listeners: listeners.size, irons }, ctx), scoresheet, ctx)
     const lines = (Object.keys(GROUP_LABELS) as ModeGroup[])
       .filter((group) => scoresheet.qsos[group])
       .map((group) => {
@@ -159,7 +177,7 @@ export function hrwbotaScorer(deps: ScorerDeps): ContestScorer<Scoresheet> {
       hrwbota: tally("hrwbota", "operation", scoresheet.total, {
         label,
         icon: deps.icon,
-        summary: deps.points(scoresheet.total, ctx),
+        summary: deps.hostPoints({ points: scoresheet.total, irons }, ctx),
         summaryWithDetail: true,
         longSummary: [summary, ...(lines.length ? ["", ...lines] : [])].join("\n"),
       }),
@@ -169,13 +187,25 @@ export function hrwbotaScorer(deps: ScorerDeps): ContestScorer<Scoresheet> {
   return {
     startScoresheet({ operation }, ctx) {
       const station = deps.hosts().forCall(typeof operation.stationCall === "string" ? operation.stationCall : undefined)
-      return { host: station?.call ?? null, best: {}, total: 0, qsos: {}, outside: 0, anyTime: ctx?.developerMode === true, dayPoints: 0, dayContacts: 0 }
+      return {
+        host: station?.call ?? null,
+        best: {},
+        total: 0,
+        qsos: {},
+        outside: 0,
+        anyTime: ctx?.developerMode === true,
+        dayPoints: 0,
+        dayContacts: 0,
+        irons: {},
+        dayIrons: {},
+      }
     },
 
     scoreQso({ scoresheet, qso, isNewDay }) {
       if (isNewDay) {
         scoresheet.dayPoints = 0
         scoresheet.dayContacts = 0
+        scoresheet.dayIrons = {}
       }
       if (scoresheet.host !== null) return scoreGiven(scoresheet, qso)
       const their = (qso.their ?? {}) as Record<string, JSONValue>
@@ -203,7 +233,11 @@ export function hrwbotaScorer(deps: ScorerDeps): ContestScorer<Scoresheet> {
     summarizeScore({ scoresheet, scope }, ctx): Record<string, ScoreTally> {
       if (scope === "day") {
         if (!scoresheet.dayContacts) return {}
-        return { hrwbota: tally("hrwbota", "day", scoresheet.dayPoints, { label: deps.label(ctx), icon: deps.icon, summary: deps.points(scoresheet.dayPoints, ctx) }) }
+        const summary =
+          scoresheet.host !== null
+            ? deps.hostPoints({ points: scoresheet.dayPoints, irons: sum(scoresheet.dayIrons) }, ctx)
+            : deps.points(scoresheet.dayPoints, ctx)
+        return { hrwbota: tally("hrwbota", "day", scoresheet.dayPoints, { label: deps.label(ctx), icon: deps.icon, summary }) }
       }
       if (scope !== "operation") return {}
       if (scoresheet.host !== null) return summarizeGiven(scoresheet, ctx)

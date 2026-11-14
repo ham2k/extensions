@@ -43,7 +43,7 @@
   "batchRefused": "The tracker refused a batch of contacts: {{message}}",
   "statusRefused": "The tracker did not take your status: {{message}}",
   "unreachable": "The HRWBOTA tracker has not answered for a while. Your contacts are kept and go out when it answers, as long as the app stays open.",
-  "hostSummary": "{{qsos}}, {{points}} pts given to {{listeners}}",
+  "hostSummary": "{{qsos}}, {{points}} pts given to {{listeners}} with {{irons}}",
   "hostGroupLine": "{{group}}: {{qsos}}, {{points}} pts to {{listeners}}",
   "qsosOne": "1 QSO",
   "qsosOther": "{{count}} QSOs",
@@ -51,5 +51,8 @@
   "listenersOther": "{{count}} listeners",
   "outsideHours": "{{qsos}} outside the event hours",
   "anyTime": "event hours ignored (developer mode)",
-  "pointsShort": "{{points}} pts"
+  "pointsShort": "{{points}} pts",
+  "hostPointsShort": "{{irons}}, {{points}} pts",
+  "ironsOne": "1 iron",
+  "ironsOther": "{{count}} irons"
 }

@@ -44,6 +44,14 @@ export function listenerExchange(qso: Data, type: string): string {
   return [text(ref?.theirIrons), text(ref?.theirBrand).toUpperCase()].filter((part) => part).join(" ")
 }
 
+/// How many soldering irons the listener said they have, as a host copied
+/// it: the leading number of the exchange the tracker gets, read by the
+/// tracker's rule, so both count the same.
+export function listenerIrons(qso: Data, type: string): number | undefined {
+  const count = listenerExchange(qso, type).match(/^(\d{1,4})(?=\s|$)/)?.[1]
+  return count === undefined ? undefined : Number(count)
+}
+
 /// Whether a host's logging fields have said anything about the listener's
 /// exchange, blank included, so clearing them clears the row too.
 export function hasListenerExchange(qso: Data, type: string): boolean {

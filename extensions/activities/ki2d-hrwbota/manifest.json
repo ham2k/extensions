@@ -2,11 +2,11 @@
   "key": "ki2d-hrwbota",
   "name": "HRWBOTA",
   "shortName": "HRWBOTA",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "api": 19,
   "description": "Ham Radio Workbenches On The Air: spots for the hosts on the air and your score as you work them",
   "category": "activity",
-  "icon": "table-furniture",
+  "icon": "soldering-iron",
   "accentColor": "#1D5A44",
   "keywords": [
     "hrwbota",
