@@ -10,5 +10,16 @@
   "invalidCall": "El cluster no acepta ese indicativo",
   "invalidFrequency": "El spot necesita una frecuencia",
   "refused": "El nodo del cluster dijo: {{message}}",
-  "notPosted": "El spot no se publicó"
+  "notPosted": "El spot no se publicó",
+  "settingsTitle": "Spots del Cluster",
+  "spotterContinentLabel": "Spots escuchados desde",
+  "spotterContinentDescription": "Muestra los spots publicados por estaciones de este continente. Los spots cuya estación publicadora no se pueda ubicar también se muestran.",
+  "continentAll": "Todos los continentes",
+  "continentAF": "África",
+  "continentAN": "Antártida",
+  "continentAS": "Asia",
+  "continentEU": "Europa",
+  "continentNA": "América del Norte",
+  "continentOC": "Oceanía",
+  "continentSA": "América del Sur"
 }

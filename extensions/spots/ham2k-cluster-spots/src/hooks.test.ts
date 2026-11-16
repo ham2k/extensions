@@ -20,6 +20,8 @@ let subscribes = 0
 const sent: string[] = []
 let subscription: Record<string, unknown> | undefined
 const pushes: { method: string; params: Record<string, unknown> }[] = []
+let spotterContinent: unknown = "all"
+let saved: Record<string, unknown> | undefined
 
 /// The app's side of `match`: patterns as they cross the bridge.
 function matcher(match: unknown): (text: string) => boolean {
@@ -53,6 +55,12 @@ const ext = await loadExtension(() => import("./index.ts"), {
       sent.push(command as string)
       return { ok: true, lines: [] }
     },
+    getSettings: () => ({ extensions: { "extension_ham2k-cluster-spots": { spotterContinent } } }),
+    setSettings: ({ values }) => {
+      saved = values as Record<string, unknown>
+      spotterContinent = saved.spotterContinent
+      return null
+    },
   },
 })
 
@@ -63,10 +71,10 @@ function arrive(text: string, minutesAgo = 0): Line {
   return line
 }
 
-function dxLine(call: string, freq: number, comment: string, minutesAgo = 0): string {
+function dxLine(call: string, freq: number, comment: string, minutesAgo = 0, spotter = "W3LPL"): string {
   const time = new Date(Date.now() - minutesAgo * 60 * 1000)
   const hhmm = `${String(time.getUTCHours()).padStart(2, "0")}${String(time.getUTCMinutes()).padStart(2, "0")}`
-  return `DX de W3LPL:     ${freq.toFixed(1).padStart(8)}  ${call.padEnd(12)} ${comment.padEnd(30)} ${hhmm}Z`
+  return `DX de ${spotter}:     ${freq.toFixed(1).padStart(8)}  ${call.padEnd(12)} ${comment.padEnd(30)} ${hhmm}Z`
 }
 
 function listedLine(call: string, freq: number, comment: string, minutesAgo = 0): { text: string; at: number } {
@@ -253,4 +261,55 @@ test("spots go on the board as they come, each under its key, and a station's ow
   const stale = listedLine("ZS6OLD", 21030, "CW", 90)
   await ext.runHook("cluster", "onLines", { lines: [{ seq: ++seq, at: stale.at, text: stale.text }] })
   assert.deepEqual(pushes, [], "the older end of a backfill, past what the board shows, is not pushed")
+})
+
+test("the Spotting setting defaults to every continent and saves an explicit receiver continent", async () => {
+  const [panel] = (await ext.runHook("settingsPanel", "getPanels", {})) as { key: string; section?: string }[]
+  assert.deepEqual(panel, { key: "ham2k-cluster-spots", title: "Cluster Spots", icon: "access-point", sidebar: false, section: "spotting" })
+
+  const definition = (await ext.runHook("settingsPanel", "getDefinition", { panelKey: "ham2k-cluster-spots" })) as {
+    elements: { key?: string; value?: unknown; options?: { value: string }[] }[]
+  }
+  const field = definition.elements.find((element) => element.key === "spotterContinent")
+  assert.equal(field?.value, "all")
+  assert.deepEqual(field?.options?.map((option) => option.value), ["all", "AF", "AN", "AS", "EU", "NA", "OC", "SA"])
+
+  pushes.length = 0
+  await ext.runHook("settingsPanel", "onChangeField", { panelKey: "ham2k-cluster-spots", fieldKey: "spotterContinent", value: "NA", state: {} })
+  assert.deepEqual(saved, { spotterContinent: "NA" })
+  assert.equal(pushes[0]?.method, "removeSpots", "spots published under the old choice are removed")
+})
+
+test("a continent choice follows DE, keeps unknown spotters, and cannot be displaced by another continent", async () => {
+  lines = []
+  seq = 0
+  arrive(dxLine("JA1SAME", 14025, "CW", 2, "W3LPL"))
+  arrive(dxLine("JA1SAME", 14026, "CW", 1, "DL1ABC"))
+  arrive(dxLine("VK9UNKNOWN", 14030, "CW", 0, "Q0QQ"))
+  status = { ...status, lastSeq: seq }
+
+  const filtered = await board()
+  assert.deepEqual(calls(filtered).sort(), ["JA1SAME 14025", "VK9UNKNOWN 14030"])
+
+  pushes.length = 0
+  await ext.runHook("cluster", "onLines", {
+    lines: [
+      { seq: ++seq, at: Date.now(), text: dxLine("ZL1HEARD", 7010, "CW", 0, "K1ABC") },
+      { seq: ++seq, at: Date.now(), text: dxLine("ZL1NOTHEARD", 7011, "CW", 0, "JA1ABC") },
+    ],
+  })
+  const put = pushes.find((push) => push.method === "putSpots")?.params.spots as Spot[]
+  assert.deepEqual(put.map((spot) => spot.their.call), ["ZL1HEARD"], "live spots use the same DE filter")
+})
+
+test("changing receiver continent clears old spots and replays cluster history", async () => {
+  pushes.length = 0
+  await ext.runHook("settingsPanel", "onChangeField", { panelKey: "ham2k-cluster-spots", fieldKey: "spotterContinent", value: "EU", state: {} })
+  assert.equal(pushes[0]?.method, "removeSpots")
+
+  status = { ...status, lastSeq: seq }
+  const replayed = await board()
+  assert.equal(replayed.find((spot) => spot.their.call === "JA1SAME")?.freq, 14026, "the European report replaces the filtered-out North American one")
+  assert.ok(replayed.some((spot) => spot.their.call === "VK9UNKNOWN"), "an unknown DE remains visible")
+  assert.ok(!replayed.some((spot) => spot.their.call === "ZL1HEARD"), "the old continent's spots stay out")
 })

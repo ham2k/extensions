@@ -32,8 +32,24 @@
 // Posting — a self-spot, or a spot of a station just worked — goes out once,
 // to that one node, which forwards it to the rest of the network.
 
-import { defineExtension, host } from "@ham2k/extension-sdk"
-import type { ClusterHook, ClusterLine, ClusterReply, ClusterStatus, HookContext, PostOtherSpotRequest, PostResult, PostSelfSpotRequest, Spot, SpotEligibility, SpotsHook } from "@ham2k/extension-sdk"
+import { annotateCallAgainstCountryFile, defineExtension, host } from "@ham2k/extension-sdk"
+import type {
+  ClusterHook,
+  ClusterLine,
+  ClusterReply,
+  ClusterStatus,
+  DynamicSettingsPanel,
+  FormDefinition,
+  HookContext,
+  JSONValue,
+  PostOtherSpotRequest,
+  PostResult,
+  PostSelfSpotRequest,
+  SettingsPanelDescriptor,
+  Spot,
+  SpotEligibility,
+  SpotsHook,
+} from "@ham2k/extension-sdk"
 
 import manifest from "../manifest.json" with { type: "json" }
 import { tFor } from "./i18n.ts"
@@ -74,6 +90,36 @@ const SEND_EVERYTHING: Record<NodeProgram, string[]> = {
 /// with: its login ends on one.
 const PROMPT_LOOKBACK = 200
 
+const CONTINENTS = ["AF", "AN", "AS", "EU", "NA", "OC", "SA"] as const
+type Continent = (typeof CONTINENTS)[number]
+type SpotterContinent = "all" | Continent
+
+function isContinent(value: unknown): value is Continent {
+  return CONTINENTS.includes(value as Continent)
+}
+
+function normalizeSpotterContinent(value: unknown): SpotterContinent {
+  return value === "all" || isContinent(value) ? value : "all"
+}
+
+async function loadSpotterContinent(): Promise<SpotterContinent> {
+  const all = await host.getSettings()
+  const extensions = all.extensions as Record<string, JSONValue> | undefined
+  const mine = extensions?.[`extension_${manifest.key}`] as Record<string, JSONValue> | undefined
+  return normalizeSpotterContinent(mine?.spotterContinent)
+}
+
+/// Whether the station that posted this spot is in the continent the operator
+/// asked for. An unknown spotter stays visible: portable and skimmer suffixes
+/// should not turn a useful spot into a false negative.
+function isFromContinent(spot: Spot, wanted: SpotterContinent): boolean {
+  if (wanted === "all") return true
+  const spotter = spot.spot.sourceInfo?.spotter
+  if (typeof spotter !== "string" || !spotter) return true
+  const found = annotateCallAgainstCountryFile(spotter).continent
+  return !found || found === wanted
+}
+
 /// The newest spot per station per band and mode, keyed `CALL|band|mode`. A
 /// station that moves within a band is where it was last spotted; one on two
 /// bands at once (a multi-op, a skimmer hearing both), or in two modes on one
@@ -110,7 +156,7 @@ const programs = new Map<string, NodeProgram>()
 /// Each spot carries its key, so a newer one replaces it on the board too.
 /// A spot already past [MAX_AGE_MILLIS] — the older end of a backfill — is
 /// neither held nor pushed.
-function take(lines: ClusterLine[]): { put: Spot[]; removed: string[] } {
+function take(lines: ClusterLine[], spotterContinent: SpotterContinent): { put: Spot[]; removed: string[] } {
   const changed = new Map<string, Spot | undefined>()
   const oldest = Date.now() - MAX_AGE_MILLIS
   for (const line of lines) {
@@ -118,6 +164,7 @@ function take(lines: ClusterLine[]): { put: Spot[]; removed: string[] } {
     if (!parsed || parsed.spot.timeInMillis < oldest) continue
     const key = `${parsed.their.call}|${parsed.band ?? ""}|${parsed.mode ?? ""}`
     const spot: Spot = { ...parsed, key }
+    if (!isFromContinent(spot, spotterContinent)) continue
     const previous = held.get(key)
     if (previous && spot.spot.timeInMillis < previous.spot.timeInMillis) continue
     held.set(key, spot)
@@ -247,7 +294,7 @@ const Spots: SpotsHook = {
     // and anything a delivery to the hook below missed: a failed one is not
     // retried, but its lines stay readable here.
     const lines = await host.clusterLines({ after: cursor, match: SPOT_LINE_PATTERNS })
-    take(lines)
+    take(lines, await loadSpotterContinent())
     if (lines.length) cursor = lines[lines.length - 1].seq
     return current(Date.now())
   },
@@ -282,7 +329,7 @@ const Cluster = {
   /// A push the app refuses is only logged: the spots are held here, and the
   /// next fetch answers with all of them, which puts the board right.
   async onLines({ lines }: { lines: ClusterLine[] }) {
-    const { put, removed } = take(lines)
+    const { put, removed } = take(lines, await loadSpotterContinent())
     try {
       if (put.length) await host.spots.put(put)
       if (removed.length) await host.spots.remove(removed)
@@ -292,6 +339,47 @@ const Cluster = {
   },
 } satisfies ClusterHook
 
+const SettingsPanel: DynamicSettingsPanel = {
+  kind: "dynamic",
+
+  async getPanels(_args: Record<string, never>, ctx: HookContext): Promise<SettingsPanelDescriptor[]> {
+    return [{ key: manifest.key, title: tFor(ctx)("settingsTitle"), icon: manifest.icon, sidebar: false, section: "spotting" }]
+  },
+
+  async getDefinition(_args: { panelKey: string }, ctx: HookContext): Promise<FormDefinition> {
+    const t = tFor(ctx)
+    return {
+      elements: [
+        {
+          type: "field",
+          fieldType: "select",
+          key: "spotterContinent",
+          label: t("spotterContinentLabel"),
+          description: t("spotterContinentDescription"),
+          value: await loadSpotterContinent(),
+          options: [
+            { value: "all", label: t("continentAll") },
+            ...CONTINENTS.map((continent) => ({ value: continent, label: t(`continent${continent}`) })),
+          ],
+        },
+      ],
+    }
+  },
+
+  async onChangeField({ fieldKey, value }: { fieldKey: string; value: unknown }): Promise<void> {
+    if (fieldKey !== "spotterContinent") return
+    await host.setSettings({ spotterContinent: normalizeSpotterContinent(value) })
+
+    // A spot rejected by the old choice was never held. Start again from the
+    // cluster service's scrollback so it can appear under the new choice, and
+    // remove everything published under the old one in the meantime.
+    const keys = [...held.keys()]
+    held.clear()
+    cursor = 0
+    if (keys.length) await host.spots.remove(keys)
+  },
+}
+
 defineExtension({
   ...manifest,
   onActivation({ registerHook }) {
@@ -299,5 +387,6 @@ defineExtension({
     // Under the extension's own key: that is the key the app delivers a
     // subscription's lines to.
     registerHook("cluster", { hook: Cluster, key: manifest.key })
+    registerHook("settingsPanel", { hook: SettingsPanel, key: manifest.key })
   },
 })
