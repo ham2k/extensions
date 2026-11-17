@@ -5,5 +5,13 @@
   "missingCredentials": "Escribe tu usuario y tu contraseña.",
   "noEmailLogin": "No uses tu email para iniciar sesión.",
   "lookupFailed": "✅ Las credenciales son correctas, pero la búsqueda del indicativo falló: **{{error}}**",
-  "authFailed": "La autenticación falló: **{{message}}**"
+  "authFailed": "La autenticación falló: **{{message}}**",
+  "logbookKeysLabel": "Claves API del Logbook",
+  "logbookKeysHelp": "Para enviar tus contactos a QRZ.com Logbook: una clave por logbook, separadas por espacios. La clave de cada logbook está en su configuración en QRZ.com.",
+  "logbookOk": "✅ {{logbook}}",
+  "logbookFailed": "❌ Clave de logbook {{key}}: **{{message}}**",
+  "logbookNamed": "Logbook \"{{name}}\"",
+  "noLogbookFor": "Ninguna clave de QRZ.com Logbook abre un logbook para {{call}}. Agrega su clave a tu cuenta de QRZ.com en Configuración.",
+  "pushToLogbook": "Enviar a QRZ.com",
+  "pushUpdatesToLogbook": "Enviar cambios a QRZ.com"
 }

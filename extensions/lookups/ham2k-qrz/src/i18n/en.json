@@ -5,5 +5,13 @@
   "missingCredentials": "Please provide both username and password.",
   "noEmailLogin": "Don't use your email for login.",
   "lookupFailed": "✅ Credentials are correct, but callsign lookup failed: **{{error}}**",
-  "authFailed": "Authentication failed: **{{message}}**"
+  "authFailed": "Authentication failed: **{{message}}**",
+  "logbookKeysLabel": "Logbook API keys",
+  "logbookKeysHelp": "To push your contacts to QRZ.com Logbook: one key per logbook, separated by spaces. Each logbook's key is in its settings on QRZ.com.",
+  "logbookOk": "✅ {{logbook}}",
+  "logbookFailed": "❌ Logbook key {{key}}: **{{message}}**",
+  "logbookNamed": "Logbook \"{{name}}\"",
+  "noLogbookFor": "No QRZ.com Logbook key opens a logbook for {{call}}. Add its key to your QRZ.com account in Settings.",
+  "pushToLogbook": "Push to QRZ.com",
+  "pushUpdatesToLogbook": "Push updates to QRZ.com"
 }

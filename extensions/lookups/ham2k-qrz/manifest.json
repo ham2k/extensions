@@ -1,9 +1,9 @@
 {
   "key": "ham2k-qrz",
   "name": "QRZ.com Callsign Lookups",
-  "version": "0.2.5",
-  "api": 1,
-  "description": "Looks up callsign details with a QRZ.com account",
+  "version": "0.3.0",
+  "api": 28,
+  "description": "Looks up callsign details with a QRZ.com account, and pushes your contacts to QRZ.com Logbook",
   "category": "lookup",
   "keywords": [
     "callsign",
@@ -12,7 +12,8 @@
   ],
   "hooks": [
     "account",
-    "lookup"
+    "lookup",
+    "transfer"
   ],
   "domains": [
     "*.qrz.com"
@@ -30,7 +31,7 @@
   "translations": {
     "es": {
       "name": "Búsquedas de indicativos QRZ.com",
-      "description": "Busca los datos de un indicativo con una cuenta de QRZ.com",
+      "description": "Busca los datos de un indicativo con una cuenta de QRZ.com, y envía tus contactos a QRZ.com Logbook",
       "keywords": [
         "indicativo",
         "búsqueda"
