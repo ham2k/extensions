@@ -22,9 +22,11 @@ import type {
   ExportOptionsRequest,
   ExportRequest,
   ExportResult,
+  AnnotatedCallInfo,
   HookContext,
   JSONValue,
   LoggingControlDescriptor,
+  LookupResult,
   Ref,
   RefLink,
   SuggestArgs,
@@ -36,7 +38,7 @@ import type { SSMode } from "./schedule.ts"
 import { SSScorer, TYPE, contestTitle } from "./scorer.ts"
 import { ALL_SECTIONS } from "./sections.ts"
 import { normalizeSection, preferredSections, stateForSection } from "./exchange.ts"
-import { HISTORY_STEMS, loadHistory, parseHistory, removeHistory, suggestedExchange } from "./history.ts"
+import { HISTORY_STEMS, historyLookup, loadHistory, parseHistory, removeHistory, suggestedExchange } from "./history.ts"
 import {
   CHECK_PATTERN,
   ENTRY_CLASSES,
@@ -411,7 +413,10 @@ const ActivityHook = {
     if (state && state !== str(their.state)) patch.their = { ...(patch.their as Record<string, JSONValue> | undefined), state }
     // And their ARRL Section itself, where ADIF's ARRL_SECT reads it: nothing
     // else in a Sweepstakes log carries it, the contest's own files included.
-    if (section && section !== their.arrlSection) patch.their = { ...(patch.their as Record<string, JSONValue> | undefined), arrlSection: section }
+    // It follows the section field, prefilled or typed. An exchange with no
+    // section, or one that is none, saves an empty one: stored, it keeps the
+    // ADIF from falling back to the lookup's guess, a section never received.
+    if (decided && their.arrlSection !== section) patch.their = { ...(patch.their as Record<string, JSONValue> | undefined), arrlSection: section }
     // A stored copy of ours doesn't follow the serial: an edit clears it
     // rather than leave the row showing a number the exports don't carry.
     const our = args.qso.our as Record<string, JSONValue> | undefined
@@ -600,6 +605,15 @@ const ExportHook = {
   },
 }
 
+const LookupHook = {
+  async lookupCall(
+    { callInfo, operation }: { callInfo: AnnotatedCallInfo; qso: Record<string, JSONValue>; operation: Record<string, JSONValue> },
+    _ctx: HookContext,
+  ): Promise<LookupResult> {
+    return historyLookup(callInfo.call ?? '', operation)
+  },
+}
+
 /// N1MM's call history file for one weekend, by the stem its updates share.
 /// Kept a week: the contributor updates it around each running, and a stale
 /// copy only costs a suggestion.
@@ -628,6 +642,10 @@ defineExtension({
       const file = historyDataFile(mode)
       registerHook('dataFile', { hook: file, key: file.key })
     }
+    // The section each station sent before, for an operation running the
+    // contest: below every other source (the log's own history sits at -1),
+    // so it fills only what none of them answered.
+    registerHook('lookup', { hook: LookupHook, key: manifest.key, priority: -2 })
     registerHook('activity', { hook: ActivityHook, key: manifest.key })
     registerHook(`ref:${TYPE}`, { hook: RefHandler, key: manifest.key })
     registerHook('adifFields', { hook: AdifFieldsHook, key: manifest.key })

@@ -142,3 +142,32 @@ test("an earlier Sweepstakes' section gives way to a lookup that places the stat
   // A split state names no one section, so it contradicts nothing.
   assert.equal((await suggestedExchange(ctx, thisWeekend, { their: { call: 'W1AW', state: 'NY' } }, 'CW')).section, 'IA')
 })
+
+test("a call lookup in an operation running the contest gives the section the station sent, and its state where it names one", async () => {
+  const contest = await loadExtension(() => import("./index.ts"), { hostCalls: { getSettings: () => ({}) } })
+  await contest.runHook('dataFile', 'onLoadRawData', parseHistory(FILE), { key: 'ham2k-arrl-ss-sscw' })
+  const running = fixtureOperation({ refs: [{ type: 'arrl-ss', mode: 'CW' }] })
+  const lookup = (call: string, operation = running) =>
+    contest.runHook('lookup', 'lookupCall', { callInfo: { call }, qso: {}, operation })
+
+  assert.deepEqual(await lookup('aa0a'), [
+    { call: 'AA0A', source: 'Call History File', scope: 'general', arrlSection: 'MO', state: 'MO', locationScope: 'qth' },
+  ])
+  // A split state's section, and the state it is part of.
+  assert.deepEqual(await lookup('AA1WA'), [
+    { call: 'AA1WA', source: 'Call History File', scope: 'general', arrlSection: 'EMA', state: 'MA', locationScope: 'qth' },
+  ])
+  // Territories names no one territory: the section alone.
+  loadHistory('CW', parseHistory('!!Order!!,Call,Sect,CK\nVY1AAA,TER,90\n'))
+  assert.deepEqual(await lookup('VY1AAA'), [{ call: 'VY1AAA', source: 'Call History File', scope: 'general', arrlSection: 'TER' }])
+  loadHistory('CW', parseHistory(FILE))
+
+  // No section on file, a portable call's home section, an unknown call: nothing.
+  assert.deepEqual(await lookup('VA3HUN'), [])
+  assert.deepEqual(await lookup('K2LE/4'), [])
+  assert.deepEqual(await lookup('W1AW'), [])
+  // And nothing at all in an operation that isn't running Sweepstakes.
+  assert.deepEqual(await lookup('AA0A', fixtureOperation({ refs: [{ type: 'pota', ref: 'US-0001' }] })), [])
+  assert.deepEqual(await lookup('AA0A', fixtureOperation({})), [])
+  removeHistory('CW')
+})

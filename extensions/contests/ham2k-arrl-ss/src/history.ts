@@ -14,14 +14,14 @@
 // Separate from index.ts so it can be unit-tested: index.ts calls
 // `defineExtension` at import time.
 
-import type { HookContext, JSONValue } from "@ham2k/extension-sdk"
+import type { HookContext, JSONValue, LookupResult } from "@ham2k/extension-sdk"
 import { parseCallsign } from "@ham2k/lib-callsigns"
 import { priorSent } from "@ham2k/lib-contest-exchange"
 
 import { normalizeCheck } from "./entry.ts"
 import type { SSMode } from "./schedule.ts"
 import { TYPE } from "./scorer.ts"
-import { lookupSection, normalizeSection } from "./exchange.ts"
+import { lookupSection, normalizeSection, stateForSection } from "./exchange.ts"
 
 /// What a station sent, by call: `[section, check]`, either of them '' when
 /// the file has none that is valid. A tuple rather than an object: the host
@@ -110,6 +110,38 @@ export function historyFor(call: string, mode: JSONValue | undefined): { section
     if (entry?.[1]) return { section: '', check: entry[1] }
   }
   return undefined
+}
+
+/// What the lookup's answer is labelled with, beside each field it fills. Not
+/// translated: the app compares a contact's stored sources with a fresh
+/// lookup's by this label.
+export const HISTORY_SOURCE = 'Call History File'
+
+/// A call lookup's answer for an [operation] running Sweepstakes: the section
+/// [call] sent in an earlier running, as `arrlSection`, and the state that
+/// section puts it in where it names one. Nothing in any other operation.
+///
+/// Registered below every other source, so the state lands only where none of
+/// them placed the station: the lookup merge never puts a lone state under
+/// another source's town or pin. The section is given whatever they said.
+export function historyLookup(call: string, operation: Record<string, JSONValue> | undefined): LookupResult {
+  const refs = Array.isArray(operation?.refs) ? (operation.refs as Record<string, JSONValue>[]) : []
+  const ref = refs.find((r) => r?.type === TYPE)
+  if (!ref) return []
+  const section = historyFor(call, ref.mode)?.section
+  if (!section) return []
+  const upper = call.trim().toUpperCase()
+  const state = stateForSection(section, upper, '')
+  // `arrlSection` is a field of the app's call info that the published SDK's
+  // `CallInfo` type does not list yet.
+  const answer: LookupResult[number] & { arrlSection: string } = {
+    call: upper,
+    source: HISTORY_SOURCE,
+    scope: 'general',
+    arrlSection: section,
+    ...(state ? { state, locationScope: 'qth' as const } : {}),
+  }
+  return [answer]
 }
 
 /// The check and section to offer [qso]'s station in [operation], from the

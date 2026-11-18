@@ -80,6 +80,25 @@ test("saving projects only their exchange, so the QSO row shows what was copied 
   })
   assert.deepEqual(patch, { their: { exchange: '43 M 31 IL', state: 'IL', arrlSection: 'IL' } })
 
+  // The saved section follows the field: a section cleared, or edited into
+  // something that is none, takes it away; one changed replaces it.
+  const saved = (theirSection: string) =>
+    contest.runHook("activity", "processQsoBeforeSave", {
+      operation: configured,
+      qso: { their: { call: 'W9JJ', state: 'IL', arrlSection: 'IL' }, refs: [{ type: 'arrl-ss', theirSerial: '43', theirSection }] },
+    }) as Promise<{ their: Record<string, string> }>
+  assert.equal((await saved('')).their.arrlSection, '')
+  assert.equal((await saved('XX')).their.arrlSection, '')
+  assert.equal((await saved('WI')).their.arrlSection, 'WI')
+  assert.equal(((await saved('IL')).their as Record<string, string>).arrlSection, undefined)
+  // A new contact copied without a section saves an empty one, so nothing
+  // falls back to the lookup's guess of the section.
+  const fresh = (await contest.runHook("activity", "processQsoBeforeSave", {
+    operation: configured,
+    qso: { their: { call: 'W9JJ', guess: { arrlSection: 'IL' } }, refs: [{ type: 'arrl-ss', theirSerial: '43', theirSection: '' }] },
+  })) as { their: Record<string, string> }
+  assert.equal(fresh.their.arrlSection, '')
+
   // Nothing of theirs entered yet: nothing projects.
   const ours = await contest.runHook("activity", "processQsoBeforeSave", {
     operation: configured,
@@ -126,7 +145,7 @@ test("a part that isn't a valid value is kept as typed, so the exchange never lo
     operation: fixtureOperation({ refs: [{ type: 'arrl-ss', mode: 'CW', entry: 'SO-LOW', check: '1979', section: 'NYC' }] }),
     qso: { their: { call: 'W9JJ' }, refs: [{ type: 'arrl-ss', ourSerial: 1, theirSerial: '43', theirPrecedence: 'x', theirCheck: '7', theirSection: 'ill' }] },
   })
-  assert.deepEqual(patch, { their: { exchange: '43 X 7 ILL' } })
+  assert.deepEqual(patch, { their: { exchange: '43 X 7 ILL', arrlSection: '' } })
 })
 
 test("an unknown section is flagged in the entry field rather than accepted", async () => {
