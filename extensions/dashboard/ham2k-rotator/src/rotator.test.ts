@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: MPL-2.0
 import { test } from "node:test"
 import assert from "node:assert/strict"
-import type { JSONValue, PanelSceneControl, StationEquipment } from "@ham2k/extension-sdk"
-import { createRotatorPanel, sceneFor, settingsFrom, viewAfter, type RotatorHost } from "./rotator.ts"
+import type { JSONValue, PanelSceneControl, PanelSceneLayer, PanelScenePatch, StationEquipment } from "@ham2k/extension-sdk"
+import { createRotatorPanel, pickedFor, sceneFor, settingsFrom, viewAfter, type RotatorHost } from "./rotator.ts"
 
 function host(ids: string[] = ["a", "b", "c"]) {
   const store = new Map<string, JSONValue>()
   const calls: string[] = []
+  const patches: { instanceId: string; patch: PanelScenePatch }[] = []
   const fake: RotatorHost = {
     listEquipment: async () => [
       { id: "switch", kind: "antennaSwitch", name: "Switch", connected: true },
@@ -17,8 +18,9 @@ function host(ids: string[] = ["a", "b", "c"]) {
     stopRotator: async ({ id }) => calls.push(`stop ${id}`),
     kvGet: async (key) => store.get(key) ?? null,
     kvSet: async (key, value) => void store.set(key, value),
+    updateScene: async (instanceId, patch) => (patches.push({ instanceId, patch }), true),
   }
-  return { fake, store, calls }
+  return { fake, store, calls, patches }
 }
 
 const mapOf = (settings: ReturnType<typeof settingsFrom>) => {
@@ -130,4 +132,131 @@ test("each placed pane keeps its own view across renders, and stop reaches every
   calls.length = 0
   await event("one", "connect")
   assert.deepEqual(calls, ["connect a", "connect b", "connect c"])
+})
+
+/** A panel over three rotators on one map, its timers held until a test runs them. */
+function picking() {
+  const { fake, patches } = host()
+  const timers: { ms: number; run: () => unknown; cancelled: boolean }[] = []
+  const panel = createRotatorPanel(fake, (ms, run) => {
+    const timer = { ms, run, cancelled: false }
+    timers.push(timer)
+    return () => void (timer.cancelled = true)
+  })
+  let config: Record<string, JSONValue> = { rotator: "multiple" }
+  const tap = (id: string) =>
+    panel.onEvent!({ config, instanceId: "one", event: { controlId: "pick", action: `pick:${id}`, phase: "activate", sequence: 1 } } as never, {} as never)
+  const scene = async () =>
+    (
+      (await panel.render!({ config, instanceId: "one", environment: { width: 400, height: 300 } } as never, {} as never)) as {
+        scene: { layers: PanelSceneLayer[]; controls: PanelSceneControl[] }
+      }
+    ).scene
+  const map = async () => (await scene()).controls.find((c) => c.kind === "rotatorMap")!
+  const configure = (next: Record<string, JSONValue>) => void (config = next)
+  return { tap, map, scene, configure, timers, patches }
+}
+
+const colorOf = (map: PanelSceneControl, id: string) => map.decorations!.find((d) => d.id === id)!.color
+const ran = async (timer: { run: () => unknown }) => {
+  await timer.run()
+  await new Promise((resolve) => setImmediate(resolve))
+}
+
+// A click turns the map's own rotator, so picking one is making it the map's
+// own: left the main one's, a tap on B's bearing would turn A.
+test("a tapped bearing makes its rotator the one a click turns, and fades the others", async () => {
+  const { tap, map } = picking()
+  const before = await map()
+  assert.equal(before.rotator, "a")
+
+  await tap("b")
+  const after = await map()
+  assert.equal(after.rotator, "b")
+  // Each rotator's readings stay in its own values, so its bearing row reads on across the pick.
+  assert.equal(after.headingDeg, "heading2")
+  assert.deepEqual(
+    after.rotators?.map((r) => [r.rotator, r.headingDeg]),
+    [
+      ["a", "heading"],
+      ["c", "heading3"],
+    ],
+  )
+  assert.equal(colorOf(after, "heading-2"), colorOf(before, "heading-2"))
+  assert.notEqual(colorOf(after, "heading-1"), colorOf(before, "heading-1"))
+  assert.notEqual(colorOf(after, "heading-3"), colorOf(before, "heading-3"))
+})
+
+// The app refuses a scene whose text colour has an alpha, so a bearing faded
+// that way leaves the pane blank on the first tap.
+test("a faded bearing is still an opaque text colour", async () => {
+  const { tap, scene } = picking()
+  await tap("b")
+  const colors = (await scene()).layers.flatMap((l) =>
+    (l as { text?: { color?: string } }).text?.color ? [(l as { text: { color: string } }).text.color] : [],
+  )
+  assert.ok(colors.length >= 6)
+  for (const color of colors) assert.match(color, /^#[0-9A-Fa-f]{6}$/)
+})
+
+// A drag of B's arrow that ends after the pick runs out would otherwise
+// follow the map's own rotator back to A, and turn A.
+test("every arrow names its own rotator, so a drag turns the rotator dragged whatever is picked", async () => {
+  const { tap, map } = picking()
+  await tap("b")
+  const decorations = (await map()).decorations!
+  assert.deepEqual(
+    ["heading-1", "heading-2", "heading-3"].map((id) => decorations.find((d) => d.id === id)!.rotator),
+    ["a", "b", "c"],
+  )
+})
+
+test("a picked bearing tapped again lets go, and a click turns the main rotator", async () => {
+  const { tap, map, timers } = picking()
+  const before = await map()
+  await tap("c")
+  await tap("c")
+  const after = await map()
+  assert.equal(after.rotator, "a")
+  // Left faded, the map would still read as C's while a click turns A.
+  assert.equal(colorOf(after, "heading-2"), colorOf(before, "heading-2"))
+  // Its timer goes with it: a bundle holds only 16, and a pick past them would never run out.
+  assert.equal(timers[0].cancelled, true)
+})
+
+test("a pick runs out after a while, and the map goes back to the main rotator without a render", async () => {
+  const { tap, map, timers, patches } = picking()
+  await map()
+  await tap("b")
+  assert.equal(timers.length, 1)
+  assert.equal(timers[0].ms, pickedFor)
+
+  await ran(timers[0])
+  assert.equal(patches.length, 1)
+  const controls = patches[0].patch.find((step) => "set" in step && step.set[0] === "controls") as unknown as { value: PanelSceneControl[] }
+  assert.equal(controls.value.find((c) => c.kind === "rotatorMap")!.rotator, "a")
+  assert.equal((await map()).rotator, "a")
+})
+
+// Without it, B's timer would take C's pick away seconds after it was made.
+test("a pick's time runs from its own tap, not from an earlier one's", async () => {
+  const { tap, map, timers, patches } = picking()
+  await map()
+  await tap("b")
+  await tap("c")
+  assert.equal(timers[0].cancelled, true)
+  await ran(timers[0])
+  assert.equal(patches.length, 0)
+  assert.equal((await map()).rotator, "c")
+})
+
+// Held by its row instead, a pick of B would pass to C once B is switched off
+// and C moves up into its row: a rotator the operator never tapped.
+test("a pick is the rotator's, and goes when the settings stop showing it", async () => {
+  const { tap, map, configure } = picking()
+  await tap("b")
+  configure({ rotator: "multiple", "use:b": false })
+  assert.equal((await map()).rotator, "a")
+  configure({ rotator: "multiple" })
+  assert.equal((await map()).rotator, "a")
 })

@@ -4,7 +4,9 @@
 // The app's own Rotator panel: one rotator on a `rotatorMap` control, which
 // the app draws and turns natively — a click on the map, a drag of the
 // heading, a click on the station in the call field — so this panel only
-// takes its settings from the pane's form and lays the map out.
+// takes its settings from the pane's form and lays the map out. With several
+// rotators on the map, it also picks which one a click turns: the one whose
+// bearing was tapped, for a while.
 import { gridToLocation } from "@ham2k/lib-geo-tools"
 import type {
   FormHeader,
@@ -15,6 +17,7 @@ import type {
   PanelSceneControl,
   PanelSceneEventResult,
   PanelSceneLayer,
+  PanelScenePatch,
   PanelSceneRotatorLayer,
   SettingsField,
   StationEquipment,
@@ -27,7 +30,11 @@ export interface RotatorHost {
   stopRotator(args: { id: string }): Promise<unknown>
   kvGet(key: string): Promise<JSONValue | null>
   kvSet(key: string, value: JSONValue): Promise<void>
+  updateScene(instanceId: string, patch: PanelScenePatch): Promise<boolean>
 }
+
+/** How long a tapped bearing keeps its rotator picked before a click turns the main one again. */
+export const pickedFor = 10_000
 
 export interface Settings {
   /** A rotator's id; absent, the station's first. */
@@ -257,7 +264,7 @@ const svgRect = (width: number, height: number, fill: string) =>
  * square where there is room. The map writes the rotator's heading, target and state into the
  * scene, so the readout and the buttons follow the rotator with no render.
  */
-export function sceneFor(settings: Settings, size: { width: number; height: number }, view: View = {}, dark = false): PanelContent {
+export function sceneFor(settings: Settings, size: { width: number; height: number }, view: View = {}, dark = false, picked?: string): PanelContent {
   const { width, height } = size
   const side = Math.min(width, height)
   const background = backgrounds[settings.palette][dark ? "dark" : "light"]
@@ -291,6 +298,10 @@ export function sceneFor(settings: Settings, size: { width: number; height: numb
       },
     }
   }
+  const rows = shownOf(settings)
+  // The map's own rotator is the one a click turns: the picked row's, else the main one.
+  const chosen = pickedOf(rows, picked)
+  const own = chosen ?? rows[0]
   const map: PanelSceneControl = {
     id: "map",
     kind: "rotatorMap",
@@ -302,21 +313,23 @@ export function sceneFor(settings: Settings, size: { width: number; height: numb
     event: "view",
     // Right over the pane's fill, so the readouts drawn after it lie over the map's corners.
     after: "background",
-    ...(settings.rotator ? { rotator: settings.rotator } : {}),
+    ...(own.id ? { rotator: own.id } : {}),
     ...(settings.home ? { home: settings.home } : {}),
     beamWidth: settings.beamWidth,
     ...(settings.directions ? { stops: settings.directions } : {}),
     // Always the panel's own, so a rotator is in the colour its settings pick.
-    decorations: decorationsFor(settings),
+    decorations: decorationsFor(settings, picked),
     map: { palette: settings.palette, grayline: settings.grayline, background },
     zoom: { min: 1, initial: "zoom" },
     pan: { x: "panX", y: "panY" },
-    headingDeg: "heading",
-    targetDeg: "target",
+    // Each rotator's readings go to its own values whichever is the map's, so its bearing row
+    // reads on across a pick.
+    headingDeg: own.heading,
+    targetDeg: own.target,
     zoomValue: "zoomNow",
-    status: "status",
-    ...(settings.more.length
-      ? { rotators: settings.more.map((r, i) => ({ rotator: r.id, headingDeg: `heading${i + 2}`, targetDeg: `target${i + 2}`, status: `status${i + 2}` })) }
+    status: own.status,
+    ...(rows.length > 1
+      ? { rotators: rows.filter((r) => r !== own).map((r) => ({ rotator: r.id!, headingDeg: r.heading, targetDeg: r.target, status: r.status })) }
       : {}),
     // This panel draws its own, at the pane's corners rather than the square's.
     hud: false,
@@ -365,7 +378,7 @@ export function sceneFor(settings: Settings, size: { width: number; height: numb
         fill,
         // One rotator: its heading large at the top left. Several: each one's, in its colour, down the top left.
         ...(several
-          ? bearings(settings, text, idle, background)
+          ? bearings(rows, chosen, text, idle, background)
           : [
               { id: "heading", x: 12, y: 8, width: 120, height: 28, text: { value: "heading", suffix: "°", ...text(22, ink) }, when: live },
               {
@@ -390,6 +403,11 @@ export function sceneFor(settings: Settings, size: { width: number; height: numb
       ],
       controls: [
         map,
+        // Over each bearing row. With no `after`, above every layer and the map, so a tap there picks
+        // the row's rotator rather than turning the map's.
+        ...(several
+          ? rows.map((r, row): PanelSceneControl => ({ id: `pick-${r.n}`, kind: "button", label: `Turn ${r.label}`, event: `pick:${r.id}`, ...rowBox(r, row) }))
+          : []),
         button("connect", "Connect", "power-plug-off", "connect", width - 52, 4, { value: "status", in: ["disconnected", "error"] }),
         button("disconnect", "Disconnect", "power-plug", "disconnect", width - 52, 4, { value: "status", in: ["connected", "turning", "stale"] }),
         // Under the bearings, by what it stops.
@@ -423,27 +441,67 @@ export function arrayDecorations(directions: number[]): PanelSceneRotatorLayer[]
 
 type TextStyle = (size: number, color: string, weight?: number) => Record<string, unknown>
 
+/** A rotator the map shows: its row, from 1 for the main one, and the scene values its readings go into. */
+interface Shown {
+  n: number
+  /** Absent only for a lone rotator left to the station's first. */
+  id?: string
+  label: string
+  color: string
+  beamWidth: number
+  heading: string
+  target: string
+  status: string
+}
+
+const shownOf = (settings: Settings): Shown[] => [
+  {
+    n: 1,
+    ...(settings.rotator ? { id: settings.rotator } : {}),
+    label: settings.label ?? "1",
+    color: settings.color,
+    beamWidth: settings.beamWidth,
+    heading: "heading",
+    target: "target",
+    status: "status",
+  },
+  ...settings.more.map((r, i) => ({
+    n: i + 2,
+    id: r.id,
+    label: r.label,
+    color: r.color,
+    beamWidth: r.beamWidth,
+    heading: `heading${i + 2}`,
+    target: `target${i + 2}`,
+    status: `status${i + 2}`,
+  })),
+]
+
+/** The row of the [picked] rotator, when the map shows more than one and that one among them. */
+const pickedOf = (rows: Shown[], picked: string | undefined) => (rows.length > 1 && picked !== undefined ? rows.find((r) => r.id === picked) : undefined)
+
+/**
+ * A bearing row's width: just past the bearing at its widest — the label, a space and three digits
+ * and a degree sign, in the mono face at 18, a little under 11 pixels a character — so it reads as
+ * the same line.
+ */
+const bearingWidthOf = (label: string) => Math.round((label.length + 5) * 10.8)
+
+/** Where the [row]th bearing reads, and is tapped to pick its rotator. */
+const rowBox = (r: Shown, row: number) => ({ x: 8, y: 9 + row * 26, width: bearingWidthOf(r.label) + 8, height: 23 })
+
 /**
  * Each rotator's bearing, a line apiece down the top left corner in its own colour, and where it
- * is turning to while it turns: "B 120° ➜ 200°".
+ * is turning to while it turns: "B 120° ➜ 200°". With one [picked], the others fade into the
+ * pane's [background]: a text colour has no transparency.
  */
-function bearings(settings: Settings, text: TextStyle, idle: string, background: string): PanelSceneLayer[] {
-  const rows = [
-    { n: 1, label: settings.label ?? "1", color: settings.color, heading: "heading", target: "target", status: "status" },
-    ...settings.more.map((r, i) => ({
-      n: i + 2,
-      label: r.label,
-      color: r.color,
-      heading: `heading${i + 2}`,
-      target: `target${i + 2}`,
-      status: `status${i + 2}`,
-    })),
-  ]
-  return rows.flatMap(({ n, label, color, heading, target, status }, row): PanelSceneLayer[] => {
+function bearings(rows: Shown[], picked: Shown | undefined, text: TextStyle, idle: string, background: string): PanelSceneLayer[] {
+  return rows.flatMap((r, row): PanelSceneLayer[] => {
+    const { n, label, heading, target, status } = r
+    const ink = (c: string) => (picked && picked !== r ? mixed(c, background, 0.6) : c)
+    const color = ink(r.color)
     const y = 8 + row * 26
-    // Just past the bearing at its widest — the label, a space and three digits and a degree sign,
-    // in the mono face at 18, a little under 11 pixels a character — so it reads as the same line.
-    const bearingWidth = Math.round((label.length + 5) * 10.8)
+    const bearingWidth = bearingWidthOf(label)
     const aimX = 12 + bearingWidth + 6
     // Over the pane's own colour, a little see-through, so each holds up where it crosses the map.
     const back = (id: string, x: number, width: number, when?: PanelSceneLayer["when"]): PanelSceneLayer =>
@@ -473,7 +531,7 @@ function bearings(settings: Settings, text: TextStyle, idle: string, background:
         y,
         width: 96,
         height: 24,
-        text: { value: heading, prefix: `${label} `, suffix: "°", align: "start", ...text(18, idle) },
+        text: { value: heading, prefix: `${label} `, suffix: "°", align: "start", ...text(18, ink(idle)) },
         when: { value: status, in: ["connected", "turning"], not: true },
       } as PanelSceneLayer,
       back(`aim-back-${n}`, aimX - 4, 78, { value: status, is: "turning" }),
@@ -490,29 +548,38 @@ function bearings(settings: Settings, text: TextStyle, idle: string, background:
   })
 }
 
-/** `#RRGGBB` mixed [share] of the way to white: a lighter colour, still opaque. */
-const lighter = (color: string, share: number) =>
+/** `#RRGGBB` mixed [share] of the way to [toward], also `#RRGGBB`: still opaque. */
+const mixed = (color: string, toward: string, share: number) =>
   `#${[1, 3, 5]
     .map((i) =>
-      Math.round(parseInt(color.slice(i, i + 2), 16) + (255 - parseInt(color.slice(i, i + 2), 16)) * share)
+      Math.round(parseInt(color.slice(i, i + 2), 16) + (parseInt(toward.slice(i, i + 2), 16) - parseInt(color.slice(i, i + 2), 16)) * share)
         .toString(16)
         .padStart(2, "0"),
     )
     .join("")
     .toUpperCase()}`
 
+/** `#RRGGBB` mixed [share] of the way to white: a lighter colour, still opaque. */
+const lighter = (color: string, share: number) => mixed(color, "#FFFFFF", share)
+
 /** `#RRGGBB` at [alpha] (0–255), as `#AARRGGBB`. */
 const faded = (color: string, alpha: number) => `#${alpha.toString(16).padStart(2, "0").toUpperCase()}${color.slice(1)}`
+
+/** [color], `#RRGGBB` or `#AARRGGBB`, at [share] of its opacity. */
+const dimmed = (color: string, share: number) =>
+  color.length === 9 ? faded(`#${color.slice(3)}`, Math.round(parseInt(color.slice(1, 3), 16) * share)) : faded(color, Math.round(255 * share))
 
 /**
  * One rotator, in its colour: a light beam; the heading, solid where it points, paler while it
  * turns, dragged to turn it; and the target, dashed, while it turns. Its name and bearing are in the
  * corner readout rather than on the arrow.
- * The control's own rotator is the one with no [rotator].
+ * [rotator] names whose readings it follows and whom a drag of it turns; absent, the control's own.
+ * A [dim] one is faded, casing and all, so the map reads as the picked rotator's.
  */
-function rotatorDecorations(n: number, color: string, beamWidth: number, rotator?: string): PanelSceneRotatorLayer[] {
+function rotatorDecorations(n: number, color: string, beamWidth: number, rotator?: string, dim = false): PanelSceneRotatorLayer[] {
   const half = beamWidth / 2
   const whose = rotator ? { rotator } : {}
+  const ink = (c: string) => (dim ? dimmed(c, 0.3) : c)
   return [
     ...(beamWidth > 0
       ? [
@@ -523,9 +590,9 @@ function rotatorDecorations(n: number, color: string, beamWidth: number, rotator
             az: `heading-${half}deg`,
             az2: `heading+${half}deg`,
             // Enough to read the beam over sea and land alike, with an edge to say where it ends.
-            fill: faded(color, 0x50),
-            color: faded(color, 0xcc),
-            casing: "#B3FFFFFF",
+            fill: ink(faded(color, 0x50)),
+            color: ink(faded(color, 0xcc)),
+            casing: ink("#B3FFFFFF"),
             width: 1.5,
           } as PanelSceneRotatorLayer,
         ]
@@ -536,9 +603,9 @@ function rotatorDecorations(n: number, color: string, beamWidth: number, rotator
       ...whose,
       from: { r: 0 },
       to: { az: "target", r: "rim" },
-      color,
+      color: ink(color),
       // Dashes thin enough to tell from the heading, cased so they hold up over the map.
-      casing: "#FFFFFF",
+      casing: ink("#FFFFFF"),
       dashed: true,
       width: 2.5,
       head: { width: 12, length: 12 },
@@ -550,11 +617,11 @@ function rotatorDecorations(n: number, color: string, beamWidth: number, rotator
       ...whose,
       from: { r: 0 },
       to: { az: "heading", r: "rim" },
-      color,
+      color: ink(color),
       // Where it was, paler, while the dashed target says where it is going. Opaque, so the head,
       // filled over the map, matches the shaft drawn over its casing.
-      turningColor: lighter(color, 0.5),
-      casing: "#FFFFFF",
+      turningColor: ink(lighter(color, 0.5)),
+      casing: ink("#FFFFFF"),
       width: 4.5,
       head: { width: 16, length: 16 },
       drag: "turn",
@@ -565,13 +632,15 @@ function rotatorDecorations(n: number, color: string, beamWidth: number, rotator
 
 /**
  * The map's decorations: a switched array's sectors, each rotator in its own colour, and, unless
- * the pane turns it off, the station in the call field, clicked to aim the main rotator at it.
+ * the pane turns it off, the station in the call field, clicked to aim the map's own rotator at it
+ * — the [picked] row's, else the main one. With one picked, the others fade.
  */
-export function decorationsFor(settings: Settings): PanelSceneRotatorLayer[] {
-  const rotators = [
-    ...rotatorDecorations(1, settings.color, settings.beamWidth),
-    ...settings.more.flatMap((r, i) => rotatorDecorations(i + 2, r.color, r.beamWidth, r.id)),
-  ]
+export function decorationsFor(settings: Settings, picked?: string): PanelSceneRotatorLayer[] {
+  const rows = shownOf(settings)
+  const chosen = pickedOf(rows, picked)
+  // Each names its own rotator rather than following the map's: a drag of the picked one's arrow
+  // that ends after the pick runs out still turns the rotator dragged.
+  const rotators = rows.flatMap((r) => rotatorDecorations(r.n, r.color, r.beamWidth, r.id, chosen !== undefined && r !== chosen))
   return [
     ...(settings.directions ? arrayDecorations(settings.directions).filter((d) => d.kind !== "defaults") : []),
     // Every beam before any arrow, so one rotator's beam never covers another's arrow; the station
@@ -594,8 +663,46 @@ export function viewAfter(view: View, gesture: string | undefined, value: number
   return view
 }
 
-export function createRotatorPanel(host: RotatorHost): PanelHook {
+/** Runs [run] after [ms], as `setTimeout` does, and answers what cancels it. */
+export type Later = (ms: number, run: () => unknown) => () => void
+
+const timeout: Later = (ms, run) => {
+  const id = setTimeout(run, ms)
+  return () => clearTimeout(id)
+}
+
+/** A pane's picked rotator, while it lasts, and what cancels its running out. */
+interface Pick {
+  id: string
+  cancel: () => void
+}
+
+/** The panel. A test hands in its own [later], to run a timer when it says. */
+export function createRotatorPanel(host: RotatorHost, later: Later = timeout): PanelHook {
   const rotators = async () => (await host.listEquipment()).filter((e) => e.kind === "rotator")
+  // Each placed pane's pick: an object apiece, so a pick's own expiry clears only it and not one
+  // tapped after it. Its timer is cancelled as it ends early: the bundle may hold only 16, and one
+  // past them never fires.
+  const picks = new Map<string, Pick>()
+  const drop = (key: string) => {
+    picks.get(key)?.cancel()
+    picks.delete(key)
+  }
+  // What each pane last rendered from, to draw it again once its pick runs out.
+  const rendered = new Map<string, { config: Record<string, JSONValue>; size: { width: number; height: number }; dark: boolean }>()
+  const expire = async (instanceId: string, pick: Pick) => {
+    if (picks.get(instanceId) !== pick) return
+    picks.delete(instanceId)
+    const last = rendered.get(instanceId)
+    if (!last) return
+    const content = sceneFor(settingsFrom(last.config, await rotators()), last.size, await viewOf(instanceId), last.dark)
+    if (content.kind !== "scene" || picks.has(instanceId)) return
+    // The layers and controls only: the values hold the rotators' live readings.
+    await host.updateScene(instanceId, [
+      { set: ["layers"], value: content.scene.layers as unknown as JSONValue },
+      { set: ["controls"], value: (content.scene.controls ?? []) as unknown as JSONValue },
+    ])
+  }
   // Each placed pane's view, read once from storage and written back as it changes.
   const views = new Map<string, View>()
   const viewOf = async (instanceId: string | undefined): Promise<View> => {
@@ -625,13 +732,34 @@ export function createRotatorPanel(host: RotatorHost): PanelHook {
     },
     async render(args): Promise<PanelContent> {
       const size = { width: Math.max(1, args.environment?.width ?? 300), height: Math.max(1, args.environment?.height ?? 300) }
-      return sceneFor(settingsFrom(args.config, await rotators()), size, await viewOf(args.instanceId), args.environment?.brightness === "dark")
+      const dark = args.environment?.brightness === "dark"
+      if (args.instanceId !== undefined) rendered.set(args.instanceId, { config: args.config, size, dark })
+      const settings = settingsFrom(args.config, await rotators())
+      // A rotator the settings no longer show is picked no more, rather than again should it return.
+      const key = args.instanceId ?? ""
+      const picked = picks.get(key)?.id
+      if (picked !== undefined && pickedOf(shownOf(settings), picked) === undefined) drop(key)
+      return sceneFor(settings, size, await viewOf(args.instanceId), dark, picks.get(key)?.id)
     },
     async onEvent(args): Promise<PanelSceneEventResult> {
       const { action, gesture, value, at } = args.event
       const settings = settingsFrom(args.config, await rotators())
       // Every rotator the map shows: the others have no buttons of their own.
       const shown = [...(settings.rotator ? [settings.rotator] : []), ...settings.more.map((r) => r.id)]
+      const pick = /^pick:(.+)$/.exec(action ?? "")
+      if (pick) {
+        // Tapped again, a picked rotator lets go; another, and the pick moves to it, for a while afresh.
+        const key = args.instanceId ?? ""
+        const again = picks.get(key)?.id === pick[1]
+        drop(key)
+        if (!again) {
+          const picked: Pick = { id: pick[1], cancel: () => {} }
+          // Returned, so a failed expiry is logged under this extension rather than lost.
+          picked.cancel = later(pickedFor, () => expire(key, picked))
+          picks.set(key, picked)
+        }
+        return { values: {} }
+      }
       switch (action) {
         case "connect":
         case "disconnect":
