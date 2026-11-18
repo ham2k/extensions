@@ -1,0 +1,50 @@
+{
+  "key": "ki2d-contest-live-scoreboard",
+  "name": "KI2D’s Contest Live Scoreboard",
+  "shortName": "Live Scoreboard",
+  "version": "0.1.0",
+  "api": 25,
+  "description": "Posts your contest score to Contest Online ScoreBoard every few minutes, and shows your place there with the stations around you",
+  "category": "dashboard",
+  "icon": "podium",
+  "keywords": [
+    "contest",
+    "scoreboard",
+    "live score",
+    "contestonlinescore",
+    "cosb",
+    "real-time"
+  ],
+  "hooks": [
+    "account",
+    "assistant",
+    "panel"
+  ],
+  "domains": [
+    "contestonlinescore.com"
+  ],
+  "sharedDependencies": {
+    "@ham2k/lib-callsigns": "^1.0.0",
+    "@ham2k/lib-country-files": "^1.0.0",
+    "@ham2k/lib-dxcc-data": "^1.0.0",
+    "@ham2k/lib-format-tools": "^1.0.0",
+    "@ham2k/lib-geo-tools": "^1.0.0",
+    "@ham2k/lib-operation-data": "^1.0.0",
+    "i18next": "^23.0.0",
+    "liquidjs": "^10.0.0"
+  },
+  "translations": {
+    "es": {
+      "name": "Marcador de concursos en vivo de KI2D",
+      "description": "Publica tu puntaje de concurso en Contest Online ScoreBoard cada pocos minutos y muestra tu puesto allí con las estaciones a tu alrededor",
+      "keywords": [
+        "concurso",
+        "marcador",
+        "puntaje en vivo",
+        "contestonlinescore",
+        "cosb",
+        "tiempo real"
+      ]
+    }
+  }
+}

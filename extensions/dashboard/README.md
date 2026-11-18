@@ -8,7 +8,7 @@ spectrum and waterfall with the band plan and the spots on the band, also
 pre-loaded; it draws the plan `ham2k-band-plan` (under `spots/`) gives as band
 annotations. Band Scope needs extension API 23, Band Plan 20. The `ki2d-` panels live here
 rather than being bundled into HaLo — three SVG reference panels, and a rate
-chart, a band map and a contest map drawn as the app's native panel scenes:
+chart, a band map, a contest map and a live scoreboard drawn as the app's native panel scenes:
 
 - `ki2d-weather-panel`: forecast, hourly inspection and weather icons.
 - `ki2d-solar-panel`: solar conditions, propagation, MUF and foF2 from the
@@ -38,8 +38,13 @@ chart, a band map and a contest map drawn as the app's native panel scenes:
   Needs extension API 25 (the `map` control); naming a section under a
   resting pointer takes the map's `dwell`, from API 28, which an older app
   ignores.
+- `ki2d-contest-live-scoreboard`: the station's place on Contest Online
+  ScoreBoard among as many stations around it as the pane has room for,
+  read from the board's pages, and an assistant that posts the operation's
+  score there every 2, 3 or 5 minutes. Posting needs the app to share its
+  scores (`ctx.getScores`, planned for extension API 28).
 
-The weather, solar and rate panels each offer a theme per placement —
+The weather, solar, rate and scoreboard panels each offer a theme per placement —
 Automatic, Light, Dark or Teal — from `packages/lib-panel-themes`.
 
 All of them are published to the extension catalog at

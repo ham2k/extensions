@@ -1,0 +1,23 @@
+{
+  "defaults": { "operation": { "stationCall": "N7US", "grid": "FM18" }, "config": { "board": "4" }, "height": 320 },
+  "cases": [
+    { "label": "near the top", "operation": { "stationCall": "AA3B" } },
+    { "label": "further down", "operation": { "stationCall": "K1RV" } },
+    { "label": "teal", "config": { "board": "4", "theme": "teal" } },
+    { "label": "dark theme, light app", "config": { "board": "4", "theme": "dark" } },
+    { "label": "dark app", "app": "dark" },
+    { "label": "light theme, dark app", "config": { "board": "4", "theme": "light" }, "app": "dark" },
+    { "label": "not on the board", "operation": { "stationCall": "KI2D" } },
+    { "label": "multi-op category", "config": { "board": "104" }, "operation": { "stationCall": "N3RD" } },
+    { "label": "multi-op, teal", "config": { "board": "104", "theme": "teal" }, "operation": { "stationCall": "N3RD" } },
+    { "label": "narrow", "width": 240 },
+    { "label": "short", "height": 180 },
+    { "label": "wide", "width": 640, "height": 300 },
+    { "label": "contest, no export to find its board", "config": { "board": "" }, "operation": { "uuid": "op-preview", "stationCall": "N7US", "refs": [{ "type": "cwt", "contest": true }] } },
+    { "label": "contest, board named", "operation": { "uuid": "op-preview", "stationCall": "N7US", "refs": [{ "type": "cwt", "contest": true }] } },
+    { "label": "board unreadable", "config": { "board": "https://contestonlinescore.com/scoreboard/" } },
+    { "label": "no contest", "config": { "board": "" } },
+    { "label": "no contest, teal", "config": { "board": "", "theme": "teal" } },
+    { "locale": "es" }
+  ]
+}
