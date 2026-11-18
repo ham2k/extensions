@@ -103,12 +103,13 @@ test("the scope is all the pane shows: its settings are behind the gear, with no
   ).getPanels({}, context)
   assert.deepEqual(
     descriptor.form!.map((field) => ("key" in field ? field.key : "title" in field ? field.title : field.type)),
-    // The view and the spots up front; what the scope draws and asks of the radio folded under a heading.
-    ["display", "spots", "notes", "age", "spotLevel", "plan", "Band Scope Settings", "floor", "average", "fps", "rows", "waterfallRef", "speed"],
+    // The radio, the view and the spots up front; what the scope draws and asks of the radio folded under a heading.
+    ["radio", "radioId", "display", "spots", "notes", "age", "spotLevel", "plan", "Band Scope Settings", "floor", "average", "fps", "rows", "waterfallRef", "speed"],
   )
   // Each select's default must be one of its choices, or the form opens on a blank.
   for (const field of descriptor.form!) {
-    if (field.type === "field" && field.fieldType === "select") {
+    // A list of the station's radios is the app's to fill, and starts on none picked.
+    if (field.type === "field" && field.fieldType === "select" && typeof field.options !== "string") {
       assert.ok(Array.isArray(field.options) && field.options.some((option) => option.value === field.value), `${field.key} opens on a choice`)
       assert.deepEqual(settingsFrom({ [field.key]: field.value }), settingsFrom({}), `${field.key}'s default is the panel's own`)
     }
@@ -124,6 +125,32 @@ test("the form values a pane holds draw its scope, brought into range, with blan
   assert.deepEqual(settingsFrom({ speed: "radio" }), settingsFrom({}), "the radio's own speed leaves the radio alone")
   // The waterfall reference lowers the waterfall's baseline: higher brightens, as a radio's REF does.
   assert.deepEqual([drawn({}).waterfallFloor, drawn({ waterfallRef: "6" }).waterfallFloor, drawn({ waterfallRef: 99 }).waterfallFloor], [5, -1, -25])
+})
+
+// readRadio's own spellings: none for set A's, "B" for set B's, an id for one radio.
+test("the pane shows the radio its form picks: set A's, set B's, or one of the station's by id", async () => {
+  const asked: (string | undefined)[] = []
+  const hook = createBandScope({
+    ...fakeHost(
+      () => [],
+      () => radio(),
+    ),
+    readRadio: async (id?: string) => {
+      asked.push(id)
+      // The app's answer for a radio that is not there: one with every field empty, not null.
+      return id === "-" || id === "B" ? ({ id: null } as unknown as PanelRadioState) : radio()
+    },
+  })
+  const named: (string | undefined)[] = []
+  const configs: PanelRenderArgs["config"][] = [{}, { radio: "A" }, { radio: "B" }, { radio: "pick", radioId: "ft891" }, { radio: "pick", radioId: "" }]
+  for (const config of configs) {
+    const content = await hook.render(args("picked", config), context)
+    const scope = (content as { scene: PanelScene }).scene.controls!.find((c) => c.id.endsWith("spectrum")) as { radio?: string }
+    named.push(scope.radio)
+  }
+  assert.deepEqual(asked, [undefined, undefined, "B", "ft891", "-"])
+  // Set B's with no SO2R, or a radio picked and since removed: an unnamed scope would draw set A's.
+  assert.deepEqual(named, ["k4", "k4", "B", "k4", "-"])
 })
 
 function dualRadios(deviceId = "k4-device", mainId = "k4", subId = "k4/sub"): [PanelRadioState, PanelRadioState] {

@@ -63,6 +63,8 @@ export interface Settings {
   spotLevel: number
   /** How much of the band plan is drawn. */
   plan: PlanDetail
+  /** The radio the pane shows, as `readRadio` takes it: absent for set A's, `B` for set B's, or a radio's id. */
+  radio?: string
 }
 /** What the operator dragged on one receiver's scope, kept for the session over the settings. */
 export interface RadioView {
@@ -114,6 +116,20 @@ const choices = (values: number[], label: (value: number) => string) => values.m
 
 /** The pane's form, behind its gear in Layout Setup; the app keeps each placed pane's values. */
 const form: (SettingsField | FormHeader)[] = [
+  {
+    type: "field",
+    fieldType: "select",
+    key: "radio",
+    label: "Radio",
+    value: "A",
+    options: [
+      { value: "A", label: "Set A's radio" },
+      { value: "B", label: "Set B's radio" },
+      { value: "pick", label: "A radio of the station" },
+    ],
+    description: "Set A's is the radio you log from, and set B's the second one under SO2R. Two panes on one radio each show their own span.",
+  },
+  { type: "field", fieldType: "select", key: "radioId", label: "Which radio", options: "$core.radios", visibleWhen: { field: "radio", equals: "pick" } },
   {
     type: "field",
     fieldType: "select",
@@ -227,7 +243,15 @@ export function settingsFrom(config: Record<string, JSONValue>): Settings {
     age: [10, 30, 60].includes(numberIn(config.age) ?? 0) ? numberIn(config.age)! : defaultSettings.age,
     spotLevel: clamp(numberIn(config.spotLevel) ?? defaultSettings.spotLevel, -60, 120),
     plan: config.plan === "none" || config.plan === "edges" || config.plan === "all" ? config.plan : defaultSettings.plan,
+    ...radioFrom(config),
   }
+}
+
+/** The radio the form picks; one picked from the station and then removed from it shows no radio rather than set A's. */
+function radioFrom(config: Record<string, JSONValue>): { radio?: string } {
+  if (config.radio === "B") return { radio: "B" }
+  if (config.radio === "pick") return { radio: typeof config.radioId === "string" && config.radioId ? config.radioId : "-" }
+  return {}
 }
 
 /** A sketch of the passband when the radio does not report its filter's edges. */
@@ -267,7 +291,8 @@ function radioScene(
     id: key("spectrum"),
     label: multiple ? `${title} band scope` : "Band scope",
     kind: "bandScope",
-    ...(radio?.id ? { radio: radio.id } : {}),
+    // A radio the form picked that is not there is named still: left unnamed, the scope would draw set A's.
+    ...(radio?.id ? { radio: radio.id } : settings.radio ? { radio: settings.radio } : {}),
     opacity: visible ? 1 : 0,
     event: event("scope"),
     display: settings.display,
@@ -559,7 +584,8 @@ export function createBandScope(host: BandScopeHost): PanelHook {
       ]
     },
     async render(args, ctx): Promise<PanelContent> {
-      const radio = await host.readRadio()
+      const settings = settingsFrom(args.config)
+      const radio = await host.readRadio(settings.radio)
       const available = radio?.deviceId ? await host.listRadios() : []
       const view = viewFor(args.instanceId)
       if (view.defaultId !== radio?.id) {
@@ -568,7 +594,6 @@ export function createBandScope(host: BandScopeHost): PanelHook {
       }
       const shown = receivers(radio, available)
       view.endpoints = new Set(shown.map((receiver) => receiver?.id ?? ""))
-      const settings = settingsFrom(args.config)
       for (const receiver of shown) await sendSettings(host, view, receiver, settings)
       // Only the receivers shown; each of two shown together has half the pane, under the picker.
       // The selection as the scene reads it: one no longer shown falls back to the radio's own.
