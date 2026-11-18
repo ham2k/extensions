@@ -97,6 +97,120 @@ async function send(entry, control, extra = {}) {
   for (const fresh of answer.entries ?? []) document.getElementById(figureId(fresh))?.replaceWith(build(fresh))
 }
 const figureId = entry => `case-${entry.index}-${entry.hook}-${entry.panel}`
+// A stand-in for the app's `map` control: Web Mercator at `zoom.initial` round `home`, Natural Earth's
+// land and its borders and lines between states and provinces (fetched once, the sea alone without them), a
+// graticule, and the map's lines and markers as they look at that zoom. The
+// app draws its own world, so this shows where things land, not how the map looks.
+const naturalShapes = name => fetch(`https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@v5.1.2/geojson/${name}.geojson`)
+  .then(r => r.json()).then(g => g.features.flatMap(f => f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates)).catch(() => [])
+/// The land, and the large lakes cut out of it (the Great Lakes, Winnipeg, Great Slave…), as the app's map draws them.
+let landShapes
+const land = () => (landShapes ??= Promise.all([naturalShapes('ne_110m_land'), naturalShapes('ne_50m_lakes')])
+  .then(([ground, lakes]) => ground.map(rings => ({ rings, lake: false })).concat(lakes.map(rings => ({ rings, lake: true })))))
+/// Natural Earth's lines between countries, and between states and provinces, which the app draws as the view closes in.
+const naturalLines = name => fetch(`https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@v5.1.2/geojson/${name}.geojson`)
+  .then(r => r.json()).then(g => g.features.flatMap(f => f.geometry.type === 'LineString' ? [f.geometry.coordinates] : f.geometry.coordinates)).catch(() => [])
+let borderLines, divisionLines
+const borders = () => (borderLines ??= naturalLines('ne_50m_admin_0_boundary_lines_land'))
+const divisions = () => (divisionLines ??= naturalLines('ne_50m_admin_1_states_provinces_lines'))
+const argb = c => {
+  const m = /^#([0-9a-f]{2})?([0-9a-f]{6})$/i.exec(c ?? '')
+  return m ? `rgba(${parseInt(m[2].slice(0, 2), 16)},${parseInt(m[2].slice(2, 4), 16)},${parseInt(m[2].slice(4), 16)},${m[1] ? (parseInt(m[1], 16) / 255).toFixed(3) : 1})` : c
+}
+/// A zoom-stop value (`[[zoom, value], …]`) at a zoom, straight between the stops; a plain value as it is.
+const atZoom = (v, z) => {
+  if (!Array.isArray(v)) return v
+  const i = v.findIndex(([at]) => at > z)
+  if (i === 0) return v[0][1]
+  if (i < 0) return v.at(-1)[1]
+  const [[z0, a], [z1, b]] = [v[i - 1], v[i]]
+  return a + (b - a) * (z - z0) / (z1 - z0)
+}
+/// The map control as the app draws it, near enough: Web Mercator at its `zoom.initial` around its
+/// `home`, the world fitting the pane's tighter side at zoom 0 and repeating east and west.
+function mapStandIn(c, { shapes = [], lines = [], countries = [] } = {}, dark) {
+  const w = c.width, h = c.height, zoom = typeof c.zoom?.initial === 'number' ? c.zoom.initial : 0
+  const size = Math.min(w, h) * 2 ** zoom, lat0 = c.home?.lat ?? 0, lon0 = c.home?.lon ?? 0
+  const merc = lat => Math.log(Math.tan(Math.PI / 4 + Math.max(-85.05, Math.min(85.05, lat)) * Math.PI / 360))
+  const X = lon => (lon + 180) / 360 * size, Y = lat => size / 2 - merc(lat) / Math.PI * size / 2
+  const x0 = w / 2 - X(lon0), y0 = h / 2 - Y(lat0)
+  const pt = ([lon, lat], k) => `${(x0 + k * size + X(lon)).toFixed(1)},${(y0 + Y(lat)).toFixed(1)}`
+  const copies = [-2, -1, 0, 1, 2].filter(k => x0 + k * size < w && x0 + (k + 1) * size > 0)
+  const sea = dark ? '#1d2a33' : '#cfe3ef', ground = dark ? '#3a4440' : '#eef0e6', grat = dark ? '#ffffff18' : '#00000014'
+  const step = zoom >= 3 ? 10 : 30, gratColor = c.map?.graticule ? argb(c.map.graticule) : grat
+  let svg = `<rect width="${w}" height="${h}" fill="${sea}"/>`
+  for (const k of copies) {
+    for (const { rings, lake } of shapes) svg += `<path fill="${lake ? sea : argb(c.map?.land) ?? ground}" stroke="${argb(c.map?.coast) ?? (dark ? '#55605a' : '#b9bfae')}" stroke-width=".8" d="${rings.map(r => 'M' + r.map(p => pt(p, k)).join('L') + 'Z').join('')}"/>`
+    for (let lon = -180; lon <= 180; lon += step) svg += `<path stroke="${gratColor}" d="M${pt([lon, 85], k)}L${pt([lon, -85], k)}"/>`
+    for (let lat = -80; lat <= 80; lat += step) svg += `<path stroke="${gratColor}" d="M${pt([-180, lat], k)}L${pt([180, lat], k)}"/>`
+  }
+  // Images laid on the land, under the outlines (and the night, which this draws none of), their rows
+  // even in latitude: drawn in strips, each stretched to where its latitudes fall in Web Mercator.
+  for (const img of c.images ?? []) {
+    const b = img.bounds
+    if (!b) continue
+    const span = b.east - b.west, strips = 48
+    for (const k of copies) {
+      for (let i = 0; i < strips; i++) {
+        const top = b.north - ((b.north - b.south) * i) / strips, bottom = b.north - ((b.north - b.south) * (i + 1)) / strips
+        const [x, y0] = pt([b.west, top], k).split(',').map(Number), [x1, y1] = pt([b.east, bottom], k).split(',').map(Number)
+        svg += `<svg x="${x}" y="${y0}" width="${x1 - x}" height="${Math.max(0.1, y1 - y0) + 0.5}" viewBox="0 ${b.north - top} ${span} ${top - bottom}" preserveAspectRatio="none" opacity="${img.opacity ?? 1}"><image href="${img.image}" width="${span}" height="${b.north - b.south}" preserveAspectRatio="none" style="image-rendering:pixelated"/></svg>`
+      }
+    }
+  }
+  // As the app: divisions fading in from 2.5 times the whole world's scale to 4, half a pixel at 60%,
+  // or as opaque as the map's own colour for them; borders over them, from half a pixel growing as
+  // the view closes in.
+  const path = ls => ls.map(l => 'M' + l.map(p => pt(p, 0)).join('L')).join('')
+  const shown = Math.max(0, Math.min(1, (2 ** zoom - 2.5) / 1.5))
+  const border = argb(c.map?.borders) ?? (dark ? 'rgba(44,92,104,.8)' : 'rgba(160,82,45,.9)')
+  const division = c.map?.divisions ? argb(c.map.divisions).replace(/,([\d.]+)\)$/, (_, a) => `,${(a * shown).toFixed(3)})`) : `rgba(${dark ? '143,179,192' : '160,82,45'},${(shown * 0.6).toFixed(2)})`
+  for (const k of copies) {
+    if (shown > 0) svg += `<path fill="none" stroke="${division}" stroke-width=".5" transform="translate(${k * size} 0)" d="${path(lines)}"/>`
+    svg += `<path fill="none" stroke="${border}" stroke-width="${(0.5 + Math.max(0, 2 ** zoom - 2) * 0.15).toFixed(2)}" transform="translate(${k * size} 0)" d="${path(countries)}"/>`
+  }
+  const styles = c.styles ?? {}
+  // Circles: the places `km` from `at` along great circles, broken where they cross the antimeridian;
+  // a label at its north, in miles or kilometers.
+  const rad = Math.PI / 180, label = []
+  for (const circle of c.circles ?? []) {
+    const look = { ...styles[circle.style], ...circle }, width = atZoom(look.width, zoom) ?? 1.5
+    const at = typeof look.at === 'string' ? c.markers?.find(m => m.id === look.at) : look.at
+    if (!at || width <= 0) continue
+    const d = look.km / 6371.0088, [la, lo] = [at.lat * rad, at.lon * rad]
+    const ring = Array.from({ length: 181 }, (_, i) => {
+      const b = i * 2 * rad, lat = Math.asin(Math.sin(la) * Math.cos(d) + Math.cos(la) * Math.sin(d) * Math.cos(b))
+      const lon = lo + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(la), Math.cos(d) - Math.sin(la) * Math.sin(lat))
+      return [((lon / rad + 540) % 360) - 180, lat / rad]
+    })
+    for (const k of copies) {
+      const d2 = ring.map((p, i) => (i && Math.abs(p[0] - ring[i - 1][0]) < 180 ? 'L' : 'M') + pt(p, k)).join('')
+      svg += `<path fill="${argb(look.fill) ?? 'none'}" stroke="${argb(look.color) ?? '#000'}" stroke-width="${width}"${look.dashed ? ` stroke-dasharray="${width * 4} ${width * 3}"` : ''} d="${d2}"/>`
+      if (look.label) {
+        const l = typeof look.label === 'object' ? look.label : {}, unit = l.unit ?? 'km'
+        const text = typeof look.label === 'string' ? look.label : l.text ?? `${Math.round(unit === 'mi' ? look.km / 1.609344 : look.km).toLocaleString()} ${unit}`
+        const [x, y] = pt(ring[0], k).split(',')
+        label.push(`<text x="${x}" y="${y}" dy=".35em" text-anchor="middle" font-size="${l.size ?? 11}" fill="${argb(l.color) ?? argb(look.color)}" stroke="${sea}" stroke-width="3" paint-order="stroke" font-family="Roboto, sans-serif">${text}</text>`)
+      }
+    }
+  }
+  for (const l of c.lines ?? []) {
+    const look = { ...styles[l.style], ...l }, width = atZoom(look.width, zoom) ?? 1.5
+    const places = (look.points ?? [look.from, look.to]).map(p => typeof p === 'string' ? c.markers?.find(m => m.id === p) : p).filter(Boolean)
+    if (width <= 0 || places.length < 2) continue
+    for (const k of copies) {
+      svg += `<path fill="none" stroke="${argb(look.color) ?? '#000'}" stroke-width="${width}"${look.dashed ? ` stroke-dasharray="${(width * 4).toFixed(1)} ${(width * 3).toFixed(1)}"` : ''} d="M${places.map(p => pt([p.lon, p.lat], k)).join('L')}${look.closed ? 'Z' : ''}"/>`
+    }
+  }
+  for (const m of c.markers ?? []) {
+    const look = { ...styles[m.style], ...m }, r = atZoom(look.radius, zoom) ?? 4
+    for (const k of copies) {
+      const [x, y] = pt([m.lon, m.lat], k).split(',')
+      svg += `<circle cx="${x}" cy="${y}" r="${r}" fill="${argb(look.fill) ?? 'none'}" stroke="${argb(look.color) ?? 'none'}" stroke-width="${atZoom(look.width, zoom) ?? 1}"/>`
+    }
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" style="display:block">${svg}${label.join('')}</svg>`
+}
 function build(entry) {
   const fig = document.createElement('figure'), cap = document.createElement('figcaption')
   fig.id = figureId(entry)
@@ -182,7 +296,10 @@ function build(entry) {
     // A zoom strip is drawn by nothing and takes no clicks: the scroller watches for drags on it.
     if (el._zoom) el.style.pointerEvents = 'none'
     if (fixed && overlay !== pane && el.classList.contains('control')) el.style.pointerEvents = 'auto'
-    ;(fixed ? overlay : content).append(el)
+    // A control `after` a layer paints right over it, under the layers that follow.
+    const before = el._after && [...content.children].find(k => k._layer?.id === el._after)
+    if (before && !fixed) before.after(el)
+    else (fixed ? overlay : content).append(el)
   }
   for (const l of scene.layers) {
     const el = document.createElement('div'); el.className = 'layer'; el._layer = l
@@ -249,11 +366,16 @@ function build(entry) {
         const r = el.getBoundingClientRect()
         send(entry, c, c.tapAt ? { value: r.height > r.width ? (ev.clientY - r.top) / r.height : (ev.clientX - r.left) / r.width } : {})
       })
+    } else if (c.kind === 'map') {
+      const dark = entry.app === 'dark'
+      el.innerHTML = mapStandIn(c, {}, dark)
+      Promise.all([land(), divisions(), borders()]).then(([shapes, lines, countries]) => { el.innerHTML = mapStandIn(c, { shapes, lines, countries }, dark) })
     } else if (c.kind.startsWith('native')) {
       el.classList.add('native'); el.textContent = `${c.kind} ${c.label}`
       if (c.event) el.addEventListener('click', () => send(entry, c))
     }
     el._zoom = c.kind === 'zoom'
+    el._after = c.after
     place(el, c.fixed)
   }
   // A scroll that lands on a button goes to the topmost knob beneath it, as in the host.

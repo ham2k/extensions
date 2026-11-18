@@ -8,7 +8,7 @@ spectrum and waterfall with the band plan and the spots on the band, also
 pre-loaded; it draws the plan `ham2k-band-plan` (under `spots/`) gives as band
 annotations. Band Scope needs extension API 23, Band Plan 20. The `ki2d-` panels live here
 rather than being bundled into HaLo — three SVG reference panels, and a rate
-chart and a band map drawn as the app's native panel scenes:
+chart, a band map and a contest map drawn as the app's native panel scenes:
 
 - `ki2d-weather-panel`: forecast, hourly inspection and weather icons.
 - `ki2d-solar-panel`: solar conditions, propagation, MUF and foF2 from the
@@ -27,6 +27,17 @@ chart and a band map drawn as the app's native panel scenes:
   zoomed and scrolled natively; a click puts the station into the logging
   fields, and a click on the scope tunes the radio at the app's own step.
   Needs extension API 20 (Ham2K Logger with band annotations).
+- `ki2d-contest-map`: the last hour's contacts on the station's band, a dot
+  apiece on the app's `map` control, fading with age, the newest larger, a
+  colour for each band, and a smaller dot for each spotted station not yet
+  worked. Under SO2R, Radio B's band too. The bands come from each radio's
+  dial (`requiresRadioRead`), or with no radio from the logging fields. In
+  an ARRL Sweepstakes operation it frames the sections and shades the worked
+  ones with a picture it draws itself (`src/shading.ts`), from outlines that
+  `tools/arrl-sections.mjs` builds out of Census counties and Natural Earth.
+  Needs extension API 25 (the `map` control); naming a section under a
+  resting pointer takes the map's `dwell`, from API 28, which an older app
+  ignores.
 
 The weather, solar and rate panels each offer a theme per placement —
 Automatic, Light, Dark or Teal — from `packages/lib-panel-themes`.

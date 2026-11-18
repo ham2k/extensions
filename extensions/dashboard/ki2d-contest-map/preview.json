@@ -1,0 +1,11 @@
+{
+  "defaults": { "operation": { "uuid": "preview-op", "grid": "FN30" }, "contacts": { "minutes": 90, "rate": 80 } },
+  "cases": [
+    { "label": "20m, one radio", "width": 900, "height": 480 },
+    { "label": "SO2R: A on 20m, B on 40m", "width": 900, "height": 480, "radioB": { "frequencyHz": 7025000, "mode": "CW" }, "contacts": { "minutes": 90, "rate": 120, "bands": ["20m", "40m"] } },
+    { "label": "SO2R, both on 20m", "width": 600, "height": 360, "radioB": { "frequencyHz": 14250000 }, "app": "dark" },
+    { "label": "no radio, logging fields on 40m", "radio": { "frequencyHz": null }, "qso": { "band": "40m" }, "contacts": { "minutes": 60, "rate": 60, "bands": ["20m", "40m"] } },
+    { "label": "empty log", "contacts": null, "qsos": [] },
+    { "label": "spanish", "locale": "es" }
+  ]
+}

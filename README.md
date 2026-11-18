@@ -23,7 +23,7 @@ webhooks, and HamAlert's alerts.
 
 ## What is here
 
-116 extensions, grouped by the manifest's own `category`:
+117 extensions, grouped by the manifest's own `category`:
 
 | directory | manifest `category` | n | of which |
 |---|---|--:|---|
@@ -32,15 +32,15 @@ webhooks, and HamAlert's alerts.
 | `extensions/awards/` | `award` | 2 | 2 new award checklists |
 | `extensions/lookups/` | `lookup` | 8 | 5 ported built-ins, 2 offline callsign sets, Partial Calls |
 | `extensions/spots/` | `spots` | 7 | 1 ported built-in, 6 new spotting sources |
-| `extensions/dashboard/` | `dashboard` | 6 | 1 ported built-in, 2 new panels, 3 SVG reference panels |
-| **total** | | **116** | **39 ported, 74 new, 3 SVG reference panels** |
+| `extensions/dashboard/` | `dashboard` | 7 | 1 ported built-in, 3 new panels, 3 SVG reference panels |
+| **total** | | **117** | **39 ported, 75 new, 3 SVG reference panels** |
 
-The 39 are the app's own extensions, ported one for one. The 74 are new:
+The 39 are the app's own extensions, ported one for one. The 75 are new:
 three activity programs, four contests and events the app has never shipped
 separately, five state-park
 events, six spotting sources, two award programs, Worked All States and
-DXCC checklists, two offline callsign sets, Partial Calls, a rate chart and a
-band map:
+DXCC checklists, two offline callsign sets, Partial Calls, a rate chart, a
+band map and a contest map:
 
 - **`ham2k-hota`** — [History on the Air](https://cqhota.app), historic sites
   over 200 years old, written for the catalog from cqhota.app's own

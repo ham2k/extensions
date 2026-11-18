@@ -27,15 +27,20 @@
 //   }
 //
 // A case may set `panel`, `config`, `operation`, `qso`, `qsos` (what
-// `ctx.getQsos` answers), `contacts` (a run of QSOs ending now, generated
-// fresh on each render: `{"minutes": 120, "rate": 60, "operators": ["KI2D"]}`), `readings` (the live radio values a scene with
+// `ctx.getQsos` answers; an entry's `ago`, in minutes before now, stands in for its
+// `startAtMillis`), `events` (panel events, as `{"action", "gesture", "value", "at"}`, sent to the
+// panel's `onEvent` before it renders, as an operator's zoom and pan would be), `contacts` (a run of QSOs ending now, generated
+// fresh on each render: `{"minutes": 120, "rate": 60, "operators": ["KI2D"], "bands": ["20m", "40m"]}`, each
+// with a station and its grid), `readings` (the live radio values a scene with
 // `radio` is fed, as `{"radio.transmitting": 1, "radio.swr": 1.4}`), `radio` (fields over the demo
-// radio's, as `{"frequencyHz": 7030000, "mode": "CW"}`), `spots` (what `ctx.getSpots` answers: a list
-// of `{"call", "freq" (kHz), "mode", "age" (minutes), "worked", "isSelf", "notices"}`, or
+// radio's, as `{"frequencyHz": 7030000, "mode": "CW"}`), `radioB` (SO2R's Radio B, the same way; none
+// without it), `spots` (what `ctx.getSpots` answers: a list
+// of `{"call", "freq" (kHz), "mode", "age" (minutes), "worked", "isSelf", "notices", "their"}`, or
 // `{"generate": 40, "band": "20m", "seed": 1}` for a made-up crowd), `annotations` (what
 // `ctx.getBandAnnotations` answers, as band annotations with `fromHz`, `toHz`, `type`, `label`…), `app`
 // (the app's brightness), `locale`, `width`, `height` and `label`. SIZES (`360x520,220x150`) and LOCALES (`en,es`) in the
-// environment replace the default grid.
+// environment replace the default grid, and PREVIEW_CASES names a JSON file whose `cases` go
+// first, for a look at data that stays out of the repository (a real log, say).
 
 import { spawn } from "node:child_process"
 import { createHash } from "node:crypto"
@@ -124,7 +129,8 @@ async function loadExtension() {
       case "getLocation": return null
       case "getSettings": return {}
       case "listRadios": return [radio]
-      case "readRadio": return radio
+      // SO2R's Radio B is the case's `radioB`, and while it has none, a set with every field empty, as the host's.
+      case "readRadio": return params.id === "B" ? (current.radioB ? { ...structuredClone(demoRadio), id: "demo-b", set: "B", ...current.radioB } : { id: null, set: "B", frequencyHz: null, mode: null }) : radio
       case "setRadio": case "tuneRadio":
         for (const key of ["frequencyHz", "mode", "powerWatts", "tuner", "passband"]) if (params[key] !== undefined) radio[key] = params[key]
         return { accepted: true, state: radio }
@@ -178,7 +184,11 @@ async function readCases() {
   for (const locale of (process.env.LOCALES ?? "en").split(",")) {
     for (const [width, height] of sizes) for (const app of ["light", "dark"]) grid.push({ width, height, app, locale })
   }
-  return [...grid, ...(file.cases ?? [])].map(c => ({
+  let extra = {}
+  if (process.env.PREVIEW_CASES) {
+    try { extra = JSON.parse(await readFile(process.env.PREVIEW_CASES, "utf8")) } catch (error) { console.log(`ERROR PREVIEW_CASES: ${error.message}`) }
+  }
+  return [...(extra.cases ?? []), ...grid, ...(file.cases ?? [])].map(c => ({
     width: 360, height: 520, app: "light", locale: "en", ...defaults, ...c,
     label: c.label ?? Object.entries(c).filter(([k]) => !["width", "height", "app", "locale"].includes(k)).map(([k, v]) => `${k} ${JSON.stringify(v)}`).join(" "),
   }))
@@ -200,11 +210,21 @@ const radioDial = r => {
   return { values, strings: { "radio.mode": r.mode ?? "", "radio.tuner": live ? r.tuner ?? "" : "", "radio.status": r.status } }
 }
 
-/// A run of contacts ending now at about `rate` an hour, its pace swinging so a chart has some shape.
-function contactRun({ minutes = 120, rate = 60, operators = [] }, now) {
+/// Stations for a run of contacts, each with a grid: a spread over North America, Europe and beyond.
+const CONTACT_STATIONS = [
+  ["K1ZZ", "FN31"], ["W2XYZ", "FN20"], ["N4AF", "EM95"], ["K5ZD", "EM12"], ["W6YX", "CM87"], ["K7RL", "CN87"], ["W9RE", "EN61"], ["K0RF", "DM79"],
+  ["VE3EJ", "FN03"], ["VE7SV", "CN89"], ["XE1B", "EK09"], ["KP4AA", "FK68"], ["PY2AA", "GG66"], ["LU1HF", "GF05"], ["CE3AA", "FF46"],
+  ["G4BUO", "IO91"], ["DL1AA", "JO62"], ["F5IN", "JN18"], ["EA3AA", "JN11"], ["I2WIJ", "JN45"], ["OH2BH", "KP20"], ["SP9AA", "KN09"], ["UA3AB", "KO85"],
+  ["JA1ABC", "PM95"], ["VK2AA", "QF56"], ["ZS6AA", "KG44"], ["5B4AA", "KM64"], ["4X1AA", "KM72"], ["TF3AA", "HP94"], ["EI7AA", "IO51"],
+]
+
+/// A run of contacts ending now at about `rate` an hour, its pace swinging so a chart has some shape;
+/// each with a station of its own and its grid, on `bands` in turn.
+function contactRun({ minutes = 120, rate = 60, operators = [], bands = ["20m"] }, now) {
   const qsos = []
   for (let t = now - minutes * 60000, i = 0; t <= now; i++) {
-    qsos.push({ startAtMillis: Math.round(t), band: "20m", our: operators.length ? { operatorCall: operators[i % operators.length] } : {} })
+    const [call, grid] = CONTACT_STATIONS[(i * 7) % CONTACT_STATIONS.length]
+    qsos.push({ startAtMillis: Math.round(t), band: bands[i % bands.length], their: { call, grid }, our: operators.length ? { operatorCall: operators[i % operators.length] } : {} })
     t += 3600000 / (rate * (1 + .6 * Math.sin(i / 9)))
   }
   return qsos
@@ -239,7 +259,7 @@ function boardFor(c, now, options = {}) {
   const bands = [options.band ?? []].flat(), modes = [options.mode ?? []].flat()
   return listed
     .map(s => ({
-      their: { call: s.call }, freq: s.freq, band: bandForFrequency(s.freq), mode: s.mode, refs: s.refs, hookKey: s.source ?? "pota",
+      their: { call: s.call, ...s.their }, freq: s.freq, band: bandForFrequency(s.freq), mode: s.mode, refs: s.refs, hookKey: s.source ?? "pota",
       spot: { timeInMillis: now - (s.age ?? 0) * 60000, source: s.source ?? "pota" },
       annotations: { worked: !!s.worked, isSelf: !!s.isSelf, notices: s.notices ?? [] },
       display: s.display ?? { icon: "radio-tower" },
@@ -254,7 +274,7 @@ function argsFor(c, index, panelKey) {
     version: 1, width: c.width, height: c.height, safeInsets: { left: 0, top: 0, right: 0, bottom: 0 },
     brightness: c.app, colors: colors[c.app], typography, locale: c.locale, textDirection: "ltr", devicePixelRatio: 2, reducedMotion: false, highContrast: false,
   }
-  const qsos = c.contacts ? contactRun(c.contacts, now) : c.qsos ?? []
+  const qsos = c.contacts ? contactRun(c.contacts, now) : (c.qsos ?? []).map(({ ago, ...q }) => (ago == null ? q : { ...q, startAtMillis: Math.round(now - ago * 60000) }))
   const args = { environment, clock: { nowMillis: now, realNowMillis: now }, instanceId: `case-${index}`, panelKey, operation: c.operation ?? {}, qso: c.qso, qsoCount: qsos.length, config: c.config ?? {}, reason: "preview" }
   const ctx = { online: true, locale: c.locale, distanceUnits: "kilometers", getQsos: async () => qsos, getSpots: async options => boardFor(c, now, options),
     getBandAnnotations: async ({ band }) => (c.annotations ?? []).map(a => ({ source: "user", importance: "primary", band: bandForFrequency(a.fromHz / 1000), ...a })).filter(a => a.band === band) }
@@ -270,6 +290,9 @@ async function renderCase(c, index) {
     try { descriptors = await hook.getPanels({}, ctx) } catch (error) { entries.push({ ...c, index, panel: key, error: String(error?.stack ?? error) }); continue }
     for (const descriptor of descriptors.filter(d => !c.panel || d.key === c.panel)) {
       try {
+        for (const [i, event] of (hook.onEvent ? c.events ?? [] : []).entries()) {
+          await hook.onEvent({ ...args, panelKey: descriptor.key, event: { phase: "commit", sequence: i, ...event } }, ctx)
+        }
         const result = await hook.render({ ...args, panelKey: descriptor.key }, ctx)
         // The host feeds a scene that asks for the radio its live readings, with no render between.
         if (result?.scene?.radio) {
