@@ -112,6 +112,16 @@ export function historyFor(call: string, mode: JSONValue | undefined): { section
   return undefined
 }
 
+/// The section a station is likely in, before any of its exchange is
+/// copied: the section its call info names, the one it sent in an earlier
+/// running ([historyFor], this weekend's [mode] first), the lookup's guess of
+/// one, or its state where that is a section on its own. '' for none.
+export function likelySection(their: Record<string, JSONValue>, mode: JSONValue | undefined): string {
+  const guess = (their.guess as Record<string, JSONValue> | undefined) ?? {}
+  const call = typeof their.call === 'string' ? their.call : ''
+  return normalizeSection(their.arrlSection) || historyFor(call, mode)?.section || normalizeSection(guess.arrlSection) || lookupSection(their)
+}
+
 /// What the lookup's answer is labelled with, beside each field it fills. Not
 /// translated: the app compares a contact's stored sources with a fresh
 /// lookup's by this label.

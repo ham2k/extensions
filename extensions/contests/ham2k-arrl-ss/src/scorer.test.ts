@@ -11,7 +11,8 @@ import assert from "node:assert/strict"
 
 import type { JSONValue } from "@ham2k/extension-sdk"
 
-import { SSScorer, fmtDuration } from "./scorer.ts"
+import { SSScorer, fmtDuration, scoringHook } from "./scorer.ts"
+import { loadHistory, parseHistory, removeHistory } from "./history.ts"
 
 const ctx = { online: false, locale: 'en' } as never
 const operation = { uuid: 'op', stationCall: 'N0DEV' }
@@ -196,4 +197,65 @@ test("the short summary is the sections and the score, and a day has none", () =
 test("durations read as hours and minutes", () => {
   assert.equal(fmtDuration(0), '0h 00m')
   assert.equal(fmtDuration(18 * 3600000 + 5 * 60000 + 59000), '18h 05m')
+})
+
+test("a spot or a call not yet copied is a new section by the section it is likely in, which scores nothing", async (t) => {
+  t.after(() => removeHistory('CW'))
+  loadHistory('CW', parseHistory('!!Order!!,Call,Sect,CK\nW9JJ,IL,79\nK9AB,WI,80\nK2LE,ENY,72\n'))
+  const log = [{ ...qso('W1XX', 0, 'IL'), uuid: 'logged-1' }]
+  const scoring = scoringHook()
+  const logCtx = { ...(ctx as object), getQsos: async () => log } as never
+  const spot = (call: string, their: Record<string, JSONValue> = {}) => ({ their: { call, ...their }, band: '20m', mode: 'CW', refs: [] })
+  const verdicts = (await scoring.scoreCandidates!(
+    {
+      operation,
+      ref: cwRef,
+      candidates: [
+        // Sections from the history file: IL is worked, WI is not.
+        { key: 'il', qso: spot('W9JJ') },
+        { key: 'wi', qso: spot('K9AB') },
+        // Not in the file: the call info's section, then a state that is one.
+        { key: 'named', qso: spot('N0ABC', { arrlSection: 'co' }) },
+        { key: 'guessed', qso: spot('N0ABD', { guess: { arrlSection: 'IL' } }) },
+        { key: 'state', qso: spot('N0ABE', { guess: { state: 'OH' } }) },
+        // Nothing to go on, a split state, and a station already worked.
+        { key: 'unknown', qso: spot('N0ABF') },
+        { key: 'split', qso: spot('N0ABG', { guess: { state: 'CA' } }) },
+        { key: 'worked', qso: spot('W1XX') },
+      ],
+    } as never,
+    logCtx,
+  )) as Record<string, { notices: string[]; dupe?: boolean }>
+  const flagged = Object.entries(verdicts).filter(([, v]) => v.notices.includes('newMult')).map(([key]) => key)
+  assert.deepEqual(flagged, ['wi', 'named', 'state'])
+  assert.equal(verdicts.worked.dupe, true)
+
+  // Once a section is copied, it decides: ENY copied for a station the file
+  // puts in WI is a new section, and IL copied is not.
+  const copied = (section: string) => ({ ...spot('K9AB'), refs: [{ type: 'arrl-ss', theirSection: section }] })
+  const live = (q: Record<string, JSONValue>) => scoring.scoreQso!({ operation, ref: cwRef, qso: q } as never, logCtx) as Promise<{ notices: string[] }>
+  assert.deepEqual((await live(spot('K9AB'))).notices, ['newMult'])
+  assert.deepEqual((await live(copied('IL'))).notices, [])
+  // Until the section is copied the likely one stands, whatever else is in:
+  // a serial typed, or a check the app prefilled from the history file, which
+  // gives a portable call its check and not its home section.
+  assert.deepEqual((await live({ ...spot('K9AB'), refs: [{ type: 'arrl-ss', theirSerial: '12', theirPrecedence: 'A' }] })).notices, ['newMult'])
+  const portable = { ...spot('K2LE/9', { guess: { state: 'OH' } }), refs: [{ type: 'arrl-ss', theirCheck: '72' }] }
+  assert.deepEqual((await live(portable)).notices, ['newMult'])
+  // A section typed that is none still decides: nothing inferred.
+  assert.deepEqual((await live(copied('XX'))).notices, [])
+
+  // A contact logged with nothing of its exchange gets no inferred notice, and
+  // the section it is likely in is no multiplier.
+  const logged = await scoring.scoreQsos({ operation, ref: cwRef, qsos: [...log, { ...spot('K9AB'), uuid: 'logged-2', startAtMillis: START + MINUTE }] } as never, ctx)
+  assert.equal(logged.qsoScores['logged-2'].notices, undefined)
+  assert.equal(logged.qsoScores['logged-2'].inferred, undefined)
+  assert.equal(logged.qsoScores['logged-2'].value, 2)
+  assert.equal((logged.operationSummary['arrl-ss'] as { mults?: number }).mults, 1)
+})
+
+test("the scorer the app runs answers only the calls scoringHook accounts for", () => {
+  // scoringHook drops inferred notices from scoreQsos alone; the other two
+  // pass no marker on. A call the SDK adds would get the raw verdicts.
+  assert.deepEqual(Object.keys(scoringHook()).sort(), ['scope', 'scoreCandidates', 'scoreQso', 'scoreQsos'])
 })

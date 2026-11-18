@@ -17,14 +17,18 @@
 import { fmtInteger } from "@ham2k/lib-format-tools"
 import { parseCallsign } from "@ham2k/lib-callsigns"
 import type { ContestScorer, HookContext, JSONValue, QsoScoreVerdict } from "@ham2k/extension-sdk"
-import { contestArithmetic, contestSummary } from "@ham2k/extension-sdk"
+import { contestArithmetic, contestScorer, contestSummary } from "@ham2k/extension-sdk"
 import { bandBreakdown, sectionsChecklist } from "@ham2k/lib-contest-summary"
 
 import { tFor } from "./i18n.ts"
 import { normalizeCheck, normalizePrecedence } from "./entry.ts"
 import { isWVE, normalizeSection } from "./exchange.ts"
+import { likelySection } from "./history.ts"
 
 export const TYPE = 'arrl-ss'
+
+/// The four parts of their exchange, as the contest ref holds them.
+const EXCHANGE_PARTS = ['theirSerial', 'theirPrecedence', 'theirCheck', 'theirSection'] as const
 
 /// "Use only the 1.8, 3.5, 7, 14, 21, and 28 MHz bands."
 export const VALID_BANDS = ['160m', '80m', '40m', '20m', '15m', '10m']
@@ -147,20 +151,24 @@ export const SSScorer: ContestScorer<SSScoresheet> = {
       }
       sheet.sections[section] = (sheet.sections[section] ?? 0) + 1
       score.section = section
+    } else if (String(contestRef?.theirSection ?? '').trim() === '') {
+      // No section copied yet: a spot, or a call being copied. The section it
+      // is likely in says whether working it is a new one until theirs is in,
+      // as a notice only: it adds no multiplier, and `inferred` marks it for
+      // [scoringHook] to drop from the logged contacts' verdicts.
+      const likely = likelySection(their, ref?.mode)
+      if (likely && sheet.sections[likely] === undefined) {
+        score.notices = ['newMult']
+        score.inferred = true
+      }
     }
     // A part not yet copied holds the contact back, named by its field, while
     // the station is still there to ask. One that is not what Sweepstakes sends
     // still scores, but is a section going unclaimed or a contact the log
     // checker will remove — and a typo the operator can still fix, if told.
-    const parts = {
-      theirSerial: contestRef?.theirSerial,
-      theirPrecedence: contestRef?.theirPrecedence,
-      theirCheck: contestRef?.theirCheck,
-      theirSection: contestRef?.theirSection,
-    }
-    const missing = Object.entries(parts).filter(([, part]) => String(part ?? '').trim() === '')
+    const missing = EXCHANGE_PARTS.filter((key) => String(contestRef?.[key] ?? '').trim() === '')
     if (missing.length > 0) {
-      score.incomplete = missing.map(([key]) => `${TYPE}/${key}`)
+      score.incomplete = missing.map((key) => `${TYPE}/${key}`)
     } else if (!/^\d+$/.test(String(contestRef?.theirSerial).trim()) || !normalizePrecedence(contestRef?.theirPrecedence) || !normalizeCheck(contestRef?.theirCheck) || !section) {
       score.alerts = ['invalidExchange']
     }
@@ -195,6 +203,28 @@ export const SSScorer: ContestScorer<SSScoresheet> = {
     if (tallies[TYPE]) tallies[TYPE].summary = `×${fmtInteger(sections)}: ${fmtInteger(total)}`
     return tallies
   },
+}
+
+/// The scorer as the app runs it, except that a logged contact's verdict
+/// never carries a new section inferred for it: that notice is for a station
+/// still to work, and a contact logged with nothing of its exchange has no
+/// section to be new.
+export function scoringHook() {
+  const scoring = contestScorer(SSScorer, { scope: { refTypes: [TYPE] } })
+  return {
+    ...scoring,
+    async scoreQsos(...args: Parameters<typeof scoring.scoreQsos>) {
+      const result = await scoring.scoreQsos(...args)
+      for (const verdict of Object.values(result.qsoScores)) {
+        if (!verdict.inferred) continue
+        delete verdict.inferred
+        const notices = verdict.notices?.filter((notice) => notice !== 'newMult') ?? []
+        if (notices.length) verdict.notices = notices
+        else delete verdict.notices
+      }
+      return result
+    },
+  }
 }
 
 /// "ARRL SS CW" — the name the operation's title gives the contest, which its

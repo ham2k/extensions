@@ -14,7 +14,7 @@ import { exportTypeDefinition } from "@ham2k/extension-sdk"
 import { qsonToCabrillo } from "@ham2k/lib-qson-cabrillo"
 import { rulesNotes, withRules } from "@ham2k/lib-contest-rules"
 import { cabrilloClub, cabrilloOperators, clubField } from "@ham2k/lib-contest-station"
-import { adifForExport, contestScorer, defineExtension, exportFilename, host, startMillisOf } from "@ham2k/extension-sdk"
+import { adifForExport, defineExtension, exportFilename, host, startMillisOf } from "@ham2k/extension-sdk"
 import type {
   ActivitySuggestion,
   DataFileDefinition,
@@ -35,7 +35,7 @@ import type {
 import { tFor } from "./i18n.ts"
 import { MODES, nearestMode, nextContestDate, relevanceFor } from "./schedule.ts"
 import type { SSMode } from "./schedule.ts"
-import { SSScorer, TYPE, contestTitle } from "./scorer.ts"
+import { TYPE, contestTitle, scoringHook } from "./scorer.ts"
 import { ALL_SECTIONS } from "./sections.ts"
 import { normalizeSection, preferredSections, stateForSection } from "./exchange.ts"
 import { HISTORY_STEMS, historyLookup, loadHistory, parseHistory, removeHistory, suggestedExchange } from "./history.ts"
@@ -651,7 +651,7 @@ defineExtension({
     registerHook('adifFields', { hook: AdifFieldsHook, key: manifest.key })
     registerHook('export', { hook: ExportHook, key: manifest.key })
     registerHook('scoring', {
-      hook: contestScorer(SSScorer, { scope: { refTypes: [TYPE] } }),
+      hook: scoringHook(),
       key: manifest.key,
     })
   },
