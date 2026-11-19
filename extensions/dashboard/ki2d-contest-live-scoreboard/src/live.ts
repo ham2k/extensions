@@ -18,13 +18,12 @@
 //
 // Everything here lives in memory and starts over with the runtime.
 
-import type { JSONValue, ScoreTally } from "@ham2k/extension-sdk"
+import type { JSONValue, OperationScores, ScoreTally } from "@ham2k/extension-sdk"
 
 import { POST_URL, basicAuth, readAnswer, scoreXml } from "./post.ts"
 import type { PostAnswer, Qth, Totals } from "./post.ts"
 import { SITE, candidateOrder, contestIdOf, parseBoard, parseContestRules, parseContests, rulesFor, sameContest } from "./scoreboard.ts"
 import type { Board, ContestRules } from "./scoreboard.ts"
-import type { ScoresByScorer } from "./sdkGap.ts"
 
 /// The intervals the assistant offers, in minutes, and the one it starts with.
 export const POST_INTERVALS = [2, 3, 5] as const
@@ -39,8 +38,8 @@ export const AUTH_REFUSED_WAIT_MS = 30 * 60 * 1000
 const BOARD_FRESH_MS = 45 * 1000
 const RULES_FRESH_MS = 24 * 60 * 60 * 1000
 const FOUND_FRESH_MS = 60 * 60 * 1000
-/// A contest not found is looked for again this soon: it may be about to
-/// go on the air.
+/// A contest not found, or found only on a closed board, is looked for again
+/// this soon: it may be about to go on the air, on a board of its own.
 const MISSING_FRESH_MS = 5 * 60 * 1000
 /// A board, a search or a post that failed is tried again after this, by
 /// the next render or assistant call: just under their minute.
@@ -77,7 +76,7 @@ export function contestRefOf(operation: Record<string, JSONValue>): ContestRef |
 
 /// The tally a contest's scorer reports for the whole operation: its total and,
 /// where it gives them, QSOs, points and multipliers.
-export function totalsOf(scores: ScoresByScorer | null | undefined, scorerKey: string): Totals | undefined {
+export function totalsOf(scores: OperationScores | null | undefined, scorerKey: string): Totals | undefined {
   const tallies = scores?.[scorerKey]
   if (!tallies) return undefined
   const tally = Object.values(tallies).find((candidate) => candidate && candidate.for !== "day") as ScoreTally | undefined
@@ -162,7 +161,8 @@ export class Live {
   /// `at` is when the board was last asked for; `readAt`, when it was last read.
   private boards = new Map<string, { at: number; board?: Board; readAt?: number; error?: string }>()
   private boardWork = new Map<string, Promise<Board>>()
-  private found = new Map<string, { at: number; id?: string; error?: string }>()
+  /// A search that failed keeps the board an earlier one found.
+  private found = new Map<string, { at: number; id?: string; closed?: boolean; error?: string }>()
   private foundWork = new Map<string, Promise<string | undefined>>()
   private posted = new Map<string, Posted>()
   private postWork = new Map<string, Promise<void>>()
@@ -251,7 +251,7 @@ export class Live {
     const held = this.found.get(key)
     const age = held ? this.deps.now() - held.at : Infinity
     if (held?.error && age < FAILED_RETRY_MS) return Promise.reject(new Error(held.error))
-    if (held && !held.error && age < (held.id ? FOUND_FRESH_MS : MISSING_FRESH_MS)) return Promise.resolve(held.id)
+    if (held && !held.error && age < (held.id && !held.closed ? FOUND_FRESH_MS : MISSING_FRESH_MS)) return Promise.resolve(held.id)
     let work = this.foundWork.get(key)
     if (!work) {
       work = (async () => {
@@ -261,26 +261,31 @@ export class Live {
           const contests = parseContests(front.body)
           if (!contests.length) throw new Error("the board's list of contests could not be read")
           // The front page is itself a board; a contest it shows needs no search.
-          let id = sameContest(contestIdOf(front.body), cabrilloId) ? contests.find((contest) => contest.selected)?.id : undefined
+          const shown = sameContest(contestIdOf(front.body), cabrilloId) ? contests.find((contest) => contest.selected) : undefined
+          let id = shown?.id
+          let closed = shown?.state === "closed"
           if (!id) {
             // Without the contest list the search goes by the picker's order
             // alone, and finding nothing that way is no answer either.
             let rulesError: string | undefined
-            const name = await this.contestRules()
-              .then((rules) => rulesFor(rules, cabrilloId)?.name)
+            const rule = await this.contestRules()
+              .then((rules) => rulesFor(rules, cabrilloId) ?? null)
               .catch((error) => {
                 rulesError = messageOf(error)
                 this.deps.log(`Live Scoreboard: searching for ${cabrilloId} without the contest list: ${rulesError}`)
                 return undefined
               })
+            // A contest the list does not have has no board to find.
+            const candidates = rule === null ? [] : candidateOrder(contests, rule?.name).slice(0, SEARCH_LIMIT)
             let unread = 0
-            for (const contest of candidateOrder(contests, name).slice(0, SEARCH_LIMIT)) {
+            for (const contest of candidates) {
               const board = await this.board(contest.id).catch(() => {
                 unread++
                 return undefined
               })
               if (sameContest(board?.contestId, cabrilloId)) {
                 id = contest.id
+                closed = contest.state === "closed"
                 break
               }
             }
@@ -289,11 +294,12 @@ export class Live {
             if (!id && unread) throw new Error(`${unread} of the board's pages could not be read`)
             if (!id && rulesError) throw new Error(rulesError)
           }
-          this.found.set(key, { at: this.deps.now(), id })
+          this.found.set(key, { at: this.deps.now(), id, closed })
           return id
         } catch (error) {
           this.deps.log(`Live Scoreboard: the search for ${cabrilloId}'s board failed: ${messageOf(error)}`)
-          this.found.set(key, { at: this.deps.now(), error: messageOf(error) })
+          const before = this.found.get(key)
+          this.found.set(key, { at: this.deps.now(), error: messageOf(error), ...(before?.id ? { id: before.id, closed: before.closed } : {}) })
           throw error
         } finally {
           this.foundWork.delete(key)
@@ -315,8 +321,9 @@ export class Live {
     }
     const held = this.found.get(key)
     if (!held) return { kind: "searching" }
+    if (held.id) return { kind: "found", id: held.id }
     if (held.error) return { kind: "failed", message: held.error }
-    return held.id ? { kind: "found", id: held.id } : { kind: "missing" }
+    return { kind: "missing" }
   }
 
   /// Where posting stands for an operation, from its last attempt.

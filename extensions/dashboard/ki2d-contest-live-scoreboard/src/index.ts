@@ -47,7 +47,6 @@ import { cabrilloHeaders } from "./post.ts"
 import { FALLBACK_COLORS, FALLBACK_ENVIRONMENT, scoreboardScene } from "./scene.ts"
 import type { SceneContent, SceneEnvironment } from "./scene.ts"
 import { contestIdFromInput, neighborhood } from "./scoreboard.ts"
-import type { ScoresContext } from "./sdkGap.ts"
 
 import manifest from "../manifest.json" with { type: "json" }
 
@@ -69,6 +68,9 @@ const live = new Live({
 /// export is the whole log, and neither changes with it.
 const contestIds = new Map<string, string>()
 const scorerKeys = new Map<string, string>()
+/// The exports that failed, by operation and contest, and when.
+const exportFailures = new Map<string, { at: number; exported: Exported }>()
+const EXPORT_RETRY_MS = 5 * 60 * 1000
 
 function str(value: JSONValue | undefined): string {
   return typeof value === "string" ? value.trim() : ""
@@ -90,15 +92,24 @@ interface Exported {
 }
 
 /// A failure of the export hooks themselves is reported as the reason,
-/// like an exporter's own.
+/// like an exporter's own. An export that failed is not tried again for a
+/// few minutes: each pane and the assistant would otherwise export the whole
+/// log every minute only to fail the same way.
 async function cabrilloFor(operation: Qso, qsos: Qso[], refType: string): Promise<Exported> {
+  const key = `${str(operation.uuid)}|${refType}`
+  const failed = exportFailures.get(key)
+  if (failed && Date.now() - failed.at < EXPORT_RETRY_MS) return failed.exported
+  let exported: Exported
   try {
-    return await exportCabrillo(operation, qsos, refType)
+    exported = await exportCabrillo(operation, qsos, refType)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     host.log(`Live Scoreboard: the export hooks failed: ${message}`)
-    return { error: message }
+    exported = { error: message }
   }
+  if (exported.log) exportFailures.delete(key)
+  else exportFailures.set(key, { at: Date.now(), exported })
+  return exported
 }
 
 async function exportCabrillo(operation: Qso, qsos: Qso[], refType: string): Promise<Exported> {
@@ -250,8 +261,7 @@ async function preparePost(
   if (!password) return { kind: "noAccount" }
   const lastAt = lastContactAt(qsos)
   if (lastAt === undefined || args.clock.nowMillis - lastAt > LIVE_WITHIN_MS) return { kind: "notLive" }
-  const scores = ctx as ScoresContext
-  if (!scores.getScores) return { kind: "noScores" }
+  if (!ctx.getScores) return { kind: "noScores" }
   const attempt = `${call}|${contest.type}|${password}`
   const everyMs = intervalOf(args.config) * 60 * 1000
   if (!live.due(uuid, attempt, everyMs)) return undefined
@@ -268,7 +278,7 @@ async function preparePost(
       scorerKey = exported.scorerKey
       scorerKeys.set(key, scorerKey)
     }
-    const all = await scores.getScores(uuid)
+    const all = await ctx.getScores(uuid)
     const totals = totalsOf(all, scorerKey)
     if (!totals) {
       host.log(`Live Scoreboard: no operation total under ${scorerKey}; the scorers that answered: ${Object.keys(all ?? {}).join(", ") || "none"}`)
@@ -309,11 +319,13 @@ async function preparePost(
   }
 }
 
-/// The log, or why the app would not share it.
+/// The log's contacts, or why the app would not share them. Its event
+/// markers (breaks, starts, notes) are not contacts: they neither keep a log
+/// on the air nor go into its Cabrillo file.
 async function readLog(uuid: string, ctx: HookContext, t: Translate): Promise<{ qsos?: Qso[]; problem?: string }> {
   try {
     const qsos = ctx.getQsos ? await ctx.getQsos(uuid) : null
-    return qsos ? { qsos } : { problem: t("noLogShared") }
+    return qsos ? { qsos: qsos.filter((qso) => qso.band !== "event") } : { problem: t("noLogShared") }
   } catch (error) {
     const problem = error instanceof Error ? error.message : String(error)
     host.log(`Live Scoreboard: could not read the log: ${problem}`)
@@ -364,6 +376,8 @@ function intervalOf(config: Record<string, JSONValue> | undefined): number {
 /// operation was last told, so a state is raised once as it starts rather
 /// than at every call. A refusal is told again for each post refused.
 const NOTICES = new Set<PostState["kind"]>(["noAccount", "noScores", "noExport", "notOnBoard", "refused"])
+/// What ends a notice: the score posted, or nothing trying to post any more.
+const SETTLED = new Set<PostState["kind"]>(["posted", "idle", "noContest", "notLive"])
 const noticed = new Map<string, string>()
 
 async function tellOperator(uuid: string, state: PostState | undefined, onAir: boolean, t: Translate): Promise<void> {
@@ -381,7 +395,9 @@ async function tellOperator(uuid: string, state: PostState | undefined, onAir: b
         text: postLine(state, t),
         ...(password ? { actions: [{ label: t("passwordAction"), type: "account" as const, key: manifest.key }] } : {}),
       })
-    } else if (state?.kind === "posted" && said !== undefined) {
+    } else if (said !== undefined && (!onAir || !state || SETTLED.has(state.kind))) {
+      // Posted, or nothing trying to post any more. A post on its way, or one
+      // that failed, leaves the notice as it is until it is answered.
       noticed.delete(uuid)
       await host.statusBar.dismissNotice(key)
     }

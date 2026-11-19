@@ -27,7 +27,7 @@
   "postIdle": "Not posting: switch on “Post my score” under Settings › Application Preferences › Assistants.",
   "postNoContest": "Not posting: this operation has no contest.",
   "postNoCall": "Not posting: set this operation’s station call.",
-  "postNoAccount": "Not posting: enter your password under Settings → Accounts → Contest Online ScoreBoard.",
+  "postNoAccount": "Not posting: enter your password under Settings › Accounts, Services & Data Sources › Contest Online ScoreBoard.",
   "postNotLive": "Not posting: this log has no contacts in the last hour.",
   "postNoScores": "Not posting: this version of the app does not share its scores with extensions yet.",
   "postNoTally": "Not posting: the contest has no total for this log yet.",

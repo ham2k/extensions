@@ -7,7 +7,9 @@ import { test } from "node:test"
 import { AUTH_REFUSED_WAIT_MS, Live, POST_EVERY_MS, contestRefOf, lastContactAt, totalsOf } from "./live.ts"
 import type { FetchAnswer, PostRequest } from "./live.ts"
 
-const RULES = `<table><tr align = 'center' class='tbl1' height='18px'><td>106</td><td>CQ WW CW</td><td>CQ-WW-CW</td><td>Countries</td><td>Zones</td><td>country</td><td>zone</td></tr></table>`
+const rule = (n: number, name: string, id: string) =>
+  `<tr align = 'center' class='tbl1' height='18px'><td>${n}</td><td>${name}</td><td>${id}</td><td>Countries</td><td>Zones</td><td>country</td><td>zone</td></tr>`
+const RULES = `<table>${rule(106, "CQ WW CW", "CQ-WW-CW")}${rule(107, "NAQP CW", "NAQP-CW")}${rule(108, "ARRL DX CW", "ARRL-DX-CW")}</table>`
 const OK = '{"status":200,"status_message":"OK-Full"}'
 
 function harness(answer: (url: string) => FetchAnswer = () => ({ status: 200, body: OK }), rules: () => FetchAnswer = () => ({ status: 200, body: RULES })) {
@@ -173,6 +175,46 @@ test("a contest not found is looked for again within minutes, and a picker that 
   assert.equal(live.foundNow("ARRL-DX-CW").kind, "failed")
   advance(60 * 1000)
   assert.equal(live.foundNow("ARRL-DX-CW").kind, "searching", "a failed search is tried again a minute on")
+  await Promise.allSettled(live.pending())
+})
+
+test("a contest the board's list does not have opens no board looking for it", async () => {
+  const { live, calls } = harness(() => ({ status: 200, body: `${picker("3")}<a href="x?contest=SPRINT">x</a>` }))
+  assert.equal(await live.findBoard("NY-QSO-PARTY"), undefined)
+  assert.deepEqual(live.foundNow("NY-QSO-PARTY"), { kind: "missing" })
+  assert.equal(calls.filter((call) => call.url.includes("contest_id=")).length, 0)
+})
+
+test("a board found closed is looked for again within minutes, one on the air only after an hour", async () => {
+  const pages: Record<string, string> = {
+    "https://contestonlinescore.com/scoreboard/": `${picker("3")}<a href="x?contest=SPRINT">x</a>`,
+    "https://contestonlinescore.com/scoreboard/?contest_id=2": `${picker("2")}<a href="x?contest=CQ-WW-CW">x</a>`,
+    "https://contestonlinescore.com/scoreboard/?contest_id=4": `${picker("4")}<a href="x?contest=NAQP-CW">x</a>`,
+  }
+  const { live, calls, advance } = harness((url) => ({ status: pages[url] ? 200 : 404, body: pages[url] ?? "" }))
+  assert.equal(await live.findBoard("CQ-WW-CW"), "2")
+  assert.equal(await live.findBoard("NAQP-CW"), "4")
+  const searches = () => calls.filter((call) => call.url.endsWith("/scoreboard/")).length
+  const before = searches()
+  advance(6 * 60 * 1000)
+  await live.findBoard("NAQP-CW")
+  assert.equal(searches(), before, "a board coming or on the air is held")
+  await live.findBoard("CQ-WW-CW")
+  assert.equal(searches(), before + 1, "a closed board may have been followed by a new one")
+})
+
+test("a search that fails keeps the board an earlier one found", async () => {
+  let up = true
+  const pages: Record<string, string> = {
+    "https://contestonlinescore.com/scoreboard/": `${picker("3")}<a href="x?contest=SPRINT">x</a>`,
+    "https://contestonlinescore.com/scoreboard/?contest_id=4": `${picker("4")}<a href="x?contest=NAQP-CW">x</a>`,
+  }
+  const { live, advance } = harness((url) => (up && pages[url] ? { status: 200, body: pages[url] } : { status: 503, body: "" }))
+  assert.equal(await live.findBoard("NAQP-CW"), "4")
+  up = false
+  advance(61 * 60 * 1000)
+  await assert.rejects(live.findBoard("NAQP-CW"))
+  assert.deepEqual(live.foundNow("NAQP-CW"), { kind: "found", id: "4" })
   await Promise.allSettled(live.pending())
 })
 
