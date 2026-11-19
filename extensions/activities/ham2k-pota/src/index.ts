@@ -6,7 +6,7 @@
 //   activity                       — declarative logging + operation controls
 //   adifFields                     — SIG/POTA_REF contributions for exports
 //   adifImport                     — the same fields read back on import
-//   export                         — one ADIF for every activated park, and a hunter log
+//   export                         — one ADIF for every activated park
 //   spots                          — POTA.app spots source
 //   dataFile                       — CSV database download and offline caching
 // Ref types follow app-polo's QSON convention: 'pota' for hunting,
@@ -15,8 +15,8 @@
 import { DXCC_BY_CODE } from "@ham2k/lib-dxcc-data"
 import { bandForFrequency } from "@ham2k/lib-operation-data"
 import { locationToGrid6, distanceOnEarth } from "@ham2k/lib-geo-tools"
-import { activityAdifImport, activityScorer, applyLatLonFromApiFields, contestScorer, defineExtension, host, huntingExportHook, isTestOperation, LOCATION_ACCURACY, nearbyLookupRows } from "@ham2k/extension-sdk"
-import { potaExportHook, withSigFieldsChoice, writesSigFields } from "./export.ts"
+import { activityAdifImport, activityScorer, applyLatLonFromApiFields, contestScorer, defineExtension, host, isTestOperation, LOCATION_ACCURACY, nearbyLookupRows } from "@ham2k/extension-sdk"
+import { potaExportHook, writesSigFields } from "./export.ts"
 import type {
   AnnotatedCallInfo,
   HookContext,
@@ -931,21 +931,7 @@ defineExtension({
       hook: potaExportHook({ key: manifest.key, includeFieldsFrom: ['ham2k-satellites'] }),
       key: manifest.key,
     })
-    // The chaser side: every park hunted, across the whole log — a different
-    // key so it doesn't collide with the activator registration above.
-    registerHook('export', {
-      hook: withSigFieldsChoice(
-        huntingExportHook({
-          key: manifest.key,
-          label: 'POTA',
-          huntingType: HUNTING_TYPE,
-          activationType: ACTIVATION_TYPE,
-          icon: 'pine-tree',
-          color: manifest.accentColor,
-          includeFieldsFrom: ['ham2k-satellites'],
-        }),
-      ),
-      key: `${manifest.key}-hunter`,
-    })
+    // No hunter log, unlike SOTA's: POTA takes none, and credits a hunter
+    // from the activators' logs. Offered, it reads as a file to upload.
   },
 })

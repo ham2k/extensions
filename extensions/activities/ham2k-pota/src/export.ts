@@ -25,7 +25,7 @@ const EXPORT_TYPE = `${ACTIVATION_TYPE}-adif`
 /// Which fields name the parks in POTA's own files. POTA reads MY_POTA_REF and
 /// POTA_REF, which list every park; MY_SIG_INFO and SIG_INFO take one park
 /// each, so with them a multi-park record names its first park twice over and
-/// the others once. Offered on both POTA file types (`ExportTypeDefinition.
+/// the others once. Offered on POTA's file type (`ExportTypeDefinition.
 /// choices`, extension API 25).
 const SIG_FIELDS = 'sigFields'
 const SIG_FIELDS_DEFAULT = 'potaRef'
@@ -42,17 +42,6 @@ function sigFieldsChoice(ctx: { locale?: string }) {
       { value: SIG_FIELDS_BOTH, label: t('sigFieldsBoth') },
     ],
     default: SIG_FIELDS_DEFAULT,
-  }
-}
-
-/// [hook]'s export types, each with the park-fields choice — for the Hunter
-/// Log, whose hook comes from the SDK.
-export function withSigFieldsChoice<H extends { getExportTypes(): Promise<ExportTypeDefinition[]> }>(hook: H): H {
-  return {
-    ...hook,
-    async getExportTypes(_args?: unknown, ctx?: HookContext) {
-      return (await hook.getExportTypes()).map((definition) => ({ ...definition, choices: [sigFieldsChoice(ctx ?? {})] }))
-    },
   }
 }
 

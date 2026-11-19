@@ -124,8 +124,18 @@ test("a single park's file still points at the uploader", async () => {
 })
 
 test("no activation, no POTA file", async () => {
-  // A log that only hunts parks is the Hunter Log's business.
+  // A log that only hunts parks owes POTA nothing: hunters are credited from
+  // the activators' logs.
   assert.deepEqual(await options({ ...operation, refs: [] }), [])
+})
+
+test("POTA offers no hunter log", async () => {
+  // Offered in the Chasing view, a hunter log reads as a file to upload, and
+  // POTA takes none.
+  assert.deepEqual(
+    pota.hooks.filter((h) => h.category === "export").map((h) => h.key),
+    ["ham2k-pota"],
+  )
 })
 
 test("the file claims every park, and each contact keeps its own segment", async () => {
@@ -235,14 +245,13 @@ test("files that are not POTA's own keep SIG_INFO whatever POTA's pick", async (
   }
 })
 
-test("both POTA file types offer the park-fields choice, defaulting to POTA_REF only", async () => {
+test("the POTA file offers the park-fields choice, defaulting to POTA_REF only", async () => {
   const types = (await pota.runHook("export", "getExportTypes", {}, { key: "ham2k-pota" })) as Record<string, unknown>[]
-  const hunter = (await pota.runHook("export", "getExportTypes", {}, { key: "ham2k-pota-hunter" })) as Record<string, unknown>[]
-  for (const definition of [...types, ...hunter]) {
+  for (const definition of types) {
     const [choice] = definition.choices as { key: string; default: string; options: { value: string }[] }[]
     assert.equal(choice.key, "sigFields", String(definition.exportType))
     assert.equal(choice.default, "potaRef")
     assert.deepEqual(choice.options.map((o) => o.value), ["potaRef", "both"])
   }
-  assert.deepEqual([...types, ...hunter].map((d) => d.exportType), ["potaActivation-adif", "pota-hunter"])
+  assert.deepEqual(types.map((d) => d.exportType), ["potaActivation-adif"])
 })
