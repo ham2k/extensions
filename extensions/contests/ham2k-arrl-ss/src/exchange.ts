@@ -9,6 +9,7 @@
 
 import type { JSONValue } from "@ham2k/extension-sdk"
 import { annotateCallAgainstCountryFile } from "@ham2k/extension-sdk"
+import { parseCallsign } from "@ham2k/lib-callsigns"
 
 import { ALL_SECTIONS, CALL_AREA_FOR_SECTION, PREFIX_TO_LOCATION, STATE_FOR_SECTION } from "./sections.ts"
 
@@ -75,10 +76,8 @@ export function lookupSection(their: Record<string, JSONValue>): string {
   return sectionForState(str(their.state) || str(guess.state))
 }
 
-/// Precomputed: rebuilding these per keystroke costs allocations to answer a
+/// Precomputed: rebuilding this per keystroke costs allocations to answer a
 /// question that only depends on one digit.
-const PREFIX_ENTRIES = Object.entries(PREFIX_TO_LOCATION)
-
 const SECTIONS_BY_CALL_AREA: Record<number, string[]> = (() => {
   const byArea: Record<number, string[]> = {}
   for (const [section, area] of Object.entries(CALL_AREA_FOR_SECTION)) {
@@ -87,14 +86,30 @@ const SECTIONS_BY_CALL_AREA: Record<number, string[]> = (() => {
   return byArea
 })()
 
-/// The section [call]'s prefix names outright, or ''. KL7 is Alaska and
-/// nothing else, and VE7 is British Columbia.
+/// The sections that are a country file entity each: Alaska, Puerto Rico and
+/// the Virgin Islands. Every `KH` entity, Hawaii and the Pacific possessions,
+/// is PAC.
+const SECTION_FOR_ENTITY: Record<string, string> = { KL: 'AK', KP4: 'PR', KP2: 'VI' }
+
+/// The section [call] names by itself, or ''.
+///
+/// Alaska, Puerto Rico, the Virgin Islands and the Pacific each go by the
+/// country file's entity, so AL7, WL7 and NP4 calls are placed as KL7 and KP4
+/// ones are, and a suffix that leaves the station where it is (`/P`) keeps
+/// it there. A call moved to another call area (KL7ABC/6) names none: the
+/// country file still reads it as Alaska. A Canadian call names its province
+/// by its prefix, the one it takes away from home included (VE7/K1ABC): VE7
+/// is British Columbia, and VE3 names none, as Ontario is four sections.
 export function prefixSection(call: string): string {
   const upper = call.trim().toUpperCase()
-  for (const [prefix, section] of PREFIX_ENTRIES) {
-    if (upper.startsWith(prefix)) return section
-  }
-  return ''
+  if (!upper) return ''
+  const entity = String(annotateCallAgainstCountryFile(upper).entityPrefix ?? '')
+  const parsed = parseCallsign(upper)
+  if (entity === 'VE') return PREFIX_TO_LOCATION[String(parsed.prefix ?? '')] ?? ''
+  const section = SECTION_FOR_ENTITY[entity] ?? (entity.startsWith('KH') ? 'PAC' : '')
+  if (!section) return ''
+  const home = parseCallsign(String(parsed.baseCall ?? upper)).digit
+  return parsed.digit === home ? section : ''
 }
 
 /// Sections worth floating to the top of the picker for this station.

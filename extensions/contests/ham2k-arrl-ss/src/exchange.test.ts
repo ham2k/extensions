@@ -7,7 +7,7 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 
-import { isWVE, normalizeSection, preferredSections } from "./exchange.ts"
+import { isWVE, normalizeSection, preferredSections, prefixSection } from "./exchange.ts"
 
 test("W/VE is the US and Canada with their territories and possessions", () => {
   for (const call of ['W1AW', 'VE3ABC', 'VY1ABC', 'KL7ABC', 'KH6ABC', 'KP4ABC', 'KP2ABC', 'KH2ABC']) {
@@ -45,4 +45,17 @@ test("a prefix that names its section wins; Ontario gives no single answer", () 
   assert.deepEqual(preferredSections({ call: 'KL7ABC' }), ['AK'])
   assert.deepEqual(preferredSections({ call: 'VE7ABC' }), ['BC'])
   assert.deepEqual(preferredSections({ call: 'VE3ABC' }), [])
+})
+
+test("a call names its section by its entity, or a Canadian one by its prefix, where it is", () => {
+  const cases: Record<string, string> = {
+    KL7ABC: 'AK', AL7ABC: 'AK', WL7ABC: 'AK', 'KL7ABC/P': 'AK', 'KL7ABC/6': '',
+    KH6ABC: 'PAC', KH0ABC: 'PAC', 'KH6ABC/W6': '',
+    NP4ABC: 'PR', KP2ABC: 'VI',
+    VE7ABC: 'BC', VA7ABC: 'BC', 'VE7/K1ABC': 'BC', 'K1ABC/VE7': 'BC', VE3ABC: '',
+    W1AW: '', G3ABC: '', '': '',
+  }
+  for (const [call, section] of Object.entries(cases)) assert.equal(prefixSection(call), section, call)
+  // The section picker reads it the same way.
+  assert.deepEqual(preferredSections({ call: 'KL7ABC/6' }), [])
 })

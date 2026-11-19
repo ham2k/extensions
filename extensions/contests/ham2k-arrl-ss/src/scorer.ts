@@ -26,8 +26,6 @@ import { isWVE, normalizeSection } from "./exchange.ts"
 import { likelySection } from "./history.ts"
 import { TYPE } from "./type.ts"
 
-export { TYPE }
-
 /// The four parts of their exchange, as the contest ref holds them.
 const EXCHANGE_PARTS = ['theirSerial', 'theirPrecedence', 'theirCheck', 'theirSection'] as const
 
@@ -155,11 +153,13 @@ export const SSScorer: ContestScorer<SSScoresheet> = {
     } else {
       // No section copied yet: a spot, a call being copied, or a section
       // still being typed. The section the station is likely in says whether
-      // working it is a new one until theirs is in, as a notice only: it adds
-      // no multiplier, and `inferred` marks it for [scoringHook] to drop from
-      // the logged contacts' verdicts.
+      // working it is a new one until theirs is in, while what is typed could
+      // still be it: `E` is no WI. As a notice only: it adds no multiplier,
+      // and `inferred` marks it for [scoringHook] to drop from the logged
+      // contacts' verdicts.
       const likely = likelySection(their, ref?.mode)
-      if (likely && sheet.sections[likely] === undefined) {
+      const typed = String(contestRef?.theirSection ?? '').trim().toUpperCase()
+      if (likely && likely.startsWith(typed) && sheet.sections[likely] === undefined) {
         score.notices = ['newMult']
         score.inferred = true
       }

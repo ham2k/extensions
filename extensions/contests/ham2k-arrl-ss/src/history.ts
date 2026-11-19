@@ -115,21 +115,24 @@ export function historyFor(call: string, mode: JSONValue | undefined): { section
 /// The section a station is likely in, until its section is
 /// copied: the section its call info names, the one it sent in an earlier
 /// running ([historyFor], this weekend's [mode] first), the lookup's guess of
-/// one, its state where that is a section on its own, or the section its
-/// prefix names (KL7, KH6, KP4, VE7…). '' for none.
+/// one, its state where that is a section on its own, or, where the lookup
+/// knows no state at all, the section its call names ([prefixSection]: KL7
+/// and AL7, KH6, KP4, VE7…). '' for none.
 ///
-/// The prefix answers only for a call with no `/`: KL7ABC/6 operates from
-/// the 6 land. The lookup has already set aside the registered state of a
-/// portable call or one away from its call area.
+/// A state the lookup knows wins over the call: a KH6 call living in
+/// California is in one of its sections, not in PAC. The lookup has already
+/// set aside the registered state of a portable call or one away from its
+/// call area.
 export function likelySection(their: Record<string, JSONValue>, mode: JSONValue | undefined): string {
   const guess = (their.guess as Record<string, JSONValue> | undefined) ?? {}
   const call = typeof their.call === 'string' ? their.call : ''
+  const knowsState = [their.state, guess.state].some((state) => typeof state === 'string' && state.trim() !== '')
   return (
     normalizeSection(their.arrlSection) ||
     historyFor(call, mode)?.section ||
     normalizeSection(guess.arrlSection) ||
     lookupSection(their) ||
-    (call.includes('/') ? '' : prefixSection(call))
+    (knowsState ? '' : prefixSection(call))
   )
 }
 
