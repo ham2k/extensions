@@ -2,55 +2,86 @@
 // SPDX-License-Identifier: MPL-2.0
 //
 // The sections worked, shaded: the map fills no areas of its own, but lays a picture on the world
-// by latitude and longitude. So each section's outline is filled into a two-colour PNG over North
-// America, plate carrée as the map wants it, and handed over as a `data:` URI.
-import { LAKE_SHAPES, SECTION_SHAPES } from './arrlSections.ts'
+// by latitude and longitude. So the sections are filled into a two-colour PNG over North America,
+// plate carrée as the map wants it, and handed over as a `data:` URI. Which pixel is in which section
+// comes worked out for each of the two scales the map draws the world at (tools/arrl-sections.mjs),
+// so the shading lies on the land and lakes the map draws, not the county lines' coasts.
+import { SECTION_SHAPES, SHADING_GRID, SHADING_RASTERS, SHADING_SECTIONS } from './arrlSections.ts'
 
 /** The picture's edges, and its pixels, square in degrees: Hawaii to Newfoundland, the Caribbean to the Arctic. */
-export const SHADING_BOUNDS = { north: 72, south: 12, west: -170, east: -50 }
-const WIDTH = 2048, HEIGHT = 1024, STEP = (SHADING_BOUNDS.east - SHADING_BOUNDS.west) / WIDTH
+export const SHADING_BOUNDS = { north: SHADING_GRID.north, south: SHADING_GRID.south, west: SHADING_GRID.west, east: SHADING_GRID.east }
+const WIDTH = SHADING_GRID.width, HEIGHT = SHADING_GRID.height, STEP = (SHADING_GRID.east - SHADING_GRID.west) / WIDTH
 const ROW_BYTES = WIDTH / 8
 
-/** Sets each pixel whose middle `rings` cover, even-odd, in `bits`. */
-function fill(bits: Uint8Array, rings: readonly (readonly number[])[]) {
-  // Where each row's middle crosses the rings' edges; filled between them in pairs.
-  const crossings: number[][] = Array.from({ length: HEIGHT }, () => [])
-  for (const ring of rings) {
-    for (let i = 0; i < ring.length; i += 2) {
-      const j = (i + 2) % ring.length
-      const y0 = (SHADING_BOUNDS.north - ring[i]) / STEP, x0 = (ring[i + 1] - SHADING_BOUNDS.west) / STEP
-      const y1 = (SHADING_BOUNDS.north - ring[j]) / STEP, x1 = (ring[j + 1] - SHADING_BOUNDS.west) / STEP
-      if (y0 === y1) continue
-      const top = Math.max(0, Math.ceil(Math.min(y0, y1) - 0.5)), bottom = Math.min(HEIGHT - 1, Math.ceil(Math.max(y0, y1) - 0.5) - 1)
-      for (let row = top; row <= bottom; row++) crossings[row].push(x0 + ((row + 0.5 - y0) / (y1 - y0)) * (x1 - x0))
-    }
+/** The map's two scales: Natural Earth's 1:110m land and lakes on the whole world, 1:50m's from zoom 3. */
+export type Scale = keyof typeof SHADING_RASTERS
+export const scaleFor = (zoom: number): Scale => (zoom >= 3 ? '50m' : '110m')
+
+/**
+ * A scale's raster read once: its runs, each a length and a section's number, and where each row's
+ * begin. One that doesn't read back whole, every row the picture's width and nothing left over, is
+ * no raster at all: shading from a string damaged in an edit would paint sections over the sea.
+ */
+const decoded = new Map<Scale, { runs: Uint16Array; rows: Uint32Array; whole: boolean }>()
+function raster(scale: Scale) {
+  let found = decoded.get(scale)
+  if (found) return found
+  const text = SHADING_RASTERS[scale], bytes: number[] = []
+  for (let i = 0, acc = 0, held = 0; i < text.length; i++) {
+    const n = BASE64.indexOf(text[i])
+    if (n < 0) continue
+    acc = (acc << 6) | n; held += 6
+    if (held >= 8) { held -= 8; bytes.push((acc >> held) & 255) }
   }
-  crossings.forEach((xs, row) => {
-    xs.sort((a, b) => a - b)
-    for (let k = 0; k + 1 < xs.length; k += 2) {
-      const from = Math.max(0, Math.ceil(xs[k] - 0.5)), to = Math.min(WIDTH - 1, Math.ceil(xs[k + 1] - 0.5) - 1)
-      for (let x = from; x <= to; x++) bits[row * ROW_BYTES + (x >> 3)] |= 0x80 >> (x & 7)
+  const runs: number[] = [], rows = new Uint32Array(HEIGHT + 1)
+  let at = 0, row = 0, x = 0, whole = true
+  while (whole && at < bytes.length && row < HEIGHT) {
+    let length = 0
+    for (let shift = 0; at < bytes.length; shift += 7) {
+      const b = bytes[at++]
+      length |= (b & 0x7f) << shift
+      if (!(b & 0x80)) break
     }
-  })
+    const code = bytes[at++]
+    runs.push(length, code)
+    x += length
+    if (!length || x > WIDTH || code === undefined || code > SHADING_SECTIONS.length) whole = false
+    else if (x === WIDTH) { rows[++row] = runs.length; x = 0 }
+  }
+  whole &&= row === HEIGHT && at === bytes.length
+  found = whole ? { runs: Uint16Array.from(runs), rows, whole } : { runs: new Uint16Array(0), rows: new Uint32Array(HEIGHT + 1), whole }
+  if (!whole) console.error(`[contest-map] the ${scale} shading doesn't read back whole: no shading at that scale`)
+  decoded.set(scale, found)
+  return found
 }
 
-let lakes: Uint8Array | undefined
-/** The lakes' pixels, once: the map draws them as water, and a section runs across its lakes. */
-function lakeMask() {
-  if (!lakes) fill((lakes = new Uint8Array(ROW_BYTES * HEIGHT)), LAKE_SHAPES)
-  return lakes
-}
+/** Whether `scale`'s raster reads back whole. */
+export const shadingWhole = (scale: Scale) => raster(scale).whole
 
-/** Each pixel a bit, set where one of `sections` covers its middle and no lake does. */
-export function shadeSections(sections: Iterable<string>): Uint8Array {
-  const bits = new Uint8Array(ROW_BYTES * HEIGHT)
-  for (const section of sections) {
-    const rings = SECTION_SHAPES[section]
-    if (rings) fill(bits, rings)
+/** Each pixel a bit, set where it is in one of `sections` at `scale`: on the land the map draws then. */
+export function shadeSections(sections: Iterable<string>, scale: Scale): Uint8Array {
+  const wanted = new Set([...sections].map(s => SHADING_SECTIONS.indexOf(s) + 1).filter(n => n > 0))
+  const bits = new Uint8Array(ROW_BYTES * HEIGHT), { runs, rows } = raster(scale)
+  for (let row = 0; row < HEIGHT; row++) {
+    for (let i = rows[row], x = 0; i < rows[row + 1]; i += 2) {
+      const length = runs[i]
+      if (wanted.has(runs[i + 1])) for (let p = x; p < x + length; p++) bits[row * ROW_BYTES + (p >> 3)] |= 0x80 >> (p & 7)
+      x += length
+    }
   }
-  const water = lakeMask()
-  for (let i = 0; i < bits.length; i++) bits[i] &= ~water[i]
   return bits
+}
+
+/** The section the map shades at a place at `scale`, as `shadeSections` does: none on water it draws. */
+export function shadedSectionAt(lat: number, lon: number, scale: Scale): string | undefined {
+  const row = Math.floor((SHADING_GRID.north - lat) / STEP), x = Math.floor((lon - SHADING_GRID.west) / STEP)
+  if (row < 0 || row >= HEIGHT || x < 0 || x >= WIDTH) return undefined
+  const { runs, rows } = raster(scale)
+  for (let i = rows[row], start = 0; i < rows[row + 1]; i += 2) {
+    if (x < start + runs[i]) return SHADING_SECTIONS[runs[i + 1] - 1]
+    start += runs[i]
+  }
+  return undefined
 }
 
 const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
@@ -146,10 +177,10 @@ export function onebitPng(bits: Uint8Array, color: string): Uint8Array {
 
 /** The last few pictures made, newest last: the same sections in the same colour make the same one. */
 const made = new Map<string, string>()
-/** Some sections as a picture for the map, filled in `color`. */
-export function shadingImage(sections: Iterable<string>, color: string): string {
-  const list = [...new Set(sections)].filter(s => SECTION_SHAPES[s]).sort(), key = `${color}:${list.join(',')}`
-  const uri = made.get(key) ?? `data:image/png;base64,${base64(onebitPng(shadeSections(list), color))}`
+/** Some sections as a picture for the map at `scale`, filled in `color`. */
+export function shadingImage(sections: Iterable<string>, color: string, scale: Scale): string {
+  const list = [...new Set(sections)].filter(s => SECTION_SHAPES[s]).sort(), key = `${scale}:${color}:${list.join(',')}`
+  const uri = made.get(key) ?? `data:image/png;base64,${base64(onebitPng(shadeSections(list, scale), color))}`
   made.delete(key)
   made.set(key, uri)
   while (made.size > 6) made.delete(made.keys().next().value!)

@@ -14,8 +14,8 @@ import { gridToLocation, locationForQSONInfo } from '@ham2k/lib-geo-tools'
 import { bandForFrequency } from '@ham2k/lib-operation-data'
 
 import { SECTION_LINES, SECTION_SHAPES } from './arrlSections.ts'
-import { SECTION_NAMES, sectionAt, sectionForStation } from './sectionLookup.ts'
-import { SHADING_BOUNDS, shadingImage } from './shading.ts'
+import { SECTION_NAMES, sectionForStation } from './sectionLookup.ts'
+import { SHADING_BOUNDS, scaleFor, shadedSectionAt, shadingImage } from './shading.ts'
 
 const en = {
   title: 'KI2D’s Contest Map', description: 'The last hour’s contacts on your band, on a map',
@@ -347,6 +347,12 @@ export const isSweepstakes = (operation: Record<string, JSONValue>) =>
 export const workedSections = (qsos: Qso[]) =>
   [...new Set(qsos.map(qso => obj(qso.their).arrlSection).filter((s): s is string => typeof s === 'string' && s !== '').map(s => s.toUpperCase()))]
 
+/** The map's zoom: the operator's, else the sections' frame in Sweepstakes, else the whole world. */
+export function mapZoom(e: PanelEnvironment, view: View, sweepstakes: boolean): number {
+  const width = Math.max(1, Math.min(8192, e.width)), height = Math.max(1, Math.min(8192, e.height))
+  return view.zoom ?? (sweepstakes ? fitView(SECTIONS_FRAME, width, height).zoom : 0)
+}
+
 /** With `sections`, the sections worked, a Sweepstakes map: framed on the sections, the worked ones shaded. */
 export function contestMapScene(e: PanelEnvironment, shown: Shown[], dots: Dot[], counts: number[], home: Place | undefined, view: View, spotted: Spotted = { dots: [], counts: [] }, sections?: string[], settings: MapSettings = mapSettings({}), hover?: Hover): PanelScene {
   const t = words(e.locale), c = e.colors
@@ -358,13 +364,14 @@ export function contestMapScene(e: PanelEnvironment, shown: Shown[], dots: Dot[]
   const dark = e.brightness === 'dark', palette = settings.palette ?? 'color', rings = settings.rings
   const wanted = dark ? WANTED.dark : WANTED.light
   const worked = new Set(sections ?? []), spottedSections = sections ? (spotted.sections ?? []).filter(s => !worked.has(s)) : []
+  // Shaded as the land the map draws at this zoom, its 1:110m or 1:50m.
+  const zoom = mapZoom(e, view, !!sections), side = Math.min(width, height), scale = scaleFor(zoom)
   const images = [
-    ...(sections?.length ? [{ id: 'worked', image: shadingImage(sections, landIn(palette, dark)), bounds: SHADING_BOUNDS, opacity: 1 }] : []),
-    ...(spottedSections.length ? [{ id: 'spotted', image: shadingImage(spottedSections, wanted.color), bounds: SHADING_BOUNDS, opacity: wanted.opacity }] : []),
+    ...(sections?.length ? [{ id: 'worked', image: shadingImage(sections, landIn(palette, dark), scale), bounds: SHADING_BOUNDS, opacity: 1 }] : []),
+    ...(spottedSections.length ? [{ id: 'spotted', image: shadingImage(spottedSections, wanted.color, scale), bounds: SHADING_BOUNDS, opacity: wanted.opacity }] : []),
   ]
   const outlines = dark ? OUTLINES.dark : OUTLINES.light
   const hovered = sections && hover ? hoverParts(e, hover) : undefined
-  const zoom = view.zoom ?? frame?.zoom ?? 0, side = Math.min(width, height)
   const middle = finite(view.lat) && finite(view.lon) ? { lat: view.lat, lon: view.lon } : frame ? { lat: frame.lat, lon: frame.lon } : home
   // A place's contacts fanned out in the middle, newest first, and its spotted stations round them,
   // drawn over them: small enough to hide little, and not hidden under the contacts.
@@ -470,7 +477,9 @@ export function createContestMap(host: ContestMapHost): PanelHook {
           const before = hovers.get(key), at = event.at
           hovers.delete(key)
           const patch: PanelScenePatch = before ? hoverRemoval(before) : []
-          const section = gesture === 'dwell' && args.environment && finite(at?.lat) && finite(at?.lon) && finite(at?.x) && finite(at?.y) ? sectionAt(at.lat, at.lon) : undefined
+          // The section shaded under the pointer at this zoom: none on the water the map draws.
+          const scale = args.environment && scaleFor(mapZoom(args.environment, views.get(key) ?? {}, true))
+          const section = gesture === 'dwell' && scale && finite(at?.lat) && finite(at?.lon) && finite(at?.x) && finite(at?.y) ? shadedSectionAt(at.lat, at.lon, scale) : undefined
           if (section && args.environment && at) {
             const hover = { section, x: at.x, y: at.y }
             hovers.set(key, hover)
