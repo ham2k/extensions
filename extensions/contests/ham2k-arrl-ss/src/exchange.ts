@@ -87,6 +87,16 @@ const SECTIONS_BY_CALL_AREA: Record<number, string[]> = (() => {
   return byArea
 })()
 
+/// The section [call]'s prefix names outright, or ''. KL7 is Alaska and
+/// nothing else, and VE7 is British Columbia.
+export function prefixSection(call: string): string {
+  const upper = call.trim().toUpperCase()
+  for (const [prefix, section] of PREFIX_ENTRIES) {
+    if (upper.startsWith(prefix)) return section
+  }
+  return ''
+}
+
 /// Sections worth floating to the top of the picker for this station.
 ///
 /// The state a lookup found wins where it is a section on its own; then a
@@ -101,9 +111,8 @@ export function preferredSections(their: Record<string, JSONValue>): string[] {
   if (fromState) return [fromState]
   if (!call) return []
 
-  for (const [prefix, section] of PREFIX_ENTRIES) {
-    if (call.startsWith(prefix)) return [section]
-  }
+  const fromPrefix = prefixSection(call)
+  if (fromPrefix) return [fromPrefix]
   // A bare digit is a US call area only for a US call: VE3ABC and G3ABC both
   // contain a 3. Canada has no single answer — Ontario alone is four sections.
   const entity = str(their.entityPrefix) || str(guess.entityPrefix) || String(annotateCallAgainstCountryFile(call).entityPrefix ?? '')

@@ -20,8 +20,8 @@ import { priorSent } from "@ham2k/lib-contest-exchange"
 
 import { normalizeCheck } from "./entry.ts"
 import type { SSMode } from "./schedule.ts"
-import { TYPE } from "./scorer.ts"
-import { lookupSection, normalizeSection, stateForSection } from "./exchange.ts"
+import { TYPE } from "./type.ts"
+import { lookupSection, normalizeSection, prefixSection, stateForSection } from "./exchange.ts"
 
 /// What a station sent, by call: `[section, check]`, either of them '' when
 /// the file has none that is valid. A tuple rather than an object: the host
@@ -112,14 +112,25 @@ export function historyFor(call: string, mode: JSONValue | undefined): { section
   return undefined
 }
 
-/// The section a station is likely in, before any of its exchange is
+/// The section a station is likely in, until its section is
 /// copied: the section its call info names, the one it sent in an earlier
 /// running ([historyFor], this weekend's [mode] first), the lookup's guess of
-/// one, or its state where that is a section on its own. '' for none.
+/// one, its state where that is a section on its own, or the section its
+/// prefix names (KL7, KH6, KP4, VE7…). '' for none.
+///
+/// The prefix answers only for a call with no `/`: KL7ABC/6 operates from
+/// the 6 land. The lookup has already set aside the registered state of a
+/// portable call or one away from its call area.
 export function likelySection(their: Record<string, JSONValue>, mode: JSONValue | undefined): string {
   const guess = (their.guess as Record<string, JSONValue> | undefined) ?? {}
   const call = typeof their.call === 'string' ? their.call : ''
-  return normalizeSection(their.arrlSection) || historyFor(call, mode)?.section || normalizeSection(guess.arrlSection) || lookupSection(their)
+  return (
+    normalizeSection(their.arrlSection) ||
+    historyFor(call, mode)?.section ||
+    normalizeSection(guess.arrlSection) ||
+    lookupSection(their) ||
+    (call.includes('/') ? '' : prefixSection(call))
+  )
 }
 
 /// What the lookup's answer is labelled with, beside each field it fills. Not

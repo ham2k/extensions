@@ -24,8 +24,9 @@ import { tFor } from "./i18n.ts"
 import { normalizeCheck, normalizePrecedence } from "./entry.ts"
 import { isWVE, normalizeSection } from "./exchange.ts"
 import { likelySection } from "./history.ts"
+import { TYPE } from "./type.ts"
 
-export const TYPE = 'arrl-ss'
+export { TYPE }
 
 /// The four parts of their exchange, as the contest ref holds them.
 const EXCHANGE_PARTS = ['theirSerial', 'theirPrecedence', 'theirCheck', 'theirSection'] as const
@@ -151,11 +152,12 @@ export const SSScorer: ContestScorer<SSScoresheet> = {
       }
       sheet.sections[section] = (sheet.sections[section] ?? 0) + 1
       score.section = section
-    } else if (String(contestRef?.theirSection ?? '').trim() === '') {
-      // No section copied yet: a spot, or a call being copied. The section it
-      // is likely in says whether working it is a new one until theirs is in,
-      // as a notice only: it adds no multiplier, and `inferred` marks it for
-      // [scoringHook] to drop from the logged contacts' verdicts.
+    } else {
+      // No section copied yet: a spot, a call being copied, or a section
+      // still being typed. The section the station is likely in says whether
+      // working it is a new one until theirs is in, as a notice only: it adds
+      // no multiplier, and `inferred` marks it for [scoringHook] to drop from
+      // the logged contacts' verdicts.
       const likely = likelySection(their, ref?.mode)
       if (likely && sheet.sections[likely] === undefined) {
         score.notices = ['newMult']

@@ -218,6 +218,9 @@ test("a spot or a call not yet copied is a new section by the section it is like
         { key: 'named', qso: spot('N0ABC', { arrlSection: 'co' }) },
         { key: 'guessed', qso: spot('N0ABD', { guess: { arrlSection: 'IL' } }) },
         { key: 'state', qso: spot('N0ABE', { guess: { state: 'OH' } }) },
+        // A prefix that names its section, but not on a call away from it.
+        { key: 'prefix', qso: spot('KL7ABC') },
+        { key: 'away', qso: spot('KL7ABD/6') },
         // Nothing to go on, a split state, and a station already worked.
         { key: 'unknown', qso: spot('N0ABF') },
         { key: 'split', qso: spot('N0ABG', { guess: { state: 'CA' } }) },
@@ -227,7 +230,7 @@ test("a spot or a call not yet copied is a new section by the section it is like
     logCtx,
   )) as Record<string, { notices: string[]; dupe?: boolean }>
   const flagged = Object.entries(verdicts).filter(([, v]) => v.notices.includes('newMult')).map(([key]) => key)
-  assert.deepEqual(flagged, ['wi', 'named', 'state'])
+  assert.deepEqual(flagged, ['wi', 'named', 'state', 'prefix'])
   assert.equal(verdicts.worked.dupe, true)
 
   // Once a section is copied, it decides: ENY copied for a station the file
@@ -242,8 +245,10 @@ test("a spot or a call not yet copied is a new section by the section it is like
   assert.deepEqual((await live({ ...spot('K9AB'), refs: [{ type: 'arrl-ss', theirSerial: '12', theirPrecedence: 'A' }] })).notices, ['newMult'])
   const portable = { ...spot('K2LE/9', { guess: { state: 'OH' } }), refs: [{ type: 'arrl-ss', theirCheck: '72' }] }
   assert.deepEqual((await live(portable)).notices, ['newMult'])
-  // A section typed that is none still decides: nothing inferred.
-  assert.deepEqual((await live(copied('XX'))).notices, [])
+  // A section still being typed, or one that is none, is not copied yet.
+  assert.deepEqual((await live(copied('E'))).notices, ['newMult'])
+  assert.deepEqual((await live(copied('W'))).notices, ['newMult'])
+  assert.deepEqual((await live(copied('XX'))).notices, ['newMult'])
 
   // A contact logged with nothing of its exchange gets no inferred notice, and
   // the section it is likely in is no multiplier.
