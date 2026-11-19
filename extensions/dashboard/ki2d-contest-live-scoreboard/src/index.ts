@@ -41,9 +41,10 @@ import { panelTheme, themeColors, themeField } from "@ham2k/lib-panel-themes"
 import type { PanelColors } from "@ham2k/lib-panel-themes"
 
 import { tFor } from "./i18n.ts"
-import { DEFAULT_INTERVAL, LIVE_WITHIN_MS, Live, POST_INTERVALS, contestRefOf, lastContactAt, totalsOf } from "./live.ts"
+import { HeaderStore } from "./header.ts"
+import type { LogHeader } from "./header.ts"
+import { DEFAULT_INTERVAL, LIVE_WITHIN_MS, Live, POST_INTERVALS, contestRefOf, lastContactAt, messageOf, totalsOf } from "./live.ts"
 import type { ContestRef, PostState } from "./live.ts"
-import { cabrilloHeaders } from "./post.ts"
 import { FALLBACK_COLORS, FALLBACK_ENVIRONMENT, scoreboardScene } from "./scene.ts"
 import type { SceneContent, SceneEnvironment } from "./scene.ts"
 import { contestIdFromInput, neighborhood } from "./scoreboard.ts"
@@ -63,10 +64,10 @@ const live = new Live({
   log: (message) => host.log(message),
 })
 
-/// Each operation's contest by its Cabrillo id, and the key of the
-/// extension that exports and scores it, read from the export once: an
-/// export is the whole log, and neither changes with it.
-const contestIds = new Map<string, string>()
+/// What each operation's export says of it, kept while it holds.
+const logHeaders = new HeaderStore(() => Date.now())
+/// The key of the extension that exports and scores each operation's
+/// contest, from its export: the same whatever the contest's settings.
 const scorerKeys = new Map<string, string>()
 /// The exports that failed, by operation and contest, and when.
 const exportFailures = new Map<string, { at: number; exported: Exported }>()
@@ -91,6 +92,12 @@ interface Exported {
   error?: string
 }
 
+/// An export, and its header once kept.
+interface Learned {
+  exported: Exported
+  header?: LogHeader
+}
+
 /// A failure of the export hooks themselves is reported as the reason,
 /// like an exporter's own. An export that failed is not tried again for a
 /// few minutes: each pane and the assistant would otherwise export the whole
@@ -103,7 +110,7 @@ async function cabrilloFor(operation: Qso, qsos: Qso[], refType: string): Promis
   try {
     exported = await exportCabrillo(operation, qsos, refType)
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    const message = messageOf(error)
     host.log(`Live Scoreboard: the export hooks failed: ${message}`)
     exported = { error: message }
   }
@@ -233,7 +240,7 @@ live.onChange = () => {
       continue
     }
     if (typeof host.updateScene !== "function") continue
-    const failed = (error: unknown) => host.log(`Live Scoreboard: redrawing the pane failed: ${error instanceof Error ? error.message : String(error)}`)
+    const failed = (error: unknown) => host.log(`Live Scoreboard: redrawing the pane failed: ${messageOf(error)}`)
     // Called as the network work finishes: a pane that cannot be drawn is
     // logged here rather than taken for the work failing.
     try {
@@ -252,7 +259,7 @@ live.onChange = () => {
 async function preparePost(
   args: Pick<ObserveArgs, "operation" | "config" | "clock">,
   ctx: HookContext,
-  inputs: { call: string; uuid: string; contest?: ContestRef; qsos: Qso[]; exportOnce: () => Promise<Exported>; t: Translate },
+  inputs: { call: string; uuid: string; contest?: ContestRef; qsos: Qso[]; header?: LogHeader; learn: () => Promise<Learned>; t: Translate },
 ): Promise<PostState | undefined> {
   const { call, uuid, contest, qsos } = inputs
   if (!contest || !uuid) return { kind: "noContest" }
@@ -267,16 +274,15 @@ async function preparePost(
   if (!live.due(uuid, attempt, everyMs)) return undefined
 
   try {
-    // The score is read first, and the whole log exported only to post a
-    // score that moved.
-    const key = `${uuid}|${contest.type}`
-    let exported: Exported | undefined
-    let scorerKey = scorerKeys.get(key)
+    // The score is read first, and the whole log exported only when a score
+    // that moved needs a header not held.
+    let header = inputs.header
+    let scorerKey = scorerKeys.get(`${uuid}|${contest.type}`)
     if (!scorerKey) {
-      exported = await inputs.exportOnce()
-      if (!exported.scorerKey) return { kind: "noExport", message: exported.error ?? "—" }
-      scorerKey = exported.scorerKey
-      scorerKeys.set(key, scorerKey)
+      const learned = await inputs.learn()
+      if (!learned.exported.scorerKey) return { kind: "noExport", message: learned.exported.error ?? "—" }
+      scorerKey = learned.exported.scorerKey
+      header = learned.header
     }
     const all = await ctx.getScores(uuid)
     const totals = totalsOf(all, scorerKey)
@@ -289,9 +295,12 @@ async function preparePost(
     // since switched, is posted again though it has not moved.
     const signature = `${totals.score}|${totals.qsos ?? ""}|${qsos.length}|${call}|${contest.type}|${breakdown}`
     if (live.unchanged(uuid, signature)) return undefined
-    exported ??= await inputs.exportOnce()
-    if (!exported.log) return { kind: "noExport", message: exported.error ?? "—" }
-    const headers = cabrilloHeaders(exported.log)
+    if (!header) {
+      const learned = await inputs.learn()
+      if (!learned.header) return { kind: "noExport", message: learned.exported.error ?? "—" }
+      header = learned.header
+    }
+    const headers = header.headers
     if (!headers.CONTEST) return { kind: "noExport", message: inputs.t("noContestLine") }
     const info = annotateCallAgainstCountryFile(call)
     live.startPost(
@@ -313,7 +322,7 @@ async function preparePost(
     )
     return undefined
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    const message = messageOf(error)
     host.log(`Live Scoreboard: could not gather the score: ${message}`)
     return { kind: "failed", at: Date.now(), message }
   }
@@ -327,20 +336,17 @@ async function readLog(uuid: string, ctx: HookContext, t: Translate): Promise<{ 
     const qsos = ctx.getQsos ? await ctx.getQsos(uuid) : null
     return qsos ? { qsos: qsos.filter((qso) => qso.band !== "event") } : { problem: t("noLogShared") }
   } catch (error) {
-    const problem = error instanceof Error ? error.message : String(error)
+    const problem = messageOf(error)
     host.log(`Live Scoreboard: could not read the log: ${problem}`)
     return { problem }
   }
 }
 
-/// Keeps what an export says of the operation's contest: its Cabrillo id and
-/// the key of the extension that exports and scores it.
-function learnFromExport(uuid: string, contest: ContestRef, exported: Exported, t: Translate): { cabrilloId?: string; error?: string } {
-  const key = `${uuid}|${contest.type}`
-  if (exported.scorerKey) scorerKeys.set(key, exported.scorerKey)
-  const cabrilloId = exported.log ? /^CONTEST:\s*(\S+)/m.exec(exported.log)?.[1] : undefined
-  if (cabrilloId) contestIds.set(key, cabrilloId)
-  return { cabrilloId, error: exported.error ?? (exported.log && !cabrilloId ? t("noContestLine") : undefined) }
+/// Keeps what an export says of the operation's contest: its header, and the
+/// key of the extension that exports and scores it.
+function learnFromExport(uuid: string, operation: Qso, contest: ContestRef, qsos: Qso[], exported: Exported): Learned {
+  if (exported.scorerKey) scorerKeys.set(`${uuid}|${contest.type}`, exported.scorerKey)
+  return { exported, header: exported.log ? logHeaders.set(uuid, operation, contest, qsos, exported.log) : undefined }
 }
 
 /// What the assistant last found of each operation's posting, and when: an
@@ -402,7 +408,7 @@ async function tellOperator(uuid: string, state: PostState | undefined, onAir: b
       await host.statusBar.dismissNotice(key)
     }
   } catch (error) {
-    host.log(`Live Scoreboard: could not raise the posting notice: ${error instanceof Error ? error.message : String(error)}`)
+    host.log(`Live Scoreboard: could not raise the posting notice: ${messageOf(error)}`)
   }
 }
 
@@ -448,15 +454,20 @@ export const ScoreboardPanel: PanelHook = {
     const boardInput = str(args.config?.board)
     const named = contestIdFromInput(boardInput)
 
-    // The contest's id, from its export, the first time a pane or the
-    // assistant needs it.
-    let cabrilloId = contestIds.get(`${uuid}|${contest?.type}`)
+    // The contest's id, from the header of its export: the one held, or a
+    // new export once the contest's settings have changed.
+    let header = contest && uuid && !named ? logHeaders.get(uuid, operation, contest) : undefined
     let exportError: string | undefined
-    if (contest && uuid && !cabrilloId && !named) {
+    if (contest && uuid && !header && !named) {
       const log = await readLog(uuid, ctx, t)
-      const exported = log.qsos ? await cabrilloFor(operation, log.qsos, contest.type) : { error: log.problem }
-      ;({ cabrilloId, error: exportError } = learnFromExport(uuid, contest, exported, t))
+      if (log.qsos) {
+        const learned = learnFromExport(uuid, operation, contest, log.qsos, await cabrilloFor(operation, log.qsos, contest.type))
+        header = learned.header
+        exportError = learned.exported.error
+      } else exportError = log.problem
     }
+    const cabrilloId = header?.cabrilloId
+    if (header && !cabrilloId) exportError = t("noContestLine")
 
     const placement: Placement = {
       t,
@@ -525,9 +536,10 @@ export const Poster: AssistantHook = {
         const qsos = log.qsos
         const lastAt = lastContactAt(qsos)
         onAir = lastAt !== undefined && args.clock.nowMillis - lastAt <= LIVE_WITHIN_MS
-        let exported: Promise<Exported> | undefined
-        const exportOnce = () => (exported ??= cabrilloFor(operation, qsos, contest.type).then((result) => (learnFromExport(uuid, contest, result, t), result)))
-        block = await preparePost(args, ctx, { call, uuid, contest, qsos, exportOnce, t })
+        let learned: Promise<Learned> | undefined
+        const learn = () => (learned ??= cabrilloFor(operation, qsos, contest.type).then((exported) => learnFromExport(uuid, operation, contest, qsos, exported)))
+        const header = logHeaders.get(uuid, operation, contest, qsos)
+        block = await preparePost(args, ctx, { call, uuid, contest, qsos, header, learn, t })
       }
     }
     const before = observed.get(uuid)

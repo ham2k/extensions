@@ -150,7 +150,7 @@ export type BoardState =
 /// What a render can say of the search for a contest's board.
 export type FoundState = { kind: "searching" } | { kind: "found"; id: string } | { kind: "missing" } | { kind: "failed"; message: string }
 
-const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
+export const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error))
 
 export class Live {
   /// Called when a piece of work finishes, so the panes can draw again.

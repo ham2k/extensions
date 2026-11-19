@@ -12,6 +12,7 @@
 // pane leaves its room at the bottom.
 
 import type { PanelEnvironment, PanelScene, PanelSceneLayer } from "@ham2k/extension-sdk"
+import { themePalette } from "@ham2k/lib-panel-themes"
 import type { PanelColors } from "@ham2k/lib-panel-themes"
 
 import type { BoardRow, Neighborhood } from "./scoreboard.ts"
@@ -28,20 +29,8 @@ export const FALLBACK_ENVIRONMENT: SceneEnvironment = {
   typography: { body: { fontFamily: null, fontSize: 14 }, label: { fontFamily: null, fontSize: 12 } },
 }
 
-export const FALLBACK_COLORS: PanelColors = {
-  surface: "#f5fafc",
-  surfaceContainer: "#e9eff1",
-  onSurface: "#171c1f",
-  onSurfaceVariant: "#40484c",
-  accent: "#006783",
-  primary: "#006783",
-  onPrimary: "#ffffff",
-  secondary: "#4c626a",
-  outline: "#70787d",
-  outlineVariant: "#c0c8cc",
-  error: "#ba1a1a",
-  onError: "#ffffff",
-}
+/// The colors to draw with when the app gives none.
+export const FALLBACK_COLORS: PanelColors = themePalette("light")
 
 export interface SceneContent {
   /// The contest's name, and the category shown.

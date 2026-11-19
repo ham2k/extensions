@@ -3,7 +3,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { PanelColors } from './index.ts'
-import { panelTheme, themeColors, themeField, themeSurface } from './index.ts'
+import { panelTheme, themeColors, themeField, themePalette, themeSurface } from './index.ts'
 
 const app = { surface: '#123456' } as PanelColors
 
@@ -21,6 +21,7 @@ test('Light, Dark and Teal draw their own colors whatever the app shows', () => 
   assert.equal(themeColors('light', { ...app }).surface, '#f5fafc')
   assert.equal(themeColors('dark', app).surface, '#0f1416')
   assert.equal(themeSurface('teal', 'light'), 'teal')
+  assert.deepEqual(themePalette('light'), themeColors('light', app))
 })
 
 test('the settings field offers every theme, in the operator\'s language', () => {

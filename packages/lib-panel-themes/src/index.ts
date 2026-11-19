@@ -38,6 +38,11 @@ export function themeColors(theme: PanelTheme, app: PanelColors): PanelColors {
   return theme === 'auto' ? app : palettes[theme]
 }
 
+/** A fixed theme's colors, for a panel to draw with when the app gives none. */
+export function themePalette(theme: Exclude<PanelTheme, 'auto'>): PanelColors {
+  return palettes[theme]
+}
+
 /** Which kind of surface the panel draws on, for colors a panel picks per surface itself. */
 export function themeSurface(theme: PanelTheme, brightness: PanelEnvironment['brightness']): 'light' | 'dark' | 'teal' {
   return theme === 'auto' ? brightness : theme
