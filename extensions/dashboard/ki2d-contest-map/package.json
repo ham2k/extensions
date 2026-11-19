@@ -1,6 +1,6 @@
 {
   "name": "@ham2k/ext-ki2d-contest-map",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Where the last hour’s contacts on your band are, on a map of the world",
   "author": "Sebastian Delmont <sd@ham2k.com>",

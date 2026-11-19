@@ -1,7 +1,7 @@
 {
   "key": "ki2d-contest-map",
   "name": "KI2D’s Contest Map",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Where the last hour’s contacts on your band are, a dot apiece on a map of the world, both radios’ bands under SO2R",
   "category": "dashboard",
   "icon": "map-marker-multiple",

@@ -160,12 +160,38 @@ export function spotDotsFor(spots: BoardSpot[], shown: Shown[], now: number): Sp
   const dots: Dot[] = [], sections = new Set<string>()
   for (const { spot, group, age } of latest.values()) {
     counts[group]++
-    const place = qsoPlace(spot as unknown as Qso), section = sectionForStation(spot.their)
+    const their = spottedStation(spot)
+    const place = qsoPlace({ their } as unknown as Qso), section = sectionForStation(their)
     if (section) sections.add(section)
     if (place) dots.push({ ...place, id: `s${dots.length}`, band: shown[group].band, ageMillis: age, newest: false })
   }
   dots.sort((x, y) => y.ageMillis - x.ageMillis)
   return { dots: dots.slice(-MAX_SPOTS), counts, sections: [...sections] }
+}
+
+/**
+ * A spotted station as the map reads it: what the spot says of it, with what the app's offline
+ * lookups guess of it (`spot.guess`, from extension API 28) as its guess. A guessed state alone
+ * places it where a contact known by its state alone goes.
+ *
+ * Only the parts of the guess that can be used are kept: a part that cannot (a grid off the
+ * Earth, a section the map doesn't know) would otherwise stop the dot from being placed, or
+ * light no section, where the rest of what is known would have. A section only for a W or VE
+ * call, as for one worked.
+ */
+export function spottedStation(spot: BoardSpot): Record<string, unknown> {
+  const their = obj(spot.their)
+  const raw = obj((spot as { guess?: unknown }).guess ?? their.guess)
+  const word = (value: unknown) => (typeof value === 'string' && value.trim() !== '' ? value.trim().toUpperCase() : undefined)
+  const call = typeof their.call === 'string' ? their.call : ''
+  const section = word(raw.arrlSection)
+  const guess = {
+    state: word(raw.state),
+    arrlSection: section && SECTION_NAMES[section] && /^(K|VE|VO|VY)/.test(entityPrefixForCall(call) ?? '') ? section : undefined,
+    grid: real(raw.grid) && fromGrid(raw.grid) ? raw.grid : undefined,
+    ...onEarth(raw.lat, raw.lon),
+  }
+  return { ...their, guess: Object.fromEntries(Object.entries(guess).filter(([, value]) => value !== undefined)) }
 }
 
 type Stops = [number, number][]

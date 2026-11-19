@@ -80,6 +80,31 @@ test('the stations spotted on the bands shown and not worked yet, once each', ()
   assert.deepEqual(dots.map(d => [d.band, Math.round(d.ageMillis / MIN)]), [['40m', 2], ['20m', 1]])
 })
 
+test("a spot is placed, and its section found, by what the app's lookups guess of its station", () => {
+  const spot = (call: string, guess: Record<string, unknown> | undefined, their = {}): any =>
+    ({ their: { call, ...their }, band: '20m', spot: { timeInMillis: NOW - MIN, source: 'cluster' }, annotations: { worked: false, isSelf: false, notices: [] }, guess })
+  const shown: any = [{ band: '20m', sets: ['A'] }]
+  const one = (s: any) => spotDotsFor([s], shown, NOW)
+  // A state alone puts it at the state's middle, as a contact known by its state.
+  assert.deepEqual(qsoPlace({ their: { call: 'N5TJ', state: 'TX' } }), { lat: 31.9, lon: -99.4 })
+  assert.deepEqual(one(spot('N5TJ', { state: 'TX' })).dots.map(d => [d.lat, d.lon]), [[31.9, -99.4]])
+  assert.deepEqual(one(spot('K1ABC', { state: 'CT', grid: 'FN31pr', lat: 41.7, lon: -72.7 })).dots.map(d => [d.lat, d.lon]), [[41.7, -72.7]])
+  // The section the lookups give wins over the state's, and a state that is one section lights it.
+  assert.deepEqual(one(spot('K9AB', { state: 'IL', arrlSection: 'WI' })).sections, ['WI'])
+  assert.deepEqual(one(spot('N5TJ', { state: 'OK' })).sections, ['OK'])
+  // A state the spot gives itself comes before the guessed one.
+  assert.deepEqual(one(spot('N5TJ', { state: 'TX' }, { state: 'OK' })).sections, ['OK'])
+  // A part of the guess that can't be used is left out, and the rest still places the station.
+  assert.deepEqual(one(spot('N5TJ', { state: 'TX', grid: 'SS00' })).dots.map(d => [d.lat, d.lon]), [[31.9, -99.4]])
+  assert.deepEqual(one(spot('N5TJ', { state: 42, lat: 95, lon: 10 })).dots.length, 1)
+  assert.notDeepEqual(one(spot('N5TJ', { lat: 95, lon: 10 })).dots.map(d => d.lat), [95])
+  assert.deepEqual(one(spot('K1ABC', { arrlSection: 'XX', lat: 41.7, lon: -72.7 })).sections, ['CT'])
+  assert.deepEqual(one(spot('DL1ABC', { arrlSection: 'WI' })).sections, [])
+  // An older app hands no guess: the spot is placed as before.
+  assert.equal(one(spot('W1AW', undefined)).dots.length, 1)
+  assert.deepEqual(one(spot('W1AW', undefined)).sections, [])
+})
+
 test('colors take an opacity as #AARRGGBB', () => {
   assert.equal(withAlpha('#ff4400', 1), '#FFFF4400')
   assert.equal(withAlpha('#80123456', 0), '#00123456')
