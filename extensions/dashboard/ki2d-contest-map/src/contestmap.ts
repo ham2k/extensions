@@ -11,6 +11,7 @@
 import { entityPrefixForCall } from '@ham2k/extension-sdk'
 import type { BoardSpot, JSONValue, PanelEnvironment, PanelHook, PanelSceneMap, PanelScenePatch, PanelRadioState, PanelScene, PanelSceneControl, PanelSceneLayer, PanelSceneMapMarker } from '@ham2k/extension-sdk'
 import { gridToLocation, locationForQSONInfo } from '@ham2k/lib-geo-tools'
+import { themePalette } from '@ham2k/lib-panel-themes'
 import { bandForFrequency } from '@ham2k/lib-operation-data'
 
 import { SECTION_LINES, SECTION_SHAPES } from './arrlSections.ts'
@@ -53,6 +54,8 @@ export const BAND_COLORS: Record<string, string> = {
 export const bandColor = (band: string) => BAND_COLORS[band] ?? '#757575'
 /** How faint an hour-old dot gets. */
 const OLDEST_OPACITY = 0.3
+/** The legend's text, as a share of the label typography's size. */
+const LEGEND_SCALE = 0.85
 const MAX_MARKERS = 4000
 /** How long a spot stays on the map: in a contest a station spotted longer ago has likely moved on. */
 export const SPOT_MAX_AGE_MINUTES = 30
@@ -171,8 +174,8 @@ export function spotDotsFor(spots: BoardSpot[], shown: Shown[], now: number): Sp
 
 /**
  * A spotted station as the map reads it: what the spot says of it, with what the app's offline
- * lookups guess of it (`spot.guess`, from extension API 28) as its guess. A guessed state alone
- * places it where a contact known by its state alone goes.
+ * lookups guess of it (`spot.guess`, from extension API 28; `their.guess` before) as its guess.
+ * A guessed state alone places it where a contact known by its state alone goes.
  *
  * Only the parts of the guess that can be used are kept: a part that cannot (a grid off the
  * Earth, a section the map doesn't know) would otherwise stop the dot from being placed, or
@@ -181,7 +184,7 @@ export function spotDotsFor(spots: BoardSpot[], shown: Shown[], now: number): Sp
  */
 export function spottedStation(spot: BoardSpot): Record<string, unknown> {
   const their = obj(spot.their)
-  const raw = obj((spot as { guess?: unknown }).guess ?? their.guess)
+  const raw = obj(spot.guess ?? their.guess)
   const word = (value: unknown) => (typeof value === 'string' && value.trim() !== '' ? value.trim().toUpperCase() : undefined)
   const call = typeof their.call === 'string' ? their.call : ''
   const section = word(raw.arrlSection)
@@ -230,8 +233,13 @@ export function spreadStacks(dots: Dot[], zoom: number, side: number): Dot[] {
 
 /** `#RRGGBB` or `#AARRGGBB` at `opacity`, as `#AARRGGBB`. */
 export function withAlpha(color: string, opacity: number) {
+  return `#${Math.round(Math.max(0, Math.min(1, opacity)) * 255).toString(16).padStart(2, '0').toUpperCase()}${rgbOf(color).slice(1)}`
+}
+
+/** A colour as `#RRGGBB`, its alpha dropped: SVG reads eight digits as `#RRGGBBAA`, so its opacity goes in its own attribute. */
+export function rgbOf(color: string) {
   const rgb = /^#([0-9a-f]{6})$/i.exec(color)?.[1] ?? /^#[0-9a-f]{2}([0-9a-f]{6})$/i.exec(color)?.[1] ?? '000000'
-  return `#${Math.round(Math.max(0, Math.min(1, opacity)) * 255).toString(16).padStart(2, '0').toUpperCase()}${rgb.toUpperCase()}`
+  return `#${rgb.toUpperCase()}`
 }
 
 export type View = { zoom?: number; lat?: number; lon?: number }
@@ -251,7 +259,7 @@ export function hoverParts(e: PanelEnvironment, hover: Hover): { lines: NonNulla
   return {
     lines: (SECTION_SHAPES[hover.section] ?? []).map((ring, i) => ({ id: `hover-${i}`, style: 'hover', points: pairs(ring), closed: true })),
     layers: [
-      { id: 'hover-box', x, y, width: boxW, height: boxH, svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${boxW} ${boxH}"><rect x="0.5" y="0.5" width="${boxW - 1}" height="${boxH - 1}" rx="5" fill="${withAlpha(c.surface, 0.92)}" stroke="${withAlpha(c.outline, 0.9)}"/></svg>` },
+      { id: 'hover-box', x, y, width: boxW, height: boxH, svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${boxW} ${boxH}"><rect x="0.5" y="0.5" width="${boxW - 1}" height="${boxH - 1}" rx="5" fill="${rgbOf(c.surface)}" fill-opacity="0.92" stroke="${rgbOf(c.outline)}" stroke-opacity="0.9"/></svg>` },
       { id: 'hover-text', x: x + pad, y: y + pad / 2, width: boxW - pad * 2, height: line, text: { literal: text, size, fontFamily: style.fontFamily ?? undefined, fontWeight: 600, lineHeight: style.lineHeight, color: c.onSurface } },
     ],
   }
@@ -321,6 +329,8 @@ export function fitView(bounds: Bounds, width: number, height: number): Required
  */
 const PALETTE_LAND: Record<Palette, string> = { color: '#9E7E3D', gray: '#A3A3A3', muted: '#CDBF9F', contrast: '#F3E3A1', teal: '#D6EEF4' }
 const GRAY_LAND: Record<Palette, string> = { color: '#B8B8B8', gray: '#D9D9D9', muted: '#C9C9C9', contrast: '#D6D6D6', teal: '#C2C2C2' }
+/** The teal palette's water: the face of KI2D's other panels in their Teal, so that the map matches them. */
+const TEAL = themePalette('teal')
 /** As the app darkens its land in the dark, all but the teal palette's: a picture gets no such help. */
 function landIn(palette: Palette, dark: boolean) {
   const color = PALETTE_LAND[palette]
@@ -357,7 +367,7 @@ export function mapZoom(e: PanelEnvironment, view: View, sweepstakes: boolean): 
 export function contestMapScene(e: PanelEnvironment, shown: Shown[], dots: Dot[], counts: number[], home: Place | undefined, view: View, spotted: Spotted = { dots: [], counts: [] }, sections?: string[], settings: MapSettings = mapSettings({}), hover?: Hover): PanelScene {
   const t = words(e.locale), c = e.colors
   const width = Math.max(1, Math.min(8192, e.width)), height = Math.max(1, Math.min(8192, e.height))
-  const layers: PanelSceneLayer[] = [{ id: 'fill', x: 0, y: 0, width, height, svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}"><rect width="${width}" height="${height}" fill="${c.surface}"/></svg>` }]
+  const layers: PanelSceneLayer[] = [{ id: 'fill', x: 0, y: 0, width, height, svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}"><rect width="${width}" height="${height}" fill="${rgbOf(c.surface)}"/></svg>` }]
 
   // The operator's view, else the sections in Sweepstakes, else the whole world round the station.
   const frame = sections ? fitView(SECTIONS_FRAME, width, height) : undefined
@@ -393,7 +403,7 @@ export function contestMapScene(e: PanelEnvironment, shown: Shown[], dots: Dot[]
     zoom: { initial: zoom },
     ...(images.length ? { images } : {}),
     // No latitude and longitude lines: the distance rings do their job here.
-    map: { graticule: '#00000000', ...outlines, ...(sections ? { land: GRAY_LAND[palette] } : {}), ...(settings.palette ? { palette: settings.palette } : {}), ...(settings.grayline ? {} : { grayline: false }) },
+    map: { graticule: '#00000000', ...outlines, ...(sections ? { land: GRAY_LAND[palette] } : {}), ...(settings.palette ? { palette: settings.palette } : {}), ...(settings.palette === 'teal' ? { sea: TEAL.surface } : {}), ...(settings.grayline ? {} : { grayline: false }) },
     styles: {
       qso: { radius: QSO_RADIUS, width: 1 },
       spot: { radius: SPOT_RADIUS, color: withAlpha('#FFFFFF', 0.85), width: 0.5 },
@@ -411,22 +421,24 @@ export function contestMapScene(e: PanelEnvironment, shown: Shown[], dots: Dot[]
   }
 
   // The legend: each band shown, in its colour, with the radios on it under SO2R, how many contacts it had in the hour, and
-  // how many stations not yet worked are spotted on it.
-  const style = e.typography.label, size = style.fontSize, line = Math.ceil(style.scaledFontSize * style.lineHeight) + 4
+  // how many stations not yet worked are spotted on it. Kept quiet, small faint text over the panel's background let through, so the map
+  // stays the thing to look at.
+  const style = e.typography.label, size = style.fontSize * LEGEND_SCALE, scaled = style.scaledFontSize * LEGEND_SCALE
+  const line = Math.ceil(scaled * style.lineHeight) + 2
   const so2r = shown.some(s => s.sets.includes('B'))
   const rows = shown.length
     ? shown.map((s, i) => ({ text: `${so2r ? `${s.sets.join('+')} ` : ''}${s.band} · ${t.count(counts[i])}${spotted.counts[i] ? ` · ${t.spots(spotted.counts[i])}` : ''}`, color: bandColor(s.band) }))
     : [{ text: t.noBand, color: c.onSurfaceVariant }]
-  const charWidth = style.scaledFontSize * 0.62, pad = 6, dot = 8
-  const boxW = Math.min(width - 16, Math.ceil(Math.max(...rows.map(r => r.text.length)) * charWidth) + dot + pad * 3)
+  const charWidth = scaled * 0.6, pad = 5, dot = 6
+  const boxW = Math.min(width - 12, Math.ceil(Math.max(...rows.map(r => r.text.length)) * charWidth) + dot + pad * 3)
   const boxH = rows.length * line + pad
-  if (boxW > 40 && boxH < height - 16) {
-    let art = `<rect x="0.5" y="0.5" width="${boxW - 1}" height="${boxH - 1}" rx="6" fill="${withAlpha(c.surface, 0.85)}" stroke="${withAlpha(c.outlineVariant, 0.9)}"/>`
-    rows.forEach((row, i) => { art += `<circle cx="${pad + dot / 2}" cy="${pad / 2 + i * line + line / 2}" r="${dot / 2}" fill="${row.color}"/>` })
-    layers.push({ id: 'legend-box', x: 8, y: 8, width: boxW, height: boxH, svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${boxW} ${boxH}">${art}</svg>` })
+  if (boxW > 40 && boxH < height - 12) {
+    let art = `<rect x="0" y="0" width="${boxW}" height="${boxH}" rx="4" fill="${rgbOf(c.surface)}" fill-opacity="0.6"/>`
+    rows.forEach((row, i) => { art += `<circle cx="${pad + dot / 2}" cy="${pad / 2 + i * line + line / 2}" r="${dot / 2}" fill="${rgbOf(row.color)}"/>` })
+    layers.push({ id: 'legend-box', x: 6, y: 6, width: boxW, height: boxH, svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${boxW} ${boxH}">${art}</svg>` })
     rows.forEach((row, i) => layers.push({
-      id: `legend-${i}`, x: 8 + pad * 2 + dot, y: 8 + pad / 2 + i * line + 2, width: boxW - pad * 3 - dot, height: line - 2,
-      text: { literal: row.text, size, fontFamily: style.fontFamily ?? undefined, fontWeight: 600, lineHeight: style.lineHeight, color: c.onSurface },
+      id: `legend-${i}`, x: 6 + pad * 2 + dot, y: 6 + pad / 2 + i * line + 1, width: boxW - pad * 3 - dot, height: line - 1,
+      text: { literal: row.text, size, fontFamily: style.fontFamily ?? undefined, fontWeight: 400, lineHeight: style.lineHeight, color: c.onSurfaceVariant },
     }))
   }
   // In Sweepstakes the app tells of a pointer resting on the map (API 28): its section, outlined and named.
