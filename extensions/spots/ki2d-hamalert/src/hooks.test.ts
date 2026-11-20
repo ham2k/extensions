@@ -164,7 +164,9 @@ test("a spot of an alerted station on its band rings the bell, from any source",
   serving([alert(), alert({ _id: 'a2', fullCallsign: 'K1ABC', callsign: 'K1ABC', band: '', frequency: 7.0315 })])
   await fetchSpots(account())
   const scores = await scoreCandidates([candidate('KI2D/P', '20m'), candidate('ki2d/p', '40m'), candidate('W1AW', '20m'), candidate('K1ABC', '40m')])
-  assert.deepEqual(scores['KI2D/P|20m'], { notices: [], alerts: [], icon: 'bell-ring', color: '#C62828' })
+  // `value: 0` is every candidate's here: the bell scores nothing, and the app
+  // counts no `'always'` scorer's value.
+  assert.deepEqual(scores['KI2D/P|20m'], { notices: [], alerts: [], value: 0, icon: 'bell-ring', color: '#C62828' })
   assert.equal(scores['ki2d/p|40m']?.icon, undefined)
   assert.equal(scores['W1AW|20m']?.icon, undefined)
   // Its band is the band plan's, as the spot's is.

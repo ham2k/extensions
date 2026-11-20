@@ -263,6 +263,21 @@ test("a spot or a call not yet copied is a new section by the section it is like
   assert.equal((logged.operationSummary['arrl-ss'] as { mults?: number }).mults, 1)
 })
 
+// The spot keys pass over a spot worth 0 points. A DX station is one; a W/VE
+// station whose exchange is still to come is not, and every spot is that.
+test("a spot outside the contest is worth 0 to the spot keys, and one awaiting its exchange keeps its points", async () => {
+  const scoring = scoringHook()
+  const logCtx = { ...(ctx as object), getQsos: async () => [] } as never
+  const spot = (call: string, band = '20m') => ({ their: { call }, band, mode: 'CW', refs: [] })
+  const verdicts = (await scoring.scoreCandidates!(
+    { operation, ref: cwRef, candidates: [{ key: 'dx', qso: spot('DL1ABC') }, { key: 'warc', qso: spot('W9JJ', '30m') }, { key: 'wve', qso: spot('K9AB') }] },
+    logCtx,
+  )) as Record<string, { value?: number }>
+  assert.equal(verdicts.dx.value, 0)
+  assert.equal(verdicts.warc.value, 0)
+  assert.equal(verdicts.wve.value, 2)
+})
+
 test("the scorer the app runs answers only the calls scoringHook accounts for", () => {
   // scoringHook drops inferred notices from scoreQsos alone; the other two
   // pass no marker on. A call the SDK adds would get the raw verdicts.

@@ -1,6 +1,6 @@
 {
   "name": "@ham2k/ext-arrl-ss",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "private": true,
   "description": "Ham2K Logger extension: ARRL November Sweepstakes",
   "author": "Sebastian Delmont <sd@ham2k.com>",
@@ -26,7 +26,7 @@
     "These are the ones this extension's own tests reach through the SDK."
   ],
   "devDependencies": {
-    "@ham2k/extension-sdk": "^1.18.0",
+    "@ham2k/extension-sdk": "^1.30.0",
     "@ham2k/extension-tools": "^1.18.0",
     "esbuild": "^0.25.5"
   },
