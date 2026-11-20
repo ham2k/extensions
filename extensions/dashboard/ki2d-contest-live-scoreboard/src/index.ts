@@ -7,12 +7,15 @@
 // board's own columns up to Last, drawn as a scene in the theme its settings
 // pick.
 //
-// An assistant posts the station's score there every few minutes while the
-// log has contacts in the last hour, whether or not a pane is on screen; its
-// switch and settings are under Settings › Application Preferences ›
-// Assistants. What keeps it from posting is raised once as a notice, for an
-// operator with no pane open. The password the board knows the callsign by
-// is kept in the `account` hook.
+// An integration posts the station's score there every few minutes while
+// the operation is open and its log has a contact in the last six hours,
+// whether or not a pane is on screen, and whether or not the score moved:
+// the board greys a score not updated lately.
+// The operator switches it on per operation, on that device, in the
+// operation's Integrations dialog, where its settings button holds the
+// interval and the breakdown. What keeps it from posting is raised once as a
+// notice, for an operator with no pane open. The password the board knows
+// the callsign by is kept in the `account` hook.
 //
 // Which board: the one whose page names the contest by the same Cabrillo id
 // the contest's own export writes (`CONTEST: CW-OPS`), found among the
@@ -20,17 +23,18 @@
 // number or link.
 //
 // A render starts what the network has to do and draws what is held after a
-// short wait; work that finishes later, and the assistant's calls, draw the
-// pane again in place.
+// short wait; work that finishes later, and the integration's calls, draw
+// the pane again in place.
 
 import { annotateCallAgainstCountryFile, defineExtension, hooks, host } from "@ham2k/extension-sdk"
 import type {
   AccountHook,
-  AssistantDescriptor,
-  AssistantHook,
   HookContext,
+  IntegrationDescribeArgs,
+  IntegrationDescriptor,
+  IntegrationHook,
+  IntegrationObserveArgs,
   JSONValue,
-  ObserveArgs,
   PanelContent,
   PanelDescriptor,
   PanelHook,
@@ -43,7 +47,7 @@ import type { PanelColors } from "@ham2k/lib-panel-themes"
 import { tFor } from "./i18n.ts"
 import { HeaderStore } from "./header.ts"
 import type { LogHeader } from "./header.ts"
-import { DEFAULT_INTERVAL, LIVE_WITHIN_MS, Live, POST_INTERVALS, contestRefOf, lastContactAt, messageOf, totalsOf } from "./live.ts"
+import { DEFAULT_INTERVAL, LIVE_WITHIN_MS, Live, POST_INTERVALS, attemptOf, contestRefOf, lastContactAt, messageOf, totalsOf } from "./live.ts"
 import type { ContestRef, PostState } from "./live.ts"
 import { FALLBACK_COLORS, FALLBACK_ENVIRONMENT, scoreboardScene } from "./scene.ts"
 import type { SceneContent, SceneEnvironment } from "./scene.ts"
@@ -100,7 +104,7 @@ interface Learned {
 
 /// A failure of the export hooks themselves is reported as the reason,
 /// like an exporter's own. An export that failed is not tried again for a
-/// few minutes: each pane and the assistant would otherwise export the whole
+/// few minutes: each pane and the integration would otherwise export the whole
 /// log every minute only to fail the same way.
 async function cabrilloFor(operation: Qso, qsos: Qso[], refType: string): Promise<Exported> {
   const key = `${str(operation.uuid)}|${refType}`
@@ -143,35 +147,57 @@ async function exportCabrillo(operation: Qso, qsos: Qso[], refType: string): Pro
   return { error }
 }
 
-/// Where posting stands, in a line under the board.
-function postLine(state: PostState, t: Translate): string {
+/// Where posting stands, in a few words for the pane's top right corner.
+function statusLine(state: PostState, t: Translate): string {
   switch (state.kind) {
     case "idle":
-      return t("postIdle")
+      return t("statusIdle")
     case "noContest":
-      return t("postNoContest")
+      return t("statusNoContest")
     case "noCall":
-      return t("postNoCall")
+      return t("statusNoCall")
+    case "noAccount":
+      return t("statusNoAccount")
+    case "notLive":
+      return t("statusNotLive")
+    case "noScores":
+      return t("statusNoScores")
+    case "noTally":
+      return t("statusNoTally")
+    case "noExport":
+      return t("statusNoExport")
+    case "notOnBoard":
+      return t("statusNotOnBoard", { contest: state.contestId })
+    case "posting":
+      return t("statusPosting")
+    case "posted":
+      return t("statusPosted", { time: hhmm(state.at) })
+    case "refused":
+      return t("statusRefused", { time: hhmm(state.at) })
+    case "closed":
+      return t("statusClosed")
+    case "failed":
+      return t("statusFailed")
+  }
+}
+
+/// What keeps the score from the board, in full, for a notice.
+function noticeLine(state: PostState, t: Translate): string {
+  switch (state.kind) {
     case "noAccount":
       return t("postNoAccount")
-    case "notLive":
-      return t("postNotLive")
     case "noScores":
       return t("postNoScores")
-    case "noTally":
-      return t("postNoTally")
     case "noExport":
       return t("postNoExport", { message: state.message })
     case "notOnBoard":
       return t("postNotOnBoard", { contest: state.contestId })
-    case "posting":
-      return t("postPosting")
-    case "posted":
-      return t("postPosted", { time: hhmm(state.at) })
     case "refused":
       return t("postRefused", { time: hhmm(state.at), message: state.message })
-    case "failed":
-      return t("postFailed", { message: state.message })
+    case "closed":
+      return t("postClosed", { message: state.message })
+    default:
+      return statusLine(state, t)
   }
 }
 
@@ -191,12 +217,16 @@ interface Placement {
   exportError?: string
   environment: SceneEnvironment
   colors: PanelColors
+  /// Teal's primary is a dark ink close to its black, so the operator's row
+  /// takes it as a deeper band there, its text in black, rather than as a
+  /// tint and a text color.
+  ownRowBand: boolean
 }
 
 function compose(p: Placement): SceneContent {
   const t = p.t
   const post = postStatus(p.uuid)
-  const status = { text: postLine(post, t), alert: ALERTS.has(post.kind) }
+  const status = { text: statusLine(post, t), alert: ALERTS.has(post.kind) }
 
   if (p.boardInput && !p.named) return { message: t("boardUnreadable", { input: p.boardInput }), status }
   let boardId = p.named
@@ -216,15 +246,24 @@ function compose(p: Placement): SceneContent {
   // The whole category: the scene keeps as many rows as the pane has room
   // for, the station's in the middle.
   const view = neighborhood(board.board, p.call, Infinity, Infinity)
-  const stale = board.stale ? t("boardStale", { time: hhmm(board.stale.since), message: board.stale.message }) : undefined
-  if (!view) return { title, message: t("boardEmpty"), note: stale, status }
+  // The corner says what posting has to say, unless it is posting: then that
+  // the board could not be read again, and since when; then that the call is
+  // not on it, the rows shown being the top of the first category.
+  const posting = post.kind === "posted" || post.kind === "posting"
+  const corner = !posting
+    ? status
+    : board.stale
+      ? { text: t("statusBoardStale", { time: hhmm(board.stale.since) }), alert: true }
+      : view && view.at < 0
+        ? { text: t("statusCallMissing", { call: p.call || "—" }), alert: false }
+        : status
+  if (!view) return { title, message: t("boardEmpty"), status: corner }
   return {
     title,
     category: view.category.title,
     view,
     columns: { call: t("colCall"), score: t("colScore"), qsos: t("colQsos"), last: t("colLast") },
-    note: [stale, view.at < 0 ? t("notOnBoard", { call: p.call || "—" }) : undefined].filter(Boolean).join(" ") || undefined,
-    status,
+    status: corner,
   }
 }
 
@@ -244,7 +283,7 @@ live.onChange = () => {
     // Called as the network work finishes: a pane that cannot be drawn is
     // logged here rather than taken for the work failing.
     try {
-      const scene = scoreboardScene(compose(placement), placement.environment, placement.colors)
+      const scene = scoreboardScene(compose(placement), placement.environment, placement.colors, placement.ownRowBand)
       // A placement showing another scene by now is drawn again whole by the app.
       host.updateScene(instanceId, [{ set: ["layers"], value: scene.layers as unknown as JSONValue }]).catch(failed)
     } catch (error) {
@@ -257,7 +296,7 @@ live.onChange = () => {
 /// from the app and starts the post. Answers why it cannot post, or nothing
 /// when posting stands as the last attempt left it.
 async function preparePost(
-  args: Pick<ObserveArgs, "operation" | "config" | "clock">,
+  args: Pick<IntegrationObserveArgs, "operation" | "config" | "clock">,
   ctx: HookContext,
   inputs: { call: string; uuid: string; contest?: ContestRef; qsos: Qso[]; header?: LogHeader; learn: () => Promise<Learned>; t: Translate },
 ): Promise<PostState | undefined> {
@@ -269,13 +308,13 @@ async function preparePost(
   const lastAt = lastContactAt(qsos)
   if (lastAt === undefined || args.clock.nowMillis - lastAt > LIVE_WITHIN_MS) return { kind: "notLive" }
   if (!ctx.getScores) return { kind: "noScores" }
-  const attempt = `${call}|${contest.type}|${password}`
+  const attempt = attemptOf(call, contest, password)
   const everyMs = intervalOf(args.config) * 60 * 1000
   if (!live.due(uuid, attempt, everyMs)) return undefined
 
   try {
-    // The score is read first, and the whole log exported only when a score
-    // that moved needs a header not held.
+    // The score is read first, and the whole log exported only for a header
+    // not held.
     let header = inputs.header
     let scorerKey = scorerKeys.get(`${uuid}|${contest.type}`)
     if (!scorerKey) {
@@ -291,10 +330,6 @@ async function preparePost(
       return { kind: "noTally" }
     }
     const breakdown = args.config?.breakdown !== false
-    // A score posted under another call or contest, or with the breakdown
-    // since switched, is posted again though it has not moved.
-    const signature = `${totals.score}|${totals.qsos ?? ""}|${qsos.length}|${call}|${contest.type}|${breakdown}`
-    if (live.unchanged(uuid, signature)) return undefined
     if (!header) {
       const learned = await inputs.learn()
       if (!learned.header) return { kind: "noExport", message: learned.exported.error ?? "—" }
@@ -310,7 +345,6 @@ async function preparePost(
         password,
         headers,
         totals,
-        signature,
         qsos,
         breakdown,
         everyMs,
@@ -349,22 +383,25 @@ function learnFromExport(uuid: string, operation: Qso, contest: ContestRef, qsos
   return { exported, header: exported.log ? logHeaders.set(uuid, operation, contest, qsos, exported.log) : undefined }
 }
 
-/// What the assistant last found of each operation's posting, and when: an
-/// assistant switched off stops calling, and a pane says so once it has
-/// been quiet a while. Until the assistant's first call after the runtime
-/// starts, a pane takes it as on its way.
+/// What the integration last found of each operation's posting, and when:
+/// one switched off for an operation stops calling about it, and a pane says
+/// so once it has been quiet a while. Where it is on, the host calls about the
+/// operation as the runtime starts, so a pane takes it as on its way only for
+/// as long as that first call takes; any longer, and a pane in an operation it
+/// was never switched on in says it posts where nothing does.
 const observed = new Map<string, { at: number; block?: PostState }>()
-const ASSISTANT_QUIET_MS = 3 * 60 * 1000
+const POSTER_QUIET_MS = 3 * 60 * 1000
+const POSTER_STARTING_MS = 20 * 1000
 const startedAt = Date.now()
 
 function postStatus(uuid: string): PostState {
   const seen = observed.get(uuid)
-  if (!seen) return Date.now() - startedAt < ASSISTANT_QUIET_MS ? { kind: "posting" } : { kind: "idle" }
-  if (Date.now() - seen.at > ASSISTANT_QUIET_MS) return { kind: "idle" }
+  if (!seen) return Date.now() - startedAt < POSTER_STARTING_MS ? { kind: "posting" } : { kind: "idle" }
+  if (Date.now() - seen.at > POSTER_QUIET_MS) return { kind: "idle" }
   return seen.block ?? live.postState(uuid) ?? { kind: "posting" }
 }
 
-/// The assistant's posting interval in minutes: one it offers, or the default.
+/// The posting interval in minutes: one the integration offers, or the default.
 let unknownInterval: string | undefined
 function intervalOf(config: Record<string, JSONValue> | undefined): number {
   const minutes = Number(config?.interval)
@@ -377,11 +414,12 @@ function intervalOf(config: Record<string, JSONValue> | undefined): number {
   return DEFAULT_INTERVAL
 }
 
-/// The posting states a notice raises for a log on the air, since an
-/// operator with no pane open sees nothing else of them; and what each
+/// The posting states a notice raises for a log with recent contacts, since
+/// an operator with no pane open sees nothing else of them; and what each
 /// operation was last told, so a state is raised once as it starts rather
-/// than at every call. A refusal is told again for each post refused.
-const NOTICES = new Set<PostState["kind"]>(["noAccount", "noScores", "noExport", "notOnBoard", "refused"])
+/// than at every call. A refusal is told again for each post refused; a
+/// contest the board is not taking, once.
+const NOTICES = new Set<PostState["kind"]>(["noAccount", "noScores", "noExport", "notOnBoard", "refused", "closed"])
 /// What ends a notice: the score posted, or nothing trying to post any more.
 const SETTLED = new Set<PostState["kind"]>(["posted", "idle", "noContest", "notLive"])
 const noticed = new Map<string, string>()
@@ -398,7 +436,7 @@ async function tellOperator(uuid: string, state: PostState | undefined, onAir: b
       await host.statusBar.showNotice({
         key,
         title: t("postLabel"),
-        text: postLine(state, t),
+        text: noticeLine(state, t),
         ...(password ? { actions: [{ label: t("passwordAction"), type: "account" as const, key: manifest.key }] } : {}),
       })
     } else if (said !== undefined && (!onAir || !state || SETTLED.has(state.kind))) {
@@ -453,6 +491,7 @@ export const ScoreboardPanel: PanelHook = {
     const contest = contestRefOf(operation)
     const boardInput = str(args.config?.board)
     const named = contestIdFromInput(boardInput)
+    const theme = panelTheme(args.config)
 
     // The contest's id, from the header of its export: the one held, or a
     // new export once the contest's settings have changed.
@@ -479,7 +518,8 @@ export const ScoreboardPanel: PanelHook = {
       cabrilloId,
       exportError,
       environment: (args.environment as SceneEnvironment | undefined) ?? FALLBACK_ENVIRONMENT,
-      colors: themeColors(panelTheme(args.config), args.environment?.colors ?? FALLBACK_COLORS),
+      colors: themeColors(theme, args.environment?.colors ?? FALLBACK_COLORS),
+      ownRowBand: theme === "teal",
     }
     if (args.instanceId) placements.set(args.instanceId, { at: Date.now(), placement })
 
@@ -487,13 +527,21 @@ export const ScoreboardPanel: PanelHook = {
     // done, or from what is held when the wait runs out.
     compose(placement)
     await settle(deadline - Date.now())
-    return { kind: "scene", scene: scoreboardScene(compose(placement), placement.environment, placement.colors) }
+    return { kind: "scene", scene: scoreboardScene(compose(placement), placement.environment, placement.colors, placement.ownRowBand) }
   },
 }
 
-/// Posts the score of each open contest operation, pane or no pane.
-export const Poster: AssistantHook = {
-  async getAssistants(_args: Record<string, never>, ctx: HookContext): Promise<AssistantDescriptor[]> {
+/// The contest's name as the operation shows it: the label its ref was
+/// saved with. A ref saved without one names its type, which is all an
+/// extension can learn of another's contest without its ref handler.
+function contestNameOf(contest: ContestRef): string {
+  return str(contest.ref.label) || str(contest.ref.shortLabel) || contest.type
+}
+
+/// Posts the score of each open contest operation it is switched on for,
+/// pane or no pane.
+export const Poster: IntegrationHook = {
+  async getIntegrations(_args: Record<string, never>, ctx: HookContext): Promise<IntegrationDescriptor[]> {
     const t = tFor(ctx)
     return [
       {
@@ -517,7 +565,18 @@ export const Poster: AssistantHook = {
     ]
   },
 
-  async observe(args: ObserveArgs, ctx: HookContext): Promise<void> {
+  /// What it would post in this operation, and how often; or what keeps it
+  /// from posting, checked in the order `preparePost` checks it.
+  async describe({ operation, config }: IntegrationDescribeArgs, ctx: HookContext): Promise<string | null> {
+    const t = tFor(ctx)
+    const contest = contestRefOf(operation)
+    if (!contest) return t("describeNoContest")
+    if (!str(operation.stationCall)) return t("postNoCall")
+    if (!ctx.account?.credentials?.password) return t("postNoAccount")
+    return t("describe", { contest: contestNameOf(contest), minutes: intervalOf(config) })
+  },
+
+  async observe(args: IntegrationObserveArgs, ctx: HookContext): Promise<void> {
     const t = tFor(ctx)
     const operation = args.operation
     const uuid = str(operation.uuid)
@@ -525,14 +584,17 @@ export const Poster: AssistantHook = {
     const call = str(operation.stationCall).toUpperCase()
     const contest = contestRefOf(operation)
     let block: PostState | undefined
-    // Whether the log has contacts in the last hour: only then is what keeps
-    // it from posting worth a notice.
+    // Whether the log has a contact recent enough to post: only then is what
+    // keeps it from posting worth a notice. A log the app would not share
+    // counts as on the air, since nothing can be posted from it.
     let onAir = false
     if (!contest) block = { kind: "noContest" }
     else {
       const log = await readLog(uuid, ctx, t)
-      if (!log.qsos) block = { kind: "noExport", message: log.problem ?? "—" }
-      else {
+      if (!log.qsos) {
+        block = { kind: "noExport", message: log.problem ?? "—" }
+        onAir = true
+      } else {
         const qsos = log.qsos
         const lastAt = lastContactAt(qsos)
         onAir = lastAt !== undefined && args.clock.nowMillis - lastAt <= LIVE_WITHIN_MS
@@ -545,8 +607,8 @@ export const Poster: AssistantHook = {
     const before = observed.get(uuid)
     observed.set(uuid, { at: Date.now(), block })
     // The panes draw again when what they would say has changed, or when
-    // they had taken the assistant for switched off.
-    if (!before || Date.now() - before.at > ASSISTANT_QUIET_MS || JSON.stringify(before.block) !== JSON.stringify(block)) live.onChange()
+    // they had taken posting for switched off.
+    if (!before || Date.now() - before.at > POSTER_QUIET_MS || JSON.stringify(before.block) !== JSON.stringify(block)) live.onChange()
     await tellOperator(uuid, block ?? live.postState(uuid), onAir, t)
   },
 }
@@ -571,7 +633,7 @@ defineExtension({
   ...manifest,
   onActivation({ registerHook }) {
     registerHook("account", { hook: Account, key: manifest.key })
-    registerHook("assistant", { hook: Poster, key: manifest.key })
+    registerHook("integration", { hook: Poster, key: manifest.key })
     registerHook("panel", { hook: ScoreboardPanel, key: manifest.key })
   },
 })

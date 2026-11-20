@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT
 //
 // The network work: find the contest's board and read it for the panes, and
-// post the operation's score for the assistant when one is due.
+// post the operation's score for the integration when one is due.
 //
 // None of it is awaited by a render beyond a short wait, since the app gives
 // a render five seconds and the board's pages are large and slowest on the
@@ -10,11 +10,16 @@
 // held; each piece of work runs once at a time, and when one finishes,
 // `onChange` lets the panel draw again.
 //
-// Posting rides on the assistant's calls rather than a timer of its own: a
-// timer runs with no hook context, so it could read neither the log nor the
-// score. The assistant is called each minute (`tick:60`) and on each contact
-// logged, whether or not a pane is on screen, and posts when the last post
-// is as old as its interval (2, 3 or 5 minutes) and the score has moved.
+// Posting rides on the integration's calls rather than a timer of its own:
+// a timer runs with no hook context, so it could read neither the log nor
+// the score. The integration is called each minute (`tick:60`) and on each
+// contact logged, in each operation it is switched on in, whether or not a
+// pane is on screen, and posts when the last post is as old as its interval
+// (2, 3 or 5 minutes), whether or not the score has moved: the board greys a
+// score its station has not updated lately. It posts only while the log has a
+// contact in the last six hours: a past operation reopened would otherwise
+// post its old total over the current one, under the same contest on the
+// same board.
 //
 // Everything here lives in memory and starts over with the runtime.
 
@@ -25,7 +30,7 @@ import type { PostAnswer, Qth, Totals } from "./post.ts"
 import { SITE, candidateOrder, contestIdOf, parseBoard, parseContestRules, parseContests, rulesFor, sameContest } from "./scoreboard.ts"
 import type { Board, ContestRules } from "./scoreboard.ts"
 
-/// The intervals the assistant offers, in minutes, and the one it starts with.
+/// The intervals the integration offers, in minutes, and the one it starts with.
 export const POST_INTERVALS = [2, 3, 5] as const
 export const DEFAULT_INTERVAL = 5
 export const POST_EVERY_MS = 5 * 60 * 1000
@@ -33,8 +38,12 @@ export const POST_EVERY_MS = 5 * 60 * 1000
 /// is the 5-minute one.
 const POST_SLACK_MS = 30 * 1000
 /// After the board refuses the call and password, how long before trying
-/// the same ones again. Any other refusal waits the usual five minutes.
+/// the same ones again. Any other refusal, but a contest the board is not
+/// taking, waits the posting interval.
 export const AUTH_REFUSED_WAIT_MS = 30 * 60 * 1000
+/// After the board says it is not taking scores for the contest, how long
+/// before asking again: through the night before it opens, or after it closed.
+export const CLOSED_WAIT_MS = 30 * 60 * 1000
 const BOARD_FRESH_MS = 45 * 1000
 const RULES_FRESH_MS = 24 * 60 * 60 * 1000
 const FOUND_FRESH_MS = 60 * 60 * 1000
@@ -42,12 +51,12 @@ const FOUND_FRESH_MS = 60 * 60 * 1000
 /// this soon: it may be about to go on the air, on a board of its own.
 const MISSING_FRESH_MS = 5 * 60 * 1000
 /// A board, a search or a post that failed is tried again after this, by
-/// the next render or assistant call: just under their minute.
+/// the next render or integration call: just under their minute.
 const FAILED_RETRY_MS = 50 * 1000
 /// How many of the picker's contests to open looking for the operation's.
 const SEARCH_LIMIT = 8
-/// A log with no contact this recent is not on the air, and is not posted.
-export const LIVE_WITHIN_MS = 60 * 60 * 1000
+/// A log with no contact this recent is not posted.
+export const LIVE_WITHIN_MS = 6 * 60 * 60 * 1000
 
 type Qso = Record<string, JSONValue>
 
@@ -65,6 +74,13 @@ export interface LiveDeps {
 export interface ContestRef {
   type: string
   ref: Record<string, JSONValue>
+}
+
+/// What a post is attempted with: a refusal holds only while it stays. The
+/// contest's ref is part of it, its settings picking the Cabrillo id the
+/// board knows the contest by (CQ WW's mode).
+export function attemptOf(call: string, contest: ContestRef, password: string): string {
+  return JSON.stringify([call, contest.type, contest.ref, password])
 }
 
 /// The operation's contest: the first of its refs the app marks as one.
@@ -108,11 +124,11 @@ export type PostState =
   | { kind: "posting" }
   | { kind: "posted"; at: number; score: number }
   | { kind: "refused"; at: number; message: string; auth?: boolean }
+  | { kind: "closed"; message: string }
   | { kind: "failed"; at: number; message: string }
 
 interface Posted {
   at: number
-  signature: string
   /// What the attempt was made with: a refusal holds only while these stay.
   attempt: string
   answer: PostAnswer
@@ -121,7 +137,7 @@ interface Posted {
   notOnBoard?: string
 }
 
-/// What a post is made with, gathered by the assistant call that found it due.
+/// What a post is made with, gathered by the integration call that found it due.
 export interface PostRequest {
   operationUuid: string
   call: string
@@ -129,8 +145,6 @@ export interface PostRequest {
   /// The Cabrillo log's header lines.
   headers: Record<string, string>
   totals: Totals
-  /// What identifies the score: unchanged, it is not posted again.
-  signature: string
   qsos: Qso[]
   /// Whether to send the contacts by band and mode.
   breakdown: boolean
@@ -336,7 +350,8 @@ export class Live {
   }
 
   /// Whether a post is due: none is running, none failed in the last
-  /// minute, and the last answer is [everyMs] old, or was a refusal of a
+  /// minute, and the last answer is [everyMs] old (half an hour for a refused
+  /// password, or a contest the board is not taking), or was a refusal of a
   /// call, password or contest since changed.
   due(operationUuid: string, attempt: string, everyMs: number = POST_EVERY_MS): boolean {
     if (this.postWork.has(operationUuid)) return false
@@ -345,22 +360,16 @@ export class Live {
     const last = this.posted.get(operationUuid)
     if (!last) return true
     if (!last.answer.ok && last.attempt !== attempt) return true
-    const wait = last.answer.auth ? AUTH_REFUSED_WAIT_MS : everyMs - POST_SLACK_MS
+    const wait = last.answer.auth ? AUTH_REFUSED_WAIT_MS : last.answer.closed ? CLOSED_WAIT_MS : everyMs - POST_SLACK_MS
     return this.deps.now() - last.at >= wait
   }
 
-  /// Whether this score is the one last posted.
-  unchanged(operationUuid: string, signature: string): boolean {
-    const last = this.posted.get(operationUuid)
-    return !!last?.answer.ok && last.signature === signature
-  }
-
   /// Posts the score in the background. A failure to reach the board, or a
-  /// server failing, is no refusal: an assistant call a minute on tries again.
+  /// server failing, is no refusal: an integration call a minute on tries again.
   startPost(request: PostRequest, attempt: string): void {
-    // Asked again here: an overlapping assistant call may have posted while
+    // Asked again here: an overlapping integration call may have posted while
     // this one was gathering the score.
-    if (!this.due(request.operationUuid, attempt, request.everyMs) || this.unchanged(request.operationUuid, request.signature)) return
+    if (!this.due(request.operationUuid, attempt, request.everyMs)) return
     const work = this.post(request, attempt)
       .catch((error) => {
         const message = messageOf(error)
@@ -389,7 +398,6 @@ export class Live {
       this.failures.delete(request.operationUuid)
       this.posted.set(request.operationUuid, {
         at: now,
-        signature: request.signature,
         attempt,
         answer: { ok: false, message: "" },
         score: request.totals.score,
@@ -420,12 +428,13 @@ export class Live {
     this.deps.log(`Live Scoreboard: ${rules.contestId} ${request.call} ${request.totals.score} → ${reply.status} ${reply.body.slice(0, 200)}`)
     if (answer.transient) throw new Error(answer.message)
     this.failures.delete(request.operationUuid)
-    this.posted.set(request.operationUuid, { at: now, signature: request.signature, attempt, answer, score: request.totals.score })
+    this.posted.set(request.operationUuid, { at: now, attempt, answer, score: request.totals.score })
   }
 }
 
 function stateOf(posted: Posted): PostState {
   if (posted.answer.ok) return { kind: "posted", at: posted.at, score: posted.score }
   if (posted.notOnBoard !== undefined) return { kind: "notOnBoard", contestId: posted.notOnBoard }
+  if (posted.answer.closed) return { kind: "closed", message: posted.answer.message }
   return { kind: "refused", at: posted.at, message: posted.answer.message, ...(posted.answer.auth ? { auth: true } : {}) }
 }

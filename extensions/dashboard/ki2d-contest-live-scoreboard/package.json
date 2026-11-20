@@ -1,6 +1,6 @@
 {
   "name": "@ham2k/ext-ki2d-contest-live-scoreboard",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "private": true,
   "description": "Ham2K Logger extension: posts a contest score to Contest Online ScoreBoard and shows the station's place on it",
   "author": "Sebastian Delmont <sd@ham2k.com>",
@@ -16,8 +16,8 @@
     "@ham2k/lib-panel-themes": "^0.1.0"
   },
   "devDependencies": {
-    "@ham2k/extension-sdk": "^1.28.0",
-    "@ham2k/extension-tools": "^1.28.0",
+    "@ham2k/extension-sdk": "^1.30.0",
+    "@ham2k/extension-tools": "^1.30.0",
     "esbuild": "^0.25.5"
   },
   "engines": {

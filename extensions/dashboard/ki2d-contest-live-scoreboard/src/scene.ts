@@ -1,15 +1,15 @@
 // Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>
 // SPDX-License-Identifier: MIT
 //
-// The pane as a scene: the contest and category, the board's columns up to
-// Last for the stations around the operator's, and a line saying where
-// posting stands, drawn in the placement's theme.
+// The pane as a scene: the contest and its category, where posting stands in
+// a few words at the top right, and the board's columns up to Last for the
+// stations around the operator's, calls in the app's monospace font, drawn in
+// the placement's theme.
 //
 // A pane too narrow for every column drops the multipliers, then Last, then
 // QSO. It shows as many rows as it has room for, the operator's in the
 // middle where the board's ends allow, and the top ones when the operator is
-// not on the board. The lines under the table follow it, so a tall
-// pane leaves its room at the bottom.
+// not on the board.
 
 import type { PanelEnvironment, PanelScene, PanelSceneLayer } from "@ham2k/extension-sdk"
 import { themePalette } from "@ham2k/lib-panel-themes"
@@ -19,7 +19,7 @@ import type { BoardRow, Neighborhood } from "./scoreboard.ts"
 
 type Role = { fontFamily: string | null; fontSize: number; scaledFontSize?: number }
 export type SceneEnvironment = Pick<PanelEnvironment, "width" | "height"> & {
-  typography: Record<"body" | "label", Role>
+  typography: Record<"body" | "label", Role> & { mono?: Role }
 }
 
 /// For a host that sends no environment.
@@ -33,7 +33,7 @@ export const FALLBACK_ENVIRONMENT: SceneEnvironment = {
 export const FALLBACK_COLORS: PanelColors = themePalette("light")
 
 export interface SceneContent {
-  /// The contest's name, and the category shown.
+  /// The contest's name, and the category shown, after it.
   title?: string
   category?: string
   /// The stations around the operator's, with the column titles.
@@ -41,35 +41,46 @@ export interface SceneContent {
   columns?: { call: string; score: string; qsos: string; last: string }
   /// A sentence in place of the table: no contest, no board, a failure.
   message?: string
-  /// A line under the table: the operator not on the board yet.
-  note?: string
-  /// Where posting stands; `alert` when it was refused or failed.
+  /// Where posting or the board stands, in a few words; `alert` when
+  /// something keeps the score from the board, or the board from the pane.
   status: { text: string; alert: boolean }
 }
 
 const PAD = 8
 /// At most this many rows, however tall the pane, and fewer when a board
 /// has many columns: the app takes 512 layers in a scene, a row is a layer
-/// per column, and the title, header and lines under the table take the rest.
+/// per column, and the title, status and header take the rest.
 const MOST_ROWS = 50
 const MOST_LAYERS = 512
 const LAYERS_BESIDE_ROWS = 32
 const GAP = 10
+/// How much of the primary color the operator's row takes as a band.
+const OWN_ROW_BAND = 0.32
 
-/// Roughly how wide a line of text runs, for laying out columns: the app
-/// measures nothing for a scene, so a column is sized from its longest
-/// text by the widths these letters have in the app's sans-serif fonts.
-export function textWidth(text: string, size: number, bold = false): number {
+/// Roughly how wide a line of text runs, for laying out columns and placing
+/// the category after the title: the app measures nothing for a scene, so
+/// text is sized by the widths its letters have in Roboto, the app's
+/// sans-serif font on every platform, rounded up; or in Roboto Mono, where
+/// every letter is 0.6 em.
+export function textWidth(text: string, size: number, bold = false, mono = false): number {
+  if (mono) return Math.ceil([...text].length * 0.6 * size)
   let ems = 0
   for (const char of text) {
     if (/[0-9]/.test(char)) ems += 0.57
-    else if (/[A-Z]/.test(char)) ems += 0.67
-    else if (/[a-z]/.test(char)) ems += 0.53
+    else if (char === "I") ems += 0.28
+    else if (/[MW]/.test(char)) ems += 0.89
+    else if (/[A-Z]/.test(char)) ems += 0.65
+    else if (/[ijl]/.test(char)) ems += 0.25
+    else if (/[frt]/.test(char)) ems += 0.35
+    else if (/[mw]/.test(char)) ems += 0.88
+    else if (/[a-z]/.test(char)) ems += 0.55
     else if (char === " ") ems += 0.26
     else if (/[.,:;'|!]/.test(char)) ems += 0.27
+    else if (char === "-") ems += 0.3
+    else if (/[/()]/.test(char)) ems += 0.36
     else ems += 0.6
   }
-  return Math.ceil(ems * size * (bold ? 1.06 : 1))
+  return Math.ceil(ems * size * (bold ? 1.03 : 1))
 }
 
 /// [literal] broken into lines no wider than [width] at [size], word by
@@ -132,11 +143,16 @@ export function fitColumns(columns: Column[], width: number): Column[] {
 const svg = (width: number, height: number, body: string) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}">${body}</svg>`
 
-export function scoreboardScene(content: SceneContent, env: SceneEnvironment, c: PanelColors): PanelScene {
+/// [ownRowBand] draws the operator's row on a deeper band of the primary
+/// color with its text in the ink, rather than on a light tint with its text
+/// in the primary color.
+export function scoreboardScene(content: SceneContent, env: SceneEnvironment, c: PanelColors, ownRowBand = false): PanelScene {
   const { width, height } = env
   const { body, label } = env.typography
   const scaled = (role: Role) => role.scaledFontSize ?? role.fontSize
   const font = (role: Role) => (role.fontFamily ? { fontFamily: role.fontFamily } : {})
+  // Calls in the monospace family at the body's size, so a row's cells line up.
+  const mono: Role = { ...body, fontFamily: env.typography.mono?.fontFamily ?? body.fontFamily }
   const bodyLine = Math.ceil(scaled(body) * 1.35)
   const labelLine = Math.ceil(scaled(label) * 1.35)
   const inner = Math.max(40, width - 2 * PAD)
@@ -153,63 +169,76 @@ export function scoreboardScene(content: SceneContent, env: SceneEnvironment, c:
     })
   }
 
-  // Top: the contest, and the category beside it, or under it when the
-  // two do not fit on one line.
+  // Top: where posting stands at the right, and the contest in bold with its
+  // category after it, as one line of text. The app has no text of mixed
+  // weights, so they are two layers, the category starting a space past
+  // where the title's width is estimated to end; where both do not fit, the
+  // category goes on a line of its own.
   let y = PAD
-  if (content.title) {
-    const titleWidth = textWidth(content.title, scaled(body), true)
-    const categoryWidth = content.category ? textWidth(content.category, scaled(label)) : 0
-    const oneLine = !content.category || titleWidth + GAP + categoryWidth <= inner
-    text("title", PAD, y, oneLine && content.category ? inner - categoryWidth - GAP : inner, bodyLine, content.title, body, { color: c.onSurface, bold: true })
-    if (content.category) {
-      if (oneLine) text("category", width - PAD - categoryWidth, y + (bodyLine - labelLine) / 2, categoryWidth, labelLine, content.category, label, { color: c.onSurfaceVariant, align: "end" })
-      else text("category", PAD, y + bodyLine, inner, labelLine, content.category, label, { color: c.onSurfaceVariant })
-    }
-    y += bodyLine + (oneLine ? 0 : labelLine) + 6
+  const status = content.status.text
+  const statusWidth = status ? Math.min(Math.ceil(inner / 2), Math.ceil(textWidth(status, scaled(label)) * 1.08)) : 0
+  if (status) {
+    text("status", width - PAD - statusWidth, y + (bodyLine - labelLine) / 2, statusWidth, labelLine, status, label, {
+      color: content.status.alert ? c.error : c.onSurfaceVariant,
+      align: "end",
+    })
   }
+  const beside = inner - (status ? statusWidth + GAP : 0)
+  if (content.title) {
+    text("title", PAD, y, beside, bodyLine, content.title, body, { color: c.onSurface, bold: true })
+    if (content.category) {
+      const after = textWidth(content.title, scaled(body), true) + Math.ceil(scaled(body) * 0.26)
+      if (after + textWidth(content.category, scaled(body)) <= beside) text("category", PAD + after, y, beside - after, bodyLine, content.category, body, { color: c.onSurface })
+      else {
+        y += bodyLine
+        text("category", PAD, y, inner, bodyLine, content.category, body, { color: c.onSurface })
+      }
+    }
+  }
+  if (content.title || status) y += bodyLine + 6
 
   // A sentence takes as many lines as it needs, each a layer of its own:
   // a text layer is one line, cut short with an ellipsis.
   const paragraph = (id: string, top: number, literal: string, role: Role, lineHeight: number, color: string, most: number) => {
     const lines = wrapLines(literal, scaled(role), inner, most)
     lines.forEach((line, index) => text(index ? `${id}-${index}` : id, PAD, top + index * lineHeight, inner, lineHeight, line, role, { color }))
-    return lines.length * lineHeight
   }
-  const lineCount = (literal: string | undefined, role: Role, most: number) => (literal ? wrapLines(literal, scaled(role), inner, most).length : 0)
-
-  // Under the table, or the sentence in its place: the note, then where
-  // posting stands. Each takes the lines it needs, and the rows give way.
-  const footerHeight = (lineCount(content.note, label, 2) + lineCount(content.status.text, label, 3)) * labelLine + (content.note ? 2 : 0)
-  const footer = (top: number) => {
-    if (content.note) top += paragraph("note", top, content.note, label, labelLine, c.onSurfaceVariant, 2) + 2
-    paragraph("status", top, content.status.text, label, labelLine, content.status.alert ? c.error : c.onSurfaceVariant, 3)
-  }
-  const room = height - PAD - footerHeight - 6 - y
+  const room = height - PAD - y
 
   if (content.message || !content.view || !content.columns) {
-    const messageHeight = paragraph("message", y, content.message ?? "", body, bodyLine, c.onSurface, Math.max(1, Math.floor(room / bodyLine)))
-    footer(y + messageHeight + 8)
+    paragraph("message", y, content.message ?? "", body, bodyLine, c.onSurface, Math.max(1, Math.floor(room / bodyLine)))
     return { version: 1, width, height, values: {}, layers, controls: [] }
   }
 
   // The table: a header row, then the rows that fit.
   const view = content.view
   const names = content.columns
-  const rowHeight = Math.ceil(scaled(body) * 1.55)
   const headerHeight = Math.ceil(scaled(label) * 1.6)
   const columnCount = 5 + view.category.multLabels.length
   const mostRows = Math.min(MOST_ROWS, Math.floor((MOST_LAYERS - LAYERS_BESIDE_ROWS - columnCount) / columnCount))
-  const shown = visibleRows(view, Math.min(mostRows, Math.floor((room - headerHeight) / rowHeight)))
+  // As many rows as fit at a little over a line each, sharing the room
+  // between them up to their usual height: what a row would leave empty at
+  // the bottom shows another instead. Fewer rows than that keep the usual
+  // height, and the room under them.
+  const rowRoom = room - headerHeight
+  const shown = visibleRows(view, Math.min(mostRows, Math.floor(rowRoom / Math.ceil(scaled(body) * 1.4))))
+  const rowHeight = Math.max(bodyLine, Math.min(Math.ceil(scaled(body) * 1.55), Math.floor(rowRoom / shown.rows.length)))
   // An estimate runs short now and then; a column a little wider than its
   // longest text keeps it from being cut short.
-  const widest = (title: string, cell: (row: BoardRow) => string) =>
-    Math.ceil(1.08 * Math.max(textWidth(title, scaled(label)), ...shown.rows.map((row) => textWidth(cell(row), scaled(body), true))))
-  const column = (key: string, title: string, align: Align, cell: (row: BoardRow) => string): Column => ({ key, title, align, cell, width: widest(title, cell) })
+  const widest = (title: string, cell: (row: BoardRow) => string, monospace: boolean) =>
+    Math.ceil(1.08 * Math.max(textWidth(title, scaled(label)), ...shown.rows.map((row) => textWidth(cell(row), scaled(body), true, monospace))))
+  const column = (key: string, title: string, align: Align, cell: (row: BoardRow) => string, monospace = false): Column => ({
+    key,
+    title,
+    align,
+    cell,
+    width: widest(title, cell, monospace),
+  })
   const all: Column[] = [
     column("rank", "#", "end", (row) => row.rank),
     // Sized for the call alone: a guest operator's call after it is cut
     // short before a column is dropped for it.
-    { ...column("call", names.call, "start", (row) => row.call), flex: true },
+    { ...column("call", names.call, "start", (row) => row.call, true), flex: true },
     column("score", names.score, "end", (row) => row.score),
     column("qsos", names.qsos, "end", (row) => row.qsos),
     ...view.category.multLabels.map((title, index) => column(`mult${index}`, title, "end", (row) => row.mults[index] ?? "")),
@@ -220,7 +249,7 @@ export function scoreboardScene(content: SceneContent, env: SceneEnvironment, c:
   // What is left goes to the call, and past what a call needs, between
   // the numbers, so a wide pane spreads them rather than leaving a gap.
   const callColumn = columns.find((each) => each.flex)!
-  const callNeeds = Math.max(...shown.rows.map((row) => textWidth(row.label, scaled(body), true)), textWidth("WW9WWW/9", scaled(body), true))
+  const callNeeds = Math.max(...shown.rows.map((row) => textWidth(row.label, scaled(body), true, true)), textWidth("WW9WWW/9", scaled(body), true, true))
   const toCall = Math.max(0, Math.min(spare, callNeeds - callColumn.width + 3 * GAP))
   callColumn.width += toCall
   const spread = Math.max(0, spare - toCall) / Math.max(1, columns.length - 1)
@@ -239,22 +268,21 @@ export function scoreboardScene(content: SceneContent, env: SceneEnvironment, c:
   shown.rows.forEach((row, index) => {
     const top = y + index * rowHeight
     const mine = index === shown.at
-    if (mine) art += `<rect x="${PAD - 4}" y="${top}" width="${inner + 8}" height="${rowHeight}" rx="4" fill="${c.primary}" fill-opacity="0.16"/>`
+    if (mine) art += `<rect x="${PAD - 4}" y="${top}" width="${inner + 8}" height="${rowHeight}" rx="4" fill="${c.primary}" fill-opacity="${ownRowBand ? OWN_ROW_BAND : 0.16}"/>`
     else if (index % 2 === 1) art += `<rect x="${PAD - 4}" y="${top}" width="${inner + 8}" height="${rowHeight}" fill="${c.surfaceContainer}" fill-opacity="0.5"/>`
     columns.forEach((each, at) => {
       // A score the station has not updated lately is greyed, as on the
-      // board; the operator's own row is in the theme's primary color.
+      // board; the operator's own row is in the theme's primary color, or on a band of it.
       const stale = !row.fresh && (each.key === "score" || each.key === "last")
-      const color = mine ? c.primary : stale || each.key === "rank" ? c.onSurfaceVariant : c.onSurface
+      const color = mine ? (ownRowBand ? c.onSurface : c.primary) : stale || each.key === "rank" ? c.onSurfaceVariant : c.onSurface
       const cellText = each.key === "call" ? row.label : each.cell(row)
-      text(`r${index}-${each.key}`, xs[at], top + (rowHeight - bodyLine) / 2, each.width, bodyLine, cellText, body, {
+      text(`r${index}-${each.key}`, xs[at], top + (rowHeight - bodyLine) / 2, each.width, bodyLine, cellText, each.key === "call" ? mono : body, {
         color,
         bold: mine || each.key === "call",
         align: each.align,
       })
     })
   })
-  footer(y + shown.rows.length * rowHeight + 6)
   layers.splice(1, 0, { id: "table", x: 0, y: 0, width, height, svg: svg(width, height, art) })
   return { version: 1, width, height, values: {}, layers, controls: [] }
 }

@@ -4,7 +4,7 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
-import { AUTH_REFUSED_WAIT_MS, Live, POST_EVERY_MS, contestRefOf, lastContactAt, totalsOf } from "./live.ts"
+import { AUTH_REFUSED_WAIT_MS, CLOSED_WAIT_MS, Live, POST_EVERY_MS, attemptOf, contestRefOf, lastContactAt, totalsOf } from "./live.ts"
 import type { FetchAnswer, PostRequest } from "./live.ts"
 
 const rule = (n: number, name: string, id: string) =>
@@ -32,7 +32,6 @@ function harness(answer: (url: string) => FetchAnswer = () => ({ status: 200, bo
     password: "secret",
     headers: { CONTEST: "CQ-WW-CW", "CATEGORY-POWER": "LOW" },
     totals: { score: 100, qsos: 10, points: 20, mults: 5 },
-    signature: "100|10|10",
     qsos: [],
     breakdown: true,
     everyMs: POST_EVERY_MS,
@@ -41,10 +40,10 @@ function harness(answer: (url: string) => FetchAnswer = () => ({ status: 200, bo
     version: "0.1.0",
     ...over,
   })
-  /// Posts when due and the score moved, as the assistant does, and waits for it.
+  /// Posts when due, as the integration does, and waits for it.
   const attempt = async (over: Partial<PostRequest> = {}, fingerprint = "KI2D|cqww|secret") => {
     const ready = request(over)
-    if (live.due(ready.operationUuid, fingerprint, ready.everyMs) && !live.unchanged(ready.operationUuid, ready.signature)) live.startPost(ready, fingerprint)
+    if (live.due(ready.operationUuid, fingerprint, ready.everyMs)) live.startPost(ready, fingerprint)
     await Promise.allSettled(live.pending(true))
     return live.postState(ready.operationUuid)
   }
@@ -52,7 +51,7 @@ function harness(answer: (url: string) => FetchAnswer = () => ({ status: 200, bo
   return { live, attempt, posts, calls, advance: (ms: number) => (now += ms), changes: () => changes }
 }
 
-test("a score posts at once, then no more than every five minutes, and only when it moved", async () => {
+test("a score posts at once, then every five minutes, moved or not, so the board never greys it", async () => {
   const { attempt, posts, advance, changes } = harness()
   assert.equal((await attempt())?.kind, "posted")
   assert.equal(posts().length, 1)
@@ -62,16 +61,16 @@ test("a score posts at once, then no more than every five minutes, and only when
   assert.match(posts()[0].body ?? "", /<contest>CQ-WW-CW<\/contest>[\s\S]*<mult band="total" mode="ALL" type="country">5<\/mult>/)
 
   advance(60 * 1000)
-  await attempt({ signature: "150|11|11" })
-  assert.equal(posts().length, 1, "a minute later is too soon")
+  await attempt({ totals: { score: 150, qsos: 11 } })
+  assert.equal(posts().length, 1, "a minute later is too soon, even with a new score")
 
   advance(POST_EVERY_MS - 60 * 1000)
-  await attempt({ signature: "150|11|11" })
-  assert.equal(posts().length, 2, "five minutes later, with a new score")
+  await attempt({ totals: { score: 150, qsos: 11 } })
+  assert.equal(posts().length, 2, "five minutes later")
 
   advance(POST_EVERY_MS)
-  await attempt({ signature: "150|11|11" })
-  assert.equal(posts().length, 2, "the same score is not posted again")
+  await attempt({ totals: { score: 150, qsos: 11 } })
+  assert.equal(posts().length, 3, "the same score is posted again")
 })
 
 test("a pane set to post every two minutes posts that often", async () => {
@@ -79,7 +78,7 @@ test("a pane set to post every two minutes posts that often", async () => {
   const every = { everyMs: 2 * 60 * 1000 }
   await attempt(every)
   advance(2 * 60 * 1000)
-  await attempt({ ...every, signature: "150|11|11" })
+  await attempt(every)
   assert.equal(posts().length, 2)
 })
 
@@ -103,12 +102,28 @@ test("a refused password waits half an hour, unless the password changes", async
   assert.equal(posts().length, 3)
 })
 
-test("any other refusal, such as a contest not open yet, is tried again at the next five minutes", async () => {
-  const { attempt, posts, advance } = harness(() => ({ status: 200, body: '{"status":404,"status_message":"Error! Contest is closed or is not valid"}' }))
+test("any other refusal is tried again at the next five minutes", async () => {
+  const { attempt, posts, advance } = harness(() => ({ status: 200, body: '{"status":400,"status_message":"Error! Missing breakdown"}' }))
   assert.equal((await attempt())?.kind, "refused")
   advance(POST_EVERY_MS)
   await attempt()
   assert.equal(posts().length, 2)
+})
+
+test("a contest the board is not taking, closed or not open yet, is asked again only every half hour", async () => {
+  // Posting runs while the operation is open: without the longer wait, an
+  // operation left open after the contest posts, and is refused, at every
+  // interval for six hours after its last contact.
+  const { attempt, posts, advance } = harness(() => ({ status: 200, body: '{"status":404,"status_message":"Error! Contest is closed or is not valid"}' }))
+  assert.deepEqual(await attempt(), { kind: "closed", message: "Error! Contest is closed or is not valid" })
+  advance(POST_EVERY_MS)
+  await attempt()
+  assert.equal(posts().length, 1, "not at the next interval")
+  await attempt({}, "KI2D|naqp|secret")
+  assert.equal(posts().length, 2, "another contest is asked at once")
+  advance(CLOSED_WAIT_MS)
+  await attempt({}, "KI2D|naqp|secret")
+  assert.equal(posts().length, 3)
 })
 
 test("a network failure or a server failing is tried again a minute on, not at every call", async () => {
@@ -119,7 +134,7 @@ test("a network failure or a server failing is tried again a minute on, not at e
   const start = Date.UTC(2026, 10, 28, 12, 0, 0)
   assert.deepEqual(await attempt(), { kind: "failed", at: start, message: "offline" })
   advance(10 * 1000)
-  await attempt({ signature: "101|11|11" })
+  await attempt({ totals: { score: 101, qsos: 11 } })
   assert.equal(posts().length, 1, "a contact logged right after does not post again")
   advance(50 * 1000)
   reply = () => ({ status: 502, body: "<html><body>Bad Gateway</body></html>" })
@@ -261,7 +276,7 @@ test("a search whose boards could not be read fails rather than finding nothing"
   assert.equal(live.foundNow("ARRL-DX-CW").kind, "failed")
 })
 
-test("a post another pane already made for the same score is not made again", async () => {
+test("a post an overlapping call already made is not made again", async () => {
   const { live, posts } = harness(() => ({ status: 401, body: "" }))
   const ready = {
     operationUuid: "op-1",
@@ -269,7 +284,6 @@ test("a post another pane already made for the same score is not made again", as
     password: "secret",
     headers: { CONTEST: "CQ-WW-CW" },
     totals: { score: 100 },
-    signature: "100||0",
     qsos: [],
     breakdown: true,
     everyMs: POST_EVERY_MS,
@@ -277,13 +291,22 @@ test("a post another pane already made for the same score is not made again", as
     soft: "Ham2K Logger",
     version: "0.1.0",
   }
-  // Both panes found the post due before either started it.
+  // Both calls found the post due before either started it.
   assert.ok(live.due("op-1", "KI2D|cqww|secret"))
   live.startPost(ready, "KI2D|cqww|secret")
   await Promise.allSettled(live.pending())
   live.startPost(ready, "KI2D|cqww|secret")
   await Promise.allSettled(live.pending())
   assert.equal(posts().length, 1)
+})
+
+test("a contest's settings are part of the attempt, so a refusal is asked again once they change", () => {
+  // CQ WW's mode picks CQ-WW-CW or CQ-WW-SSB: one closed is no reason to
+  // wait half an hour once the operation is set to the other.
+  const cqww = (mode: string) => ({ type: "cqww", ref: { type: "cqww", contest: true, mode } })
+  assert.notEqual(attemptOf("KI2D", cqww("CW"), "secret"), attemptOf("KI2D", cqww("SSB"), "secret"))
+  assert.equal(attemptOf("KI2D", cqww("CW"), "secret"), attemptOf("KI2D", cqww("CW"), "secret"))
+  assert.notEqual(attemptOf("KI2D", cqww("CW"), "secret"), attemptOf("KI2D", cqww("CW"), "corrected"))
 })
 
 test("the operation's contest is the ref the app marks as one", () => {

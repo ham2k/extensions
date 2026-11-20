@@ -145,6 +145,7 @@ test("the board's answer is read from its JSON, however it is wrapped", () => {
     ok: false,
     status: 404,
     message: "Error! Contest is closed or is not valid",
+    closed: true,
   })
   assert.deepEqual(readAnswer(401, "Unauthorized"), { ok: false, status: 401, message: "HTTP 401", auth: true })
   assert.equal(readAnswer(200, '{"status":403,"status_message":"Wrong password"}').auth, true)

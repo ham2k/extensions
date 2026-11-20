@@ -273,6 +273,9 @@ export interface PostAnswer {
   transient?: boolean
   /// A refusal of the call and password.
   auth?: boolean
+  /// A refusal because the board is not taking scores for the contest:
+  /// closed, or not open yet.
+  closed?: boolean
 }
 
 /// The board answers JSON inside an HTML response, `{"status":200,
@@ -288,6 +291,7 @@ export function readAnswer(httpStatus: number, body: string): PostAnswer {
     const ok = status === 200
     const why = message || String(status)
     if (!ok && transient(status)) return { ok, status, message: why, transient: true }
+    if (!ok && /contest is closed/i.test(message)) return { ok, status, message: why, closed: true }
     return { ok, status, message: why, ...(!ok && auth(status, message) ? { auth: true } : {}) }
   }
   if (httpStatus === 401 || httpStatus === 403) return { ok: false, status: httpStatus, message: `HTTP ${httpStatus}`, auth: true }
