@@ -2,25 +2,26 @@
 // SPDX-License-Identifier: MIT
 //
 // QRZ.com Logbook pushes, through the `transfer` hook. QRZ issues one API key
-// per logbook, so the account holds a list of them, and a destination is the
-// logbook's callsign as STATUS reports it: a name, never the key.
+// per logbook, so Settings hold a list of them (logbookSettings.ts), and a
+// destination is the logbook's callsign as STATUS reports it: a name, never
+// the key.
 
 import { host } from "@ham2k/extension-sdk"
 import type { DestinationsRequest, HookContext, PushRecord, PushRecordResult, PushSuggestion, PushSuggestionsRequest, TransferDestination } from "@ham2k/extension-sdk"
 
 import { tFor } from "./i18n.ts"
+import { logbookEntriesOf } from "./logbookSettings.ts"
 
 const API = "https://logbook.qrz.com/api"
 
 export const SERVICE = "qrz"
 
-/// The logbook keys the operator entered, separated by spaces, commas or lines.
+/// The logbook keys the operator entered. Throws when they cannot be read,
+/// so the push rows say so rather than offering nothing.
 export function logbookKeysOf(ctx: HookContext): string[] {
-  const raw = ctx.account?.credentials?.logbookKeys ?? ""
-  return raw
-    .split(/[\s,;]+/)
-    .map((key) => key.trim())
-    .filter((key) => key !== "")
+  const entries = logbookEntriesOf(ctx)
+  if (entries === undefined) throw new Error(tFor(ctx)("keychainUnavailable"))
+  return entries.map((entry) => entry.key)
 }
 
 /// QRZ answers `RESULT=OK&LOGID=123&COUNT=1`, form-encoded.
@@ -50,38 +51,57 @@ async function call(params: Record<string, string>): Promise<Record<string, stri
 
 export type Logbook = { call: string; name?: string }
 
-/// The logbook [key] opens, or an error naming QRZ's reason. STATUS may
-/// carry its fields in a nested, form-encoded `DATA`; both shapes are read.
+/// QRZ.com answered, and refused the key: unlike a request that never got an
+/// answer, asking again changes nothing.
+export class KeyRefused extends Error {}
+
+/// The logbook [key] opens; [KeyRefused] with QRZ's reason when it opens
+/// none, any other error when QRZ could not be asked. STATUS may carry its
+/// fields in a nested, form-encoded `DATA`; both shapes are read.
 export async function logbookStatus(key: string): Promise<Logbook> {
   const reply = await call({ KEY: key, ACTION: "STATUS" })
   const data = { ...reply, ...(reply.DATA ? parseReply(reply.DATA) : {}) }
   const callsign = data.CALLSIGN ?? data.OWNER
-  if (reply.RESULT !== "OK" || !callsign) throw new Error(reply.REASON ?? "QRZ.com did not accept this logbook key")
+  if (reply.RESULT !== "OK" || !callsign) throw new KeyRefused(reply.REASON ?? "QRZ.com did not accept this logbook key")
   return { call: callsign.toUpperCase(), name: data.BOOK_NAME?.trim() || undefined }
 }
+
+/// Enough of a key to tell it from the others, and no more.
+export const shortKey = (key: string) => `${key.slice(0, 4)}…`
+
+/// Why [key] opens no logbook: refused by QRZ.com, or not checked at all.
+export const statusFailure = (key: string, e: unknown, t: ReturnType<typeof tFor>): string =>
+  t(e instanceof KeyRefused ? "logbookFailed" : "logbookUnchecked", { key: shortKey(key), message: (e as Error).message })
 
 /// A logbook as QRZ.com shows it: by its name, which is its callsign until
 /// the operator renames it.
 export const logbookLabel = ({ call, name }: Logbook, t: ReturnType<typeof tFor>): string => t("logbookNamed", { name: name ?? call })
 
 /// Logbook callsign → its key and name, learned by asking STATUS of every
-/// key the account holds. Kept for the life of the runtime and learned again
-/// when the keys change, or after a key could not be checked.
+/// key the operator entered. Kept for the life of the runtime and learned
+/// again when the keys change, or after a key could not be checked.
 const logbooks = new Map<string, Logbook & { key: string }>()
+/// Why each key that opened no logbook did not, for a push to a logbook none
+/// opened: "no key for it" would be untrue of a key QRZ.com refused or could
+/// not be asked about.
+const failures = new Map<string, unknown>()
 let learnedFrom: string | undefined
 
 async function logbookMap(ctx: HookContext): Promise<Map<string, Logbook & { key: string }>> {
   const keys = logbookKeysOf(ctx)
   if (learnedFrom === keys.join(" ")) return logbooks
   logbooks.clear()
+  failures.clear()
   let complete = true
   for (const key of keys) {
     try {
       const logbook = await logbookStatus(key)
       logbooks.set(logbook.call, { ...logbook, key })
-    } catch {
-      // A key QRZ refuses opens no logbook, and the account test names it;
-      // one it could not be asked about is asked again next time.
+    } catch (e) {
+      // Not a destination; a push to the logbook it should have opened says
+      // why. Asked again next time either way: a key reset on QRZ.com is
+      // refused until the operator enters the new one.
+      failures.set(key, e)
       complete = false
     }
   }
@@ -138,7 +158,11 @@ export async function push(
   ctx: HookContext,
 ): Promise<PushRecordResult[]> {
   const key = (await logbookFor(destination.id, ctx))?.key
-  if (!key) throw new Error(tFor(ctx)("noLogbookFor", { call: destination.id }))
+  if (!key) {
+    const t = tFor(ctx)
+    const [failed] = failures
+    throw new Error(failed ? statusFailure(failed[0], failed[1], t) : t("noLogbookFor", { call: destination.id }))
+  }
   const results: PushRecordResult[] = []
   for (const record of records) {
     try {

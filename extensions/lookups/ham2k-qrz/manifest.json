@@ -1,8 +1,8 @@
 {
   "key": "ham2k-qrz",
   "name": "QRZ.com Callsign Lookups",
-  "version": "0.3.0",
-  "api": 28,
+  "version": "0.4.0",
+  "api": 31,
   "description": "Looks up callsign details with a QRZ.com account, and pushes your contacts to QRZ.com Logbook",
   "category": "lookup",
   "keywords": [
@@ -13,8 +13,12 @@
   "hooks": [
     "account",
     "lookup",
+    "settingsPanel",
     "transfer"
   ],
+  "settings": {
+    "section": "exports"
+  },
   "domains": [
     "*.qrz.com"
   ],

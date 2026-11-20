@@ -13,7 +13,8 @@ import type { AnnotatedCallInfo, CallInfoLookup, HookContext, JSONValue, LookupR
 // definition members follow the locale by being functions of ctx — see the
 // kernel's account getDefinition path.
 import { tFor } from "./i18n.ts"
-import { logbookLabel, logbookStatus, push, SERVICE, suggestDestinations, suggestPushes } from "./logbook.ts"
+import { push, SERVICE, suggestDestinations, suggestPushes } from "./logbook.ts"
+import { logbookSettingsPanel } from "./logbookSettings.ts"
 import {
   forgetNoPhoto,
   hasNoPhoto,
@@ -30,6 +31,7 @@ defineExtension({
   ...manifest,
   onActivation({ registerHook }) {
     registerHook('lookup', { hook: { lookupCall }, key: manifest.key, priority: 99 })
+    registerHook('settingsPanel', { key: manifest.key, hook: logbookSettingsPanel })
     registerHook('transfer', {
       key: manifest.key,
       hook: {
@@ -68,12 +70,6 @@ defineExtension({
               key: 'password',
               label: t('passwordLabel'),
               type: 'secret'
-            },
-            {
-              key: 'logbookKeys',
-              label: t('logbookKeysLabel'),
-              type: 'secret',
-              postface: t('logbookKeysHelp')
             }
           ]
         },
@@ -81,8 +77,6 @@ defineExtension({
           const t = tFor(ctx)
           const username = (credentials.username || '').trim().toUpperCase()
           const password = credentials.password
-          const logbooks = await testLogbookKeys(credentials.logbookKeys ?? '', ctx)
-          if (!username && !password && logbooks) return logbooks
           if (!username || !password) {
             return t('missingCredentials')
           }
@@ -99,7 +93,7 @@ defineExtension({
             }
             const name = [tag(lookupResponse.body, 'fname'), tag(lookupResponse.body, 'name')].filter((x) => x).join(' ')
             const call = tag(lookupResponse.body, 'call') || username
-            return [`✅ ${call}: ${name}`, logbooks].filter((line) => line).join('\n\n')
+            return `✅ ${call}: ${name}`
           } catch (e) {
             return t('authFailed', { message: (e as Error).message })
           }
@@ -108,22 +102,6 @@ defineExtension({
     })
   },
 })
-
-/// One line per logbook key: the logbook it opens, or why QRZ refused it.
-/// Empty when no keys were entered.
-async function testLogbookKeys(raw: string, ctx: HookContext): Promise<string> {
-  const t = tFor(ctx)
-  const keys = raw.split(/[\s,;]+/).filter((key) => key !== '')
-  const lines: string[] = []
-  for (const key of keys) {
-    try {
-      lines.push(t('logbookOk', { logbook: logbookLabel(await logbookStatus(key), t) }))
-    } catch (e) {
-      lines.push(t('logbookFailed', { key: `${key.slice(0, 4)}…`, message: (e as Error).message }))
-    }
-  }
-  return lines.join('\n\n')
-}
 
 // The QRZ XML payload is flat and unentitled; a tag extractor is all we need.
 function tag(xml: string, name: string): string | undefined {

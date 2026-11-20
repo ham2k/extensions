@@ -1,4 +1,5 @@
 {
+  "accountLabel": "QRZ.com account",
   "accountDescription": "Callsign lookups",
   "usernameLabel": "Login (your callsign)",
   "passwordLabel": "Password",
@@ -6,12 +7,16 @@
   "noEmailLogin": "Don't use your email for login.",
   "lookupFailed": "✅ Credentials are correct, but callsign lookup failed: **{{error}}**",
   "authFailed": "Authentication failed: **{{message}}**",
-  "logbookKeysLabel": "Logbook API keys",
-  "logbookKeysHelp": "To push your contacts to QRZ.com Logbook: one key per logbook, separated by spaces. Each logbook's key is in its settings on QRZ.com.",
-  "logbookOk": "✅ {{logbook}}",
-  "logbookFailed": "❌ Logbook key {{key}}: **{{message}}**",
+  "logbookKeysHelp": "To push your contacts to QRZ.com Logbook, add each logbook's API key, which is in that logbook's settings on QRZ.com.",
+  "logbookFailed": "QRZ.com did not accept the key {{key}}: {{message}}",
+  "logbookUnchecked": "Couldn't reach QRZ.com to check the key {{key}}: {{message}}",
   "logbookNamed": "Logbook \"{{name}}\"",
-  "noLogbookFor": "No QRZ.com Logbook key opens a logbook for {{call}}. Add its key to your QRZ.com account in Settings.",
+  "noLogbookFor": "No QRZ.com Logbook key opens a logbook for {{call}}. Add its key in Settings → Exports & Imports → QRZ.com Logbooks.",
   "pushToLogbook": "Push to QRZ.com",
-  "pushUpdatesToLogbook": "Push updates to QRZ.com"
+  "pushUpdatesToLogbook": "Push updates to QRZ.com",
+  "logbookPanelTitle": "QRZ.com Logbooks",
+  "logbookItemLabel": "logbook",
+  "logbooksLabel": "Logbooks",
+  "logbookKeyLabel": "Logbook API key",
+  "keychainUnavailable": "Your QRZ.com Logbook keys can't be read: this device's secure storage is unavailable."
 }

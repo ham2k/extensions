@@ -1,4 +1,5 @@
 {
+  "accountLabel": "Cuenta de QRZ.com",
   "accountDescription": "Búsquedas de indicativos",
   "usernameLabel": "Usuario (tu indicativo)",
   "passwordLabel": "Contraseña",
@@ -6,12 +7,16 @@
   "noEmailLogin": "No uses tu email para iniciar sesión.",
   "lookupFailed": "✅ Las credenciales son correctas, pero la búsqueda del indicativo falló: **{{error}}**",
   "authFailed": "La autenticación falló: **{{message}}**",
-  "logbookKeysLabel": "Claves API del Logbook",
-  "logbookKeysHelp": "Para enviar tus contactos a QRZ.com Logbook: una clave por logbook, separadas por espacios. La clave de cada logbook está en su configuración en QRZ.com.",
-  "logbookOk": "✅ {{logbook}}",
-  "logbookFailed": "❌ Clave de logbook {{key}}: **{{message}}**",
+  "logbookKeysHelp": "Para enviar tus contactos a QRZ.com Logbook, agrega la clave API de cada logbook, que está en la configuración de ese logbook en QRZ.com.",
+  "logbookFailed": "QRZ.com no aceptó la clave {{key}}: {{message}}",
+  "logbookUnchecked": "No se pudo contactar a QRZ.com para comprobar la clave {{key}}: {{message}}",
   "logbookNamed": "Logbook \"{{name}}\"",
-  "noLogbookFor": "Ninguna clave de QRZ.com Logbook abre un logbook para {{call}}. Agrega su clave a tu cuenta de QRZ.com en Configuración.",
+  "noLogbookFor": "Ninguna clave de QRZ.com Logbook abre un logbook para {{call}}. Agrega su clave en Configuración → Exportar e importar → QRZ.com Logbooks.",
   "pushToLogbook": "Enviar a QRZ.com",
-  "pushUpdatesToLogbook": "Enviar cambios a QRZ.com"
+  "pushUpdatesToLogbook": "Enviar cambios a QRZ.com",
+  "logbookPanelTitle": "QRZ.com Logbooks",
+  "logbookItemLabel": "logbook",
+  "logbooksLabel": "Logbooks",
+  "logbookKeyLabel": "Clave API del logbook",
+  "keychainUnavailable": "No se pueden leer tus claves de QRZ.com Logbook: el almacenamiento seguro de este dispositivo no está disponible."
 }

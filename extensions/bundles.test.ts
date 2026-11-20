@@ -370,7 +370,10 @@ test("every extension builds, packs and loads", async (t) => {
         const panels: Record<string, unknown>[] = []
         for (const { hook } of panelRegistrations) {
           const getPanels = hook.getPanels as ((args: object, ctx: object) => Promise<Record<string, unknown>[]>) | undefined
-          panels.push(...(hook.kind === "simple" ? [hook] : getPanels ? await getPanels({}, { locale: "en" }) : [{}]))
+          // Counted with every app experiment on: a panel may wait on one (QRZ.com's on PUSH), and is
+          // held to these rules as it will be once that experiment ships.
+          const everyExperiment = Object.assign([] as string[], { includes: () => true })
+          panels.push(...(hook.kind === "simple" ? [hook] : getPanels ? await getPanels({}, { locale: "en", enabledExperiments: everyExperiment }) : [{}]))
         }
         assert.equal(panels.length, 1, `${name}'s settings are ${panels.length} panels, not one`)
         for (const panel of panels) {

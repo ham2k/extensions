@@ -25,7 +25,7 @@ const qrz = await loadExtension(() => import("./index.ts"), {
       return { status: 200, body: answer(sent) }
     },
   },
-  ctx: { account: { credentials: { logbookKeys: "KEY-A, KEY-B" } } } as never,
+  ctx: { keychain: { logbooks: [{ key: "KEY-A" }, { key: "KEY-B" }] } } as never,
 })
 
 // KEY-A answers in the nested DATA shape, KEY-B with top-level fields: both
@@ -87,6 +87,21 @@ test("a delete of a contact QRZ no longer has succeeds; a refused insert says wh
     ],
   })
   assert.deepEqual(results, [{ uuid: "gone" }, { uuid: "dupe", error: "duplicate QSO" }])
+})
+
+// "No key opens a logbook" sends the operator to add a key they already
+// entered: a push to the logbook a refused key was for says QRZ refused it.
+test("a push to a logbook whose key QRZ refuses says so, not that no key was entered", async () => {
+  answer = (params) => (params.ACTION === "STATUS" ? "RESULT=FAIL&REASON=invalid+api+key" : "RESULT=OK")
+  await assert.rejects(
+    qrz.runHook(
+      "transfer",
+      "push",
+      { service: "qrz", stationCall: "N0DEV", destination: { id: "N0DEV" }, records: [] },
+      { ctx: { keychain: { logbooks: [{ key: "RESET-KEY" }] } } as never },
+    ),
+    { message: "QRZ.com did not accept the key RESE…: invalid api key" },
+  )
 })
 
 test("a finished operation never pushed has its push marked due", async () => {
