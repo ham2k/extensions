@@ -104,13 +104,17 @@ test("the scope is all the pane shows: its settings are behind the gear, with no
   assert.deepEqual(
     descriptor.form!.map((field) => ("key" in field ? field.key : "title" in field ? field.title : field.type)),
     // The radio, the view and the spots up front; what the scope draws and asks of the radio folded under a heading.
-    ["radio", "display", "spots", "notes", "age", "spotLevel", "plan", "Band Scope Settings", "floor", "average", "fps", "rows", "waterfallRef", "speed"],
+    ["radio", "scope", "display", "spots", "notes", "age", "spotLevel", "plan", "Band Scope Settings", "floor", "average", "fps", "rows", "waterfallRef", "speed"],
   )
-  // One list names the radio being logged on and every radio of the station, in the app's words,
-  // and the options say what each is: a description under either field only repeats them.
-  const field = (key: string) => descriptor.form!.find((f) => "key" in f && f.key === key) as { options?: unknown; description?: string }
+  // One list names the radio being logged on and every radio of the station, in the app's words. A
+  // settings row shows a field's description and never its chosen value, so each says what is
+  // chosen now: fixed, it would say the same under every choice.
+  const field = (key: string) =>
+    descriptor.form!.find((f) => "key" in f && f.key === key) as { options?: unknown; none?: string; description?: string; descriptionOff?: string }
   assert.equal(field("radio").options, "$core.radioChoices")
-  assert.deepEqual([field("radio").description, field("notes").description], [undefined, undefined])
+  assert.equal(field("radio").description, "Follow the VFO of ${value}")
+  assert.deepEqual([field("scope").options, field("scope").none, field("scope").description], ["$core.scopes", "The selected radio", "${value}"])
+  assert.deepEqual([field("notes").description, field("notes").descriptionOff], ["Show spot annotations (enter as QRM!)", "Don't show spot annotations"])
   // Each select's default must be one of its choices, or the form opens on a blank.
   for (const field of descriptor.form!) {
     // A system list is the app's to fill: the radio field's `A` is its first choice.
@@ -156,6 +160,30 @@ test("the pane shows the radio its form picks: set A's, set B's, or one of the s
   assert.deepEqual(asked, [undefined, undefined, "B", "ft891", "-"])
   // Set B's with no SO2R, or a radio picked and since removed: an unnamed scope would draw set A's.
   assert.deepEqual(named, ["k4", "k4", "B", "k4", "-"])
+})
+
+// Drawn through an SDR or a Flex, the pane reads, sets and draws that scope; through the radio's own,
+// its speed and levels would be another scope's, and a two-receiver radio would draw both through one.
+test("a pane drawn through another scope reads, sets and draws that scope, for the radio alone", async (t) => {
+  const radios = dualRadios()
+  const host = fakeHost(
+    () => radios,
+    () => radios[0],
+  )
+  const reads = t.mock.method(host, "readRadio", async () => radios[0])
+  const lists = t.mock.method(host, "listRadios", async () => radios)
+  const writes = t.mock.method(host, "setRadioSpectrum", async () => ({ accepted: true, state: radios[0] }))
+  const hook = createBandScope(host)
+  const content = await hook.render(args("through", { scope: "flex/scope:follow", speed: "mid" }), context)
+  assert.deepEqual(reads.mock.calls[0].arguments, [undefined, { scope: "flex/scope:follow" }])
+  assert.equal(lists.mock.callCount(), 0, "one receiver: the scope follows one dial")
+  assert.deepEqual(
+    writes.mock.calls.map((call) => call.arguments[0]),
+    [{ id: "k4", selection: "k4", scope: "flex/scope:follow", speed: "mid" }],
+  )
+  const scopes = (content as { scene: PanelScene }).scene.controls!.filter((c) => c.id.endsWith("spectrum")) as { radio?: string; scope?: string }[]
+  assert.deepEqual(scopes, [{ ...scopes[0], radio: "k4", scope: "flex/scope:follow" }])
+  assert.equal(settingsFrom({ scope: "" }).scope, undefined, "the form's None is the radio's own scope")
 })
 
 function dualRadios(deviceId = "k4-device", mainId = "k4", subId = "k4/sub"): [PanelRadioState, PanelRadioState] {

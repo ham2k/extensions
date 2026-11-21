@@ -468,6 +468,27 @@ test('the form picks the radio from the app’s list of radio choices, and offer
   assert.deepEqual(field('theme').options.map((o: { value: string }) => o.value), ['auto', 'light', 'dark', 'teal'])
 })
 
+// A settings row shows a field's description and never its chosen value: a fixed one would say the
+// same under every choice, and the operator would open each field to learn what it holds.
+test('the form says what each choice holds, and picks a scope to draw the radio through', async () => {
+  const [panel] = await bandMap().hook.getPanels({}, {})
+  const field = (key: string) => panel.form.find((f: { key?: string }) => f.key === key)
+  assert.equal(field('radio').description, 'Follow the VFO of ${value}')
+  assert.deepEqual([field('scope').options, field('scope').none, field('scope').description], ['$core.scopes', 'The selected radio', '${value}'])
+  assert.deepEqual([field('notes').description, field('notes').descriptionOff], ['Show spot annotations (enter as QRM!)', 'Don’t show spot annotations'])
+  const [es] = await bandMap().hook.getPanels({}, { locale: 'es' })
+  assert.equal(es.form.find((f: { key?: string }) => f.key === 'scope').none, 'La radio elegida')
+})
+
+// Named with the radio off the map's band, the scope would follow a radio the map does not draw.
+test('the map draws its radio through the scope its form picks, only while the radio is on its band', async () => {
+  const through = await render(bandMap().hook, { config: { scope: 'flex/scope:follow' } })
+  assert.equal(through.scope.scope, 'flex/scope:follow')
+  assert.notEqual(through.scope.radio, 'none')
+  assert.equal((await render(bandMap().hook, { config: { scope: 'flex/scope:follow', band: '40m' } })).scope.scope, undefined)
+  assert.equal((await render(bandMap().hook, { config: { scope: '' } })).scope.scope, undefined, "the form's None is the radio's own scope")
+})
+
 // Under SO2R a map placed for Radio B shows B's band and scope, not the logging radio's; and the
 // logging controls are set A's, so they say nothing of where B is.
 test('a map following Radio B draws its band and its scope, never the logging controls’', async () => {

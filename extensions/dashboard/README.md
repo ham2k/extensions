@@ -6,7 +6,9 @@ a click, which the app ships pre-loaded and updates from the catalog. Needs
 extension API 23. `ham2k-band-scope` is the Band Scope panel, a radio's
 spectrum and waterfall with the band plan and the spots on the band, also
 pre-loaded; it draws the plan `ham2k-band-plan` (under `spots/`) gives as band
-annotations. Band Scope needs extension API 23, Band Plan 20. The `ki2d-` panels live here
+annotations. A pane can draw its radio through one of the station's SDRs or a FlexRadio its
+Spectrum from setting picks (`$core.scopes`), which follows the radio's dial while the pane is shown.
+Band Scope needs extension API 31, Band Plan 20. The `ki2d-` panels live here
 rather than being bundled into HaLo — three SVG reference panels, and a rate
 chart, a band map, a contest map and a live scoreboard drawn as the app's native panel scenes:
 
@@ -28,9 +30,10 @@ chart, a band map, a contest map and a live scoreboard drawn as the app's native
   fields, and a click on the scope tunes the radio at the app's own step.
   Each map follows the radio its Radio setting names (`$core.radioChoices`):
   the one being logged on, SO2R's Radio B, or one of the station's; a click
-  on a map following a radio no one logs on tunes that radio alone.
-  Needs extension API 28 (the app's radio choices, and a band scope beside
-  the radio's own).
+  on a map following a radio no one logs on tunes that radio alone. Its
+  Spectrum from setting draws that radio through an SDR or a FlexRadio
+  (`$core.scopes`) while the radio is on the map's band, and each setting's
+  description says what it holds. Needs extension API 31.
 - `ki2d-contest-map`: the last hour's contacts on the station's band, a dot
   apiece on the app's `map` control, fading with age, the newest larger, a
   colour for each band, and a smaller dot for each spotted station not yet

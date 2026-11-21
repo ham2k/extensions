@@ -31,7 +31,7 @@ import { laneHeight, noteSpots, radioModeFor, scopeBackground, scopeSpots, spotI
 
 /** The host calls this panel makes, handed in so a test can stand in for them. */
 export interface BandScopeHost {
-  readRadio(id?: string): Promise<PanelRadioState | null>
+  readRadio(id?: string, options?: { scope?: string }): Promise<PanelRadioState | null>
   listRadios(): Promise<PanelRadioState[]>
   setRadioSpectrum(args: PanelRadioSpectrumSet): Promise<PanelRadioResult>
   setRadio(args: PanelRadioSet): Promise<PanelRadioResult>
@@ -65,6 +65,8 @@ export interface Settings {
   plan: PlanDetail
   /** The radio the pane shows, as `readRadio` takes it: absent for set A's, `B` for set B's, or a radio's id. */
   radio?: string
+  /** An SDR or a Flex the radio is drawn through, by its id from `$core.scopes`; absent, the radio's own scope. */
+  scope?: string
 }
 /** What the operator dragged on one receiver's scope, kept for the session over the settings. */
 export interface RadioView {
@@ -114,10 +116,22 @@ const defaultSettings: Settings = {
 
 const choices = (values: number[], label: (value: number) => string) => values.map((value) => ({ value, label: label(value) }))
 
+/** A field whose description says the value it holds (extension API 31): `${value}` in it is the chosen option's words, and a checkbox's `descriptionOff` is said while it is off. */
+type DescribedField = SettingsField & { descriptionOff?: string }
+
 /** The pane's form, behind its gear in Layout Setup; the app keeps each placed pane's values. */
-const form: (SettingsField | FormHeader)[] = [
+const form: (DescribedField | FormHeader)[] = [
   // The radio being logged on (A, and B under SO2R), then each of the station's by id, in the app's words.
-  { type: "field", fieldType: "select", key: "radio", label: "Radio", value: "A", options: "$core.radioChoices" },
+  { type: "field", fieldType: "select", key: "radio", label: "Radio", value: "A", options: "$core.radioChoices", description: "Follow the VFO of ${value}" },
+  {
+    type: "field",
+    fieldType: "select",
+    key: "scope",
+    label: "Spectrum from",
+    options: "$core.scopes",
+    none: "The selected radio",
+    description: "${value}",
+  },
   {
     type: "field",
     fieldType: "select",
@@ -131,7 +145,15 @@ const form: (SettingsField | FormHeader)[] = [
     ],
   },
   { type: "field", fieldType: "checkbox", key: "spots", label: "Show spots", value: true },
-  { type: "field", fieldType: "checkbox", key: "notes", label: "Show annotations", value: true },
+  {
+    type: "field",
+    fieldType: "checkbox",
+    key: "notes",
+    label: "Show annotations",
+    value: true,
+    description: "Show spot annotations (enter as QRM!)",
+    descriptionOff: "Don't show spot annotations",
+  },
   { type: "field", fieldType: "select", key: "age", label: "Spots no older than", value: 30, options: choices([10, 30, 60], (v) => `${v} minutes`) },
   {
     type: "field",
@@ -225,6 +247,7 @@ export function settingsFrom(config: Record<string, JSONValue>): Settings {
     spotLevel: clamp(numberIn(config.spotLevel) ?? defaultSettings.spotLevel, -60, 120),
     plan: config.plan === "none" || config.plan === "edges" || config.plan === "all" ? config.plan : defaultSettings.plan,
     ...radioFrom(config),
+    ...(typeof config.scope === "string" && config.scope ? { scope: config.scope } : {}),
   }
 }
 
@@ -271,12 +294,14 @@ function radioScene(
   const controls: PanelSceneControl[] = heading ? [{ id: key("heading"), label: title, kind: "nativeText" }] : []
   // No `tuneStep`: the app tunes on a click, at a step that follows the zoom. The event only
   // hears where a zoom, a split or a level drag ended, to keep it.
-  const scope: PanelSceneControl = {
+  const scope: PanelSceneControl & { scope?: string } = {
     id: key("spectrum"),
     label: multiple ? `${title} band scope` : "Band scope",
     kind: "bandScope",
     // A radio the form picked that is not there is named still: left unnamed, the scope would draw set A's.
     ...(radio?.id ? { radio: radio.id } : settings.radio ? { radio: settings.radio } : {}),
+    // Through an SDR or a Flex (extension API 31), which follows the radio's dial while this is shown.
+    ...(settings.scope ? { scope: settings.scope } : {}),
     opacity: visible ? 1 : 0,
     event: event("scope"),
     display: settings.display,
@@ -430,7 +455,8 @@ async function sendSettings(host: BandScopeHost, view: PanelView, radio: PanelRa
     // Recorded only once the radio has it, or never will: a pane's first render comes before its
     // scope runs, answered `stopped`, and recorded then it would never be sent at all. One that
     // throws fails this render; either way the next render sends it again.
-    const result = await host.setRadioSpectrum({ ...change, id: radio.id, selection: radio.id })
+    // Drawn through an SDR or a Flex, the speed is that scope's to change, not the radio's own scope's.
+    const result = await host.setRadioSpectrum({ ...change, id: radio.id, selection: radio.id, ...(settings.scope ? { scope: settings.scope } : {}) })
     if (!result.accepted && result.reason !== "invalid" && result.reason !== "unsupported") return
   }
   sent.speed = settings.speed
@@ -569,8 +595,9 @@ export function createBandScope(host: BandScopeHost): PanelHook {
     },
     async render(args, ctx): Promise<PanelContent> {
       const settings = settingsFrom(args.config)
-      const radio = await host.readRadio(settings.radio)
-      const available = radio?.deviceId ? await host.listRadios() : []
+      const radio = await host.readRadio(settings.radio, settings.scope ? { scope: settings.scope } : undefined)
+      // Through another scope, the pane is that one receiver's: it follows one dial.
+      const available = radio?.deviceId && !settings.scope ? await host.listRadios() : []
       const view = viewFor(args.instanceId)
       if (view.defaultId !== radio?.id) {
         view.defaultId = radio?.id

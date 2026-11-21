@@ -33,7 +33,8 @@ type BandMapHost = {
 const en = {
   title: 'KI2D’s Band Map', description: 'The spots on a band, along its frequencies',
   radio: 'Radio', band: 'Band', auto: 'Automatic (the radio’s band)', age: 'Spots no older than', minutes: (n: number) => `${n} minutes`,
-  notes: 'Band annotations', notesHelp: 'What is marked on the band among the spots: your band tags (QRM!, NET!) and what extensions mark.',
+  follows: 'Follow the VFO of ${value}', spectrumFrom: 'Spectrum from', selectedRadio: 'The selected radio',
+  notes: 'Band annotations', notesOn: 'Show spot annotations (enter as QRM!)', notesOff: 'Don’t show spot annotations',
   waterfall: 'Show Waterfall', panadapter: 'Show Spectrum', direction: 'Scope direction', normal: 'Normal', inverted: 'Inverted',
   mapTitle: (band: string) => `${band} Band Map`, unavailable: 'This app cannot show the band map', more: (n: number) => `+${n} more`,
   marker: (label: string) => label,
@@ -42,7 +43,8 @@ const en = {
 const es: typeof en = {
   title: 'Mapa de banda de KI2D', description: 'Los spots de una banda, a lo largo de sus frecuencias',
   radio: 'Radio', band: 'Banda', auto: 'Automática (la banda de la radio)', age: 'Spots de hasta', minutes: (n: number) => `${n} minutos`,
-  notes: 'Anotaciones de la banda', notesHelp: 'Lo marcado en la banda entre los spots: tus etiquetas de banda (QRM!, NET!) y lo que marcan las extensiones.',
+  follows: 'Seguir el VFO de ${value}', spectrumFrom: 'Espectro de', selectedRadio: 'La radio elegida',
+  notes: 'Anotaciones de la banda', notesOn: 'Mostrar las anotaciones de spots (escribe QRM!)', notesOff: 'No mostrar las anotaciones de spots',
   waterfall: 'Mostrar cascada', panadapter: 'Mostrar espectro', direction: 'Dirección del panorámico', normal: 'Normal', inverted: 'Invertida',
   mapTitle: (band: string) => `Mapa de ${band}`, unavailable: 'Esta app no puede mostrar el mapa de banda', more: (n: number) => `+${n} más`,
   marker: (label: string) => markerLabelsEs[label] ?? label,
@@ -227,6 +229,8 @@ export type MapView = {
   maxAgeMinutes: number
   /** The radio on the map's band, which the scope draws, tunes and follows; none, the band alone. */
   radio?: string
+  /** An SDR or a Flex the radio is drawn through, by its id from `$core.scopes`; absent, the radio's own scope. */
+  scope?: string
   /** What the scope shows where the radio sweeps the band, as the form asks: its waterfall, its spectrum. */
   picture: { waterfall: boolean; pan: boolean }
   /** The logging controls' frequency where there is no radio to read, which the map marks itself. */
@@ -487,8 +491,11 @@ export function bandMapScene(e: PanelEnvironment, view: MapView, t: typeof en, s
   const labelStep = niceStep(hzPerPx * (vertical ? 56 : 84))
   const markStep = [5, 4, 2].map(n => labelStep / n).find(m => m / hzPerPx >= 6)
 
-  const scope: Control & { secondary?: boolean } = {
+  const scope: Control & { secondary?: boolean; scope?: string } = {
     id: 'map', label: t.mapTitle(view.band), kind: 'bandScope', radio: view.radio ?? noRadio, event: 'scope',
+    // Through an SDR or a Flex (extension API 31), which follows the radio's dial while the map is shown;
+    // only with the radio on the band, or it would follow a radio the map does not draw.
+    ...(view.radio && view.scope ? { scope: view.scope } : {}),
     display, flow: vertical ? (view.inverted ? 'left' : 'right') : view.inverted ? 'up' : 'down', rising: vertical ? 'down' : 'right',
     window: { lowHz: hz(windowLo), highHz: hz(windowHi) }, span: shownHz, maxWidthHz: widestHz, follow: 0.15,
     // Beside the radio's own band scope: drawn from whatever sweep the radio already sends, asking its
@@ -610,10 +617,13 @@ export function createBandMap(host: BandMapHost): PanelHook {
         key: 'band-map', title: t.title, description: t.description, icon: 'map-marker-radius', multiple: true, on: ['spots', 'qso', 'tick:2', 'radio'],
         form: [
           // The radio being logged on (A, and B under SO2R), then each of the station's by id, in the app's words.
-          { type: 'field', fieldType: 'select', key: 'radio', label: t.radio, value: 'A', options: '$core.radioChoices' },
+          // A settings row shows a field's description and never its value: each says what is chosen now
+          // (extension API 31), `${value}` the chosen option's words.
+          { type: 'field', fieldType: 'select', key: 'radio', label: t.radio, value: 'A', options: '$core.radioChoices', description: t.follows },
+          { type: 'field', fieldType: 'select', key: 'scope', label: t.spectrumFrom, options: '$core.scopes', none: t.selectedRadio, description: '${value}' },
           { type: 'field', fieldType: 'select', key: 'band', label: t.band, value: 'auto', options: [{ value: 'auto', label: t.auto }, ...bands.map(b => ({ value: b, label: b }))] },
           { type: 'field', fieldType: 'select', key: 'age', label: t.age, value: '30', options: ages.map(n => ({ value: String(n), label: t.minutes(n) })) },
-          { type: 'field', fieldType: 'checkbox', key: 'notes', label: t.notes, value: true, description: t.notesHelp },
+          { type: 'field', fieldType: 'checkbox', key: 'notes', label: t.notes, value: true, description: t.notesOn, descriptionOff: t.notesOff },
           { type: 'field', fieldType: 'checkbox', key: 'pan', label: t.panadapter, value: true },
           { type: 'field', fieldType: 'checkbox', key: 'waterfall', label: t.waterfall, value: true },
           { type: 'field', fieldType: 'select', key: 'direction', label: t.direction, value: 'normal', options: [{ value: 'normal', label: t.normal }, { value: 'inverted', label: t.inverted }] },
@@ -691,6 +701,7 @@ export function createBandMap(host: BandMapHost): PanelHook {
       const view: MapView = {
         band, edges, spots: [...notes, ...mapSpots(board, args.clock.nowMillis, edges)].filter(shown), markers, maxAgeMinutes,
         radio: radio?.id && inBand ? radio.id : undefined, picture, draftKHz: fromDraft ? radioKHz : undefined,
+        ...(typeof args.config.scope === 'string' && args.config.scope ? { scope: args.config.scope } : {}),
         passband: inBand ? passband : undefined, plan, superMode: kind, inverted: args.config.direction === 'inverted', span: v.span, center: v.center, split: v.split,
         preset: current, next,
       }
