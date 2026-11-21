@@ -25,6 +25,7 @@ import { fmtInteger } from "@ham2k/lib-format-tools"
 import type { ContestScorer, JSONValue, QsoScoreVerdict } from "@ham2k/extension-sdk"
 import { annotateCallAgainstCountryFile, contestArithmetic, contestSummary } from "@ham2k/extension-sdk"
 
+import { entryBand } from "./entry.ts"
 import { tFor } from "./i18n.ts"
 import { guessedQth, normalizeQth, sendsQth } from "./qth.ts"
 
@@ -75,8 +76,13 @@ export function normalizeZone(value: JSONValue | undefined): string {
 
 /// CQ WW runs separate CW, SSB and RTTY weekends; a QSO in the wrong mode is
 /// not a contest QSO. SSB covers the sideband modes a radio may report.
+export function isRttyMode(mode: JSONValue | undefined): boolean {
+  return ['RTTY', 'RTTY-LSB', 'RTTY-USB', 'RTTY-R'].includes(str(mode).trim().toUpperCase())
+}
+
 function modeMatches(contestMode: string, qsoMode: string): boolean {
   if (!contestMode) return true
+  if (contestMode === 'RTTY') return isRttyMode(qsoMode)
   if (contestMode === 'SSB') return qsoMode === 'SSB' || qsoMode === 'USB' || qsoMode === 'LSB'
   return qsoMode === contestMode
 }
@@ -107,7 +113,9 @@ export const CQWWScorer: ContestScorer<CQWWScoresheet> = {
       return { scoresheet: base, score: { value: 0, alerts: ['invalidMode'] } }
     }
     const rtty = str(ref?.mode) === 'RTTY'
-    if (!(rtty ? RTTY_BANDS : VALID_BANDS).includes(band)) {
+    const declaredBand = rtty ? entryBand(ref) : undefined
+    if (!(rtty ? RTTY_BANDS : VALID_BANDS).includes(band) ||
+        (declaredBand && declaredBand !== 'ALL' && declaredBand !== band.toUpperCase())) {
       return { scoresheet: base, score: { value: 0, alerts: ['invalidBand'] } }
     }
 
@@ -117,8 +125,8 @@ export const CQWWScorer: ContestScorer<CQWWScoresheet> = {
       return { scoresheet: base, score: { value: 0, dupe: true, alerts: ['duplicate'] } }
     }
 
-    // The exchange the operator typed wins; the country file's zone for that
-    // call is the fallback, so a QSO logged without an exchange still scores.
+    // The exchange the operator typed wins. Older contacts without a stored
+    // field can still use the country file's zone or a QTH guess.
     //
     // PRESENCE of the field decides, not truthiness. The core writes
     // `theirZone: ''` for a zone the operator deliberately emptied and drops the
@@ -137,9 +145,13 @@ export const CQWWScorer: ContestScorer<CQWWScoresheet> = {
     const entity = maritime ? undefined : theirInfo.entityPrefix
     // The W/VE QTH, on RTTY only and only from a station that sends one. The
     // same presence rule as the zone above.
-    const qth = rtty && !maritime && sendsQth(call)
+    const needsQth = rtty && !maritime && sendsQth(call)
+    const qth = needsQth
       ? (contestRef && 'theirQth' in contestRef ? normalizeQth(contestRef.theirQth) : guessedQth(their))
       : ''
+    if (rtty && (!zone || (needsQth && !qth))) {
+      return { scoresheet: base, score: { value: 0, band, alerts: ['missingExchange'] } }
+    }
 
     // Points are relative to us: our own country is worth least, our own
     // continent more, another continent most. NA-to-NA is the CW/SSB

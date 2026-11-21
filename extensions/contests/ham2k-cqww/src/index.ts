@@ -30,9 +30,9 @@ import type {
 import { TYPE, suggestedExchange } from "./exchange.ts"
 import { tFor } from "./i18n.ts"
 import { MODES, nearestMode, nextContestDate, relevanceFor } from "./schedule.ts"
-import { CQWWScorer, ZONE_PATTERN, contestTitle, cqwwCallInfo, normalizeZone } from "./scorer.ts"
+import { CQWWScorer, ZONE_PATTERN, contestTitle, cqwwCallInfo, isRttyMode, normalizeZone } from "./scorer.ts"
 import { QTH_PATTERN, cabrilloLocation, guessedQth, normalizeQth, sendsQth } from "./qth.ts"
-import { BAND_CLASSES, OPERATOR_CLASSES, OVERLAY_CLASSES, POWER_CLASSES, cabrilloCategories, contestRules, transmitterColumns } from "./entry.ts"
+import { BAND_CLASSES, OPERATOR_CLASSES, OVERLAY_CLASSES, POWER_CLASSES, cabrilloCategories, contestRules, entryBand, entryOperator, entryPower, transmitterColumns } from "./entry.ts"
 
 import manifest from "../manifest.json" with { type: "json" }
 
@@ -89,19 +89,19 @@ function exchangeOf(zone: string, qth: string): string {
 }
 
 /// One select per axis of the entry, "Not declared" first.
-function entrySelects(t: (key: string) => string) {
-  const select = (key: string, options: readonly string[]) => ({
+function entrySelects(t: (key: string) => string, ref: Record<string, JSONValue> | undefined) {
+  const select = (key: string, options: readonly string[], value = '') => ({
     type: 'field' as const,
     fieldType: 'select' as const,
     key,
     label: t(`${key}Label`),
-    value: '',
+    value,
     options: [{ value: '', label: t('notDeclared') }, ...options.map((value) => ({ value, label: t(`${key}_${value}`) }))],
   })
   return [
-    select('operator', OPERATOR_CLASSES),
-    select('band', BAND_CLASSES),
-    select('power', POWER_CLASSES),
+    select('operator', OPERATOR_CLASSES, entryOperator(ref)),
+    select('band', BAND_CLASSES, entryBand(ref)),
+    select('power', POWER_CLASSES, entryPower(ref)),
     select('overlay', OVERLAY_CLASSES),
   ]
 }
@@ -140,7 +140,7 @@ const ActivityHook = {
   },
 
   async operationControls(
-    _args: { operation: Record<string, JSONValue> },
+    args: { operation: Record<string, JSONValue> },
     ctx: HookContext,
   ): Promise<LoggingControlDescriptor[]> {
     const t = tFor(ctx)
@@ -191,7 +191,7 @@ const ActivityHook = {
               ...rulesNotes(ctx, 'operator', OPERATOR_CLASSES, contestRules),
               // The entry we are making, for the Cabrillo header. Each starts
               // undeclared: see entry.ts.
-              ...entrySelects(t),
+              ...entrySelects(t, refOfType(args.operation, TYPE)),
               await clubField(ctx, 'cqww'),
             ],
           },
@@ -316,7 +316,7 @@ const RefHandler = {
     // this line have to speak the same language, and the key already exists
     // for `suggestOperationTitle`.
     const decorated = { ...ref, program: 'Contest', label, shortLabel: label, name: zone ? t('ourZoneSubtitle', { zone }) : t('notConfigured') }
-    return withRules(decorated, contestRules((ref as Record<string, JSONValue>).operator))
+    return withRules(decorated, contestRules(entryOperator(ref as Record<string, JSONValue>)))
   },
 
   /// "KI2D for CQWW CW" with "Zone 8" beneath it: the sent exchange is the one
@@ -365,7 +365,7 @@ function reportFor(qso: Record<string, JSONValue>, side: 'our' | 'their'): strin
   const sideData = (qso[side] as Record<string, JSONValue>) ?? {}
   const sent = str(sideData.sent)
   if (sent) return sent
-  return str(qso.mode) === 'CW' || str(qso.mode) === 'RTTY' ? '599' : '59'
+  return str(qso.mode) === 'CW' || isRttyMode(qso.mode) ? '599' : '59'
 }
 
 /// The contest's own name for this operation's file — the mode is part of
@@ -443,13 +443,17 @@ const ExportHook = {
     const sentQth = qthColumn(ourCall, ourQth(operation))
 
     if (args.exportType === `${TYPE}-cabrillo`) {
+      // Single-band entries submit contacts on every band. Other modes do not
+      // belong in the RTTY file.
+      const qsos = rtty ? args.qsos.filter((qso) => isRttyMode(qso.mode)) : args.qsos
+      const zoneColumn = (zone: string) => zone ? (rtty ? zone.padStart(2, '0') : zone) : '-'
       const profile = await profileDetails()
-      const transmitter = transmitterColumns(refOfType(operation, TYPE), args.qsos)
-      const content = qsonToCabrillo(args.qsos, {
+      const transmitter = transmitterColumns(refOfType(operation, TYPE), qsos)
+      const content = qsonToCabrillo(qsos, {
         headers: [
           ['CONTEST', mode ? `CQ-WW-${mode}` : 'CQ-WW'],
           ['CALLSIGN', ourCall],
-          ['OPERATORS', cabrilloOperators(operation, args.qsos)],
+          ['OPERATORS', cabrilloOperators(operation, qsos)],
           ['LOCATION', cabrilloLocation(ourCall, refOfType(operation, TYPE)?.qth)],
           ...cabrilloCategories(refOfType(operation, TYPE)),
           ['GRID-LOCATOR', str(operation.grid)],
@@ -460,11 +464,11 @@ const ExportHook = {
         qsoParts: (qso) => [
           ourCall || '-',
           reportFor(qso, 'our'),
-          sentZone || '-',
+          zoneColumn(sentZone),
           ...(rtty ? [sentQth] : []),
           str(((qso.their as Record<string, JSONValue>) ?? {}).call) || '-',
           reportFor(qso, 'their'),
-          normalizeZone(refOfType(qso, TYPE)?.theirZone) || '-',
+          zoneColumn(normalizeZone(refOfType(qso, TYPE)?.theirZone)),
           ...(rtty
             ? [qthColumn(str(((qso.their as Record<string, JSONValue>) ?? {}).call), normalizeQth(refOfType(qso, TYPE)?.theirQth))]
             : []),
@@ -474,7 +478,9 @@ const ExportHook = {
       return {
         filename: filenameFor(operation, args.qsos, 'log', args.compactFilenames),
         mimeType: 'text/plain',
-        content,
+        // The shared writer encodes digital modes as DG. All rows in this
+        // RTTY file have already been checked, so change only the mode column.
+        content: rtty ? content.replace(/^(QSO:\s+\S+\s+)DG(?=\s)/gm, '$1RY') : content,
       }
     }
 

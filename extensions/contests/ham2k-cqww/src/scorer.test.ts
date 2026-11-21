@@ -225,7 +225,7 @@ function rttyQso(call: string, band = '20m', extra: Record<string, JSONValue> = 
 }
 
 test('RTTY points: 1 for our own country, 2 on our continent with no NA exception, 3 beyond', () => {
-  const { scores } = run([rttyQso('W1AW'), rttyQso('VE3XYZ'), rttyQso('DL1ABC')], usOperation, rttyRef)
+  const { scores } = run([rttyQso('W1AW', '20m', { theirQth: 'CT' }), rttyQso('VE3XYZ'), rttyQso('DL1ABC')], usOperation, rttyRef)
   assert.deepEqual(scores.map((s) => s.value), [1, 2, 3])
 
   const euOperation = { uuid: 'op', stationCall: 'DL0ABC' }
@@ -277,4 +277,35 @@ test('the RTTY band table adds the W/VE QTHs', () => {
 test('a QTH means nothing on the CW and SSB weekends', () => {
   const { sheet } = run([qso('W1AW', '20m', 'SSB', '5')].map((q) => ({ ...q, refs: [{ type: 'cqww', theirZone: '5', theirQth: 'CT' }] })))
   assert.ok(!Object.keys(sheet.mults).some((key) => key.includes('|Q')))
+})
+
+test('saved RTTY aliases score on the declared band, with other data modes excluded', () => {
+  const contacts = [
+    ...['RTTY-LSB', 'RTTY-USB', 'RTTY-R'].map((mode, i) => ({
+      ...rttyQso(`DL${i + 1}ABC`), mode,
+    })),
+    rttyQso('DL1ABC', '40m'),
+    { ...rttyQso('DL2XYZ'), mode: 'FT8' },
+  ]
+  const entries: Record<string, JSONValue>[] = [{ band: '20M' }, { categoryBand: '20' }]
+  for (const entry of entries) {
+    const { scores, sheet } = run(contacts, usOperation, { ...rttyRef, ...entry })
+    assert.deepEqual(scores.map((score) => score.value), [3, 3, 3, 0, 0])
+    assert.deepEqual(scores[3].alerts, ['invalidBand'])
+    assert.deepEqual(scores[4].alerts, ['invalidMode'])
+    assert.deepEqual(sheet.bands, { '20m': 3 })
+  }
+})
+
+test('a cleared RTTY exchange earns nothing and leaves the dupe slot free', () => {
+  const { scores, sheet } = run([
+    rttyQso('W1AW', '20m', { theirZone: '', theirQth: 'CT' }),
+    rttyQso('W1AW', '20m', { theirZone: '5', theirQth: '' }),
+    rttyQso('W1AW', '20m', { theirZone: '5', theirQth: 'CT' }),
+    rttyQso('W1AW', '20m', { theirZone: '5', theirQth: 'CT' }),
+  ], usOperation, rttyRef)
+  assert.deepEqual(scores.map((score) => score.alerts), [
+    ['missingExchange'], ['missingExchange'], undefined, ['duplicate'],
+  ])
+  assert.equal(sheet.qsos, 1)
 })
