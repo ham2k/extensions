@@ -119,3 +119,50 @@ test("a finished operation never pushed has its push marked due", async () => {
   })) as any[]
   assert.equal(again[0].emphasis, undefined, "pushed to a logbook before: no longer due")
 })
+
+// A whole logbook comes back a page at a time: a pull that stopped at the
+// first page would import 250 contacts of a thousand and say it was done.
+test("a pull fetches every page, each after the last LOGID, and hands back what the app imports", async () => {
+  calls = []
+  const page = (from: number, to: number) => {
+    const ids = Array.from({ length: to - from + 1 }, (_, i) => from + i)
+    const adif = "<ADIF_VER:5>3.1.4<EOH>" + ids.map((id) => `<CALL:4>W1AW<APP_QRZLOG_LOGID:${String(id).length}>${id}<EOR>`).join("")
+    return `RESULT=OK&COUNT=${ids.length}&LOGIDS=${ids.join(",")}&ADIF=${encodeURIComponent(adif)}`
+  }
+  answer = (params) =>
+    status(params) ?? (params.OPTION.includes("AFTERLOGID:0") ? page(1, 250) : params.OPTION.includes("AFTERLOGID:250") ? page(251, 260) : "RESULT=FAIL&COUNT=0")
+  const result = (await qrz.runHook("transfer", "pull", {
+    service: "qrz",
+    destination: { id: "N0DEV", label: 'Logbook "Home station"', stationCall: "N0DEV" },
+  })) as { content: string; cursor: string; idField: string; format: string }
+  const fetches = calls.filter((sent) => sent.ACTION === "FETCH")
+  assert.deepEqual(
+    fetches.map((sent) => [sent.KEY, sent.OPTION]),
+    [
+      ["KEY-A", "TYPE:ADIF,MAX:250,AFTERLOGID:0"],
+      ["KEY-A", "TYPE:ADIF,MAX:250,AFTERLOGID:250"],
+    ],
+  )
+  assert.equal(result.format, "adif")
+  assert.equal(result.idField, "app_qrzlog_logid")
+  assert.equal(result.content.match(/<EOR>/g)?.length, 260)
+  assert.equal(result.content.match(/<EOH>/gi)?.length, 1, "one header, not one per page")
+  assert.match(result.cursor, /^\d{4}-\d{2}-\d{2}$/)
+})
+
+test("a pull since the last one asks only for what changed, and nothing changed is an empty file, not a failure", async () => {
+  calls = []
+  answer = (params) => status(params) ?? "RESULT=FAIL&REASON=no+log+entries+found&COUNT=0"
+  const result = (await qrz.runHook("transfer", "pull", {
+    service: "qrz",
+    destination: { id: "N0DEV", stationCall: "N0DEV" },
+    cursor: "2026-11-20",
+  })) as { content: string }
+  assert.equal(calls.find((sent) => sent.ACTION === "FETCH")?.OPTION, "TYPE:ADIF,MAX:250,AFTERLOGID:0,MODSINCE:2026-11-20")
+  assert.equal(result.content.match(/<EOR>/g), null)
+})
+
+test("a pull from a logbook no key opens says why rather than bringing nothing", async () => {
+  answer = (params) => status(params) ?? "RESULT=OK"
+  await assert.rejects(qrz.runHook("transfer", "pull", { service: "qrz", destination: { id: "K9ZZ" } }), /K9ZZ/)
+})

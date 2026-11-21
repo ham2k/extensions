@@ -13,7 +13,7 @@ import type { AnnotatedCallInfo, CallInfoLookup, HookContext, JSONValue, LookupR
 // definition members follow the locale by being functions of ctx — see the
 // kernel's account getDefinition path.
 import { tFor } from "./i18n.ts"
-import { push, SERVICE, suggestDestinations, suggestPushes } from "./logbook.ts"
+import { pull, push, SERVICE, suggestDestinations, suggestPushes } from "./logbook.ts"
 import { logbookSettingsPanel } from "./logbookSettings.ts"
 import {
   forgetNoPhoto,
@@ -40,6 +40,7 @@ defineExtension({
         suggestDestinations,
         suggestPushes,
         push,
+        pull,
       },
     })
     registerHook('account', {

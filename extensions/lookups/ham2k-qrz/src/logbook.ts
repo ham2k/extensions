@@ -11,6 +11,7 @@ import type { DestinationsRequest, HookContext, PushRecord, PushRecordResult, Pu
 
 import { tFor } from "./i18n.ts"
 import { logbookEntriesOf } from "./logbookSettings.ts"
+import type { PullRequest, PullResult } from "./sdkGap.ts"
 
 const API = "https://logbook.qrz.com/api"
 
@@ -193,3 +194,50 @@ async function remove(key: string, id: string): Promise<void> {
   if (/not found|no such/i.test(reply.REASON ?? "")) return
   throw new Error(reply.REASON ?? `QRZ.com answered ${reply.RESULT ?? "nothing"}`)
 }
+
+/// Contacts per FETCH: QRZ.com caps a page, and a whole logbook comes back
+/// a page at a time, each after the highest LOGID of the one before.
+const PAGE = 250
+/// A logbook of this many pages is taken to be a reply that never ends.
+const MAX_PAGES = 1000
+
+/// The day [millis] falls on, as FETCH's MODSINCE reads it.
+const day = (millis: number) => new Date(millis).toISOString().slice(0, 10)
+
+/// What [destination]'s logbook holds: everything, or what changed since
+/// [cursor], the day the last pull imported here started. That day is read
+/// again, so a contact changed while the last pull ran is never missed; the
+/// app finds the rest unchanged.
+export async function pull({ destination, cursor }: PullRequest, ctx: HookContext): Promise<PullResult> {
+  const key = (await logbookFor(destination.id, ctx))?.key
+  if (!key) {
+    const t = tFor(ctx)
+    const [failed] = failures
+    throw new Error(failed ? statusFailure(failed[0], failed[1], t) : t("noLogbookFor", { call: destination.id }))
+  }
+  const startedOn = day(Date.now())
+  const records: string[] = []
+  let after = 0
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const options = ["TYPE:ADIF", `MAX:${PAGE}`, `AFTERLOGID:${after}`, ...(cursor ? [`MODSINCE:${cursor}`] : [])]
+    const reply = await call({ KEY: key, ACTION: "FETCH", OPTION: options.join(",") })
+    const count = Number(reply.COUNT ?? 0)
+    // An empty logbook, or nothing changed since the cursor, answers FAIL
+    // with no records rather than OK with none.
+    if (reply.RESULT !== "OK") {
+      if (count === 0 && !reply.ADIF) break
+      throw new Error(reply.REASON ?? `QRZ.com answered ${reply.RESULT ?? "nothing"}`)
+    }
+    const adif = reply.ADIF ?? ""
+    const header = adif.search(/<eoh>/i)
+    records.push(header >= 0 ? adif.slice(header + "<eoh>".length) : adif)
+    const ids = (reply.LOGIDS ?? "")
+      .split(",")
+      .map((id) => Number(id))
+      .filter((id) => id > 0)
+    if (count < PAGE || ids.length === 0) break
+    after = Math.max(...ids)
+  }
+  return { format: "adif", content: `<EOH>\n${records.join("\n")}`, cursor: startedOn, idField: "app_qrzlog_logid" }
+}
+
