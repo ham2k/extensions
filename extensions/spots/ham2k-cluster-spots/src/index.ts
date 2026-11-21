@@ -74,13 +74,20 @@ const SEND_EVERYTHING: Record<NodeProgram, string[]> = {
 /// with: its login ends on one.
 const PROMPT_LOOKBACK = 200
 
-/// The newest spot per station per band and mode, keyed `CALL|band|mode`. A
+/// The newest spot per station per band and mode, keyed `CALL|band|mode`,
+/// one map for the spots people made and one for the RBN's skimmers. A
 /// station that moves within a band is where it was last spotted; one on two
 /// bands at once (a multi-op, a skimmer hearing both), or in two modes on one
 /// (CW at the bottom, SSB up top), is on both. A station's own QRT is held
 /// like any spot, so an older one arriving after it (a backfill lists newest
 /// first) cannot take its place, but the board is never shown it.
-const held = new Map<string, Spot>()
+///
+/// The skimmers' are held apart so that ignoring them shows the newest spot a
+/// person made: in one map, a skimmer re-spotting a station every few minutes
+/// replaces it, and ignoring the skimmer would leave the station off the
+/// board. Both are held whatever the setting, so it changes only what shows.
+const people = new Map<string, Spot>()
+const skimmers = new Map<string, Spot>()
 
 /// The newest line read back on a fetch, by the `seq` the app numbers them
 /// with. Only a fetch moves it: a pushed batch can arrive ahead of an older
@@ -111,42 +118,54 @@ const programs = new Map<string, NodeProgram>()
 /// turning it off here would turn it off for the operator's other clients too.
 let ignoreRbn = false
 
+/// What the board shows under [key]: the newer of the two spots held there,
+/// the person's on a tie (both are dated to the minute, so a skimmer hearing
+/// the same CQ is often no newer), leaving out the skimmers' while they are
+/// ignored, and nothing once the station has signed off.
+function shown(key: string): Spot | undefined {
+  const person = people.get(key), skimmer = ignoreRbn ? undefined : skimmers.get(key)
+  const newest = !skimmer || (person && person.spot.timeInMillis >= skimmer.spot.timeInMillis) ? person : skimmer
+  return newest && !isSignOff(newest) ? newest : undefined
+}
+
 /// Holds what [lines] say, and answers what changed on the board for it: the
-/// spots that are new or newer, and the keys of those a station signed off.
-/// Each spot carries its key, so a newer one replaces it on the board too.
-/// A spot already past [MAX_AGE_MILLIS] — the older end of a backfill — is
-/// neither held nor pushed.
+/// spots it now shows that it did not, and the keys it no longer shows
+/// anything under. Each spot carries its key, so a newer one replaces it on
+/// the board too. A spot already past [MAX_AGE_MILLIS] — the older end of a
+/// backfill — is neither held nor pushed.
 function take(lines: ClusterLine[]): { put: Spot[]; removed: string[] } {
-  const changed = new Map<string, Spot | undefined>()
+  const before = new Map<string, Spot | undefined>()
   const oldest = Date.now() - MAX_AGE_MILLIS
   for (const line of lines) {
     const parsed = parseSpotLine(line.text, line.at)
     if (!parsed || parsed.spot.timeInMillis < oldest) continue
-    // Never held, so a skimmer cannot replace a person's spot of the same
-    // station on the same band and mode.
-    if (ignoreRbn && isRbn(parsed)) continue
     const key = `${parsed.their.call}|${parsed.band ?? ""}|${parsed.mode ?? ""}`
     const spot: Spot = { ...parsed, key }
+    const held = isRbn(spot) ? skimmers : people
     const previous = held.get(key)
     if (previous && spot.spot.timeInMillis < previous.spot.timeInMillis) continue
+    if (!before.has(key)) before.set(key, shown(key))
     held.set(key, spot)
-    changed.set(key, isSignOff(spot) ? undefined : spot)
   }
   const put: Spot[] = [], removed: string[] = []
-  for (const [key, spot] of changed) {
-    if (spot) put.push(spot)
+  for (const [key, was] of before) {
+    const now = shown(key)
+    if (now === was) continue
+    if (now) put.push(now)
     else removed.push(key)
   }
   return { put, removed }
 }
 
 function current(now: number): Spot[] {
-  for (const [key, spot] of held) {
-    if (now - spot.spot.timeInMillis > MAX_AGE_MILLIS) held.delete(key)
+  for (const held of [people, skimmers]) {
+    for (const [key, spot] of held) {
+      if (now - spot.spot.timeInMillis > MAX_AGE_MILLIS) held.delete(key)
+    }
   }
-  return [...held.values()]
-    // Held from before the operator chose to ignore them.
-    .filter((spot) => !isSignOff(spot) && !(ignoreRbn && isRbn(spot)))
+  return [...new Set([...people.keys(), ...skimmers.keys()])]
+    .map(shown)
+    .filter((spot) => spot !== undefined)
     .sort((a, b) => b.spot.timeInMillis - a.spot.timeInMillis)
     .slice(0, MAX_SPOTS)
 }
@@ -320,8 +339,7 @@ const Settings: DynamicSettingsPanel = {
   },
 
   /// The board follows at once rather than at its next fetch, up to two
-  /// minutes on. Spots skipped while the box was ticked are not brought back
-  /// by unticking it; the next ones are.
+  /// minutes on.
   async onChangeField({ fieldKey, value }: { fieldKey: string; value: unknown }) {
     if (fieldKey !== "ignoreRbn") return
     // Saved first: a save that fails leaves the box, and the board, as stored.

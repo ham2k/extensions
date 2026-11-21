@@ -264,6 +264,8 @@ test("spots go on the board as they come, each under its key, and a station's ow
   assert.deepEqual(pushes, [], "the older end of a backfill, past what the board shows, is not pushed")
 })
 
+const replacedWith = () => pushes.find(({ method }) => method === "replaceSpots")?.params.spots as Spot[]
+
 function rbnLine(call: string, freq: number, comment: string, minutesAgo = 0): string {
   return dxLine(call, freq, comment, minutesAgo).replace("DX de W3LPL:", "DX de KM3T-#:")
 }
@@ -300,7 +302,42 @@ test("while ignored, a skimmer neither adds a spot nor replaces a person's spot 
   await ext.runHook("cluster", "onLines", { lines: [{ seq: ++seq, at: Date.now(), text: rbnLine("C6AXX", 14030, "CW 9 dB 24 WPM CQ") }] })
   assert.deepEqual(pushes, [], "nothing pushed for a batch of skimmer spots")
 
+  pushes.length = 0
   await ext.runHook("settingsPanel", "onChangeField", { panelKey: "ham2k-cluster-spots", fieldKey: "ignoreRbn", value: false, state: {} })
-  await ext.runHook("cluster", "onLines", { lines: [{ seq: ++seq, at: Date.now(), text: rbnLine("C6AXX", 14030, "CW 9 dB 24 WPM CQ") }] })
-  assert.ok((await board()).some((spot) => spot.their.call === "C6AXX"), "unticked, the next skimmer spot is taken again")
+  const restored = replacedWith()
+  assert.ok(["C6AXX", "J52XYZ"].every((call) => restored.some((spot) => spot.their.call === call)), "unticking shows the skimmer spots that came in while ticked, at once")
+  assert.deepEqual(calls(restored.filter((spot) => spot.their.call === "V31ABC")), ["V31ABC 7024.9"], "and the newer skimmer spot over the person's again")
+})
+
+test("ticking the box shows a person's spot that a skimmer's newer one had covered, rather than taking the station off", async () => {
+  await ext.runHook("settingsPanel", "onChangeField", { panelKey: "ham2k-cluster-spots", fieldKey: "ignoreRbn", value: false, state: {} })
+  arrive(dxLine("FY5AB", 21025, "CW tnx QSO", 6))
+  arrive(rbnLine("FY5AB", 21024.9, "CW 22 dB 26 WPM CQ", 1))
+  status = { ...status, lastSeq: seq }
+  assert.deepEqual(calls((await board()).filter((spot) => spot.their.call === "FY5AB")), ["FY5AB 21024.9"], "unticked, the newest spot of all")
+
+  pushes.length = 0
+  await ext.runHook("settingsPanel", "onChangeField", { panelKey: "ham2k-cluster-spots", fieldKey: "ignoreRbn", value: true, state: {} })
+  assert.deepEqual(calls(replacedWith().filter((spot) => spot.their.call === "FY5AB")), ["FY5AB 21025"])
+  assert.deepEqual(calls((await board()).filter((spot) => spot.their.call === "FY5AB")), ["FY5AB 21025"])
+})
+
+test("a skimmer spot from the same minute as a person's does not replace it, ticked or not", async () => {
+  await ext.runHook("settingsPanel", "onChangeField", { panelKey: "ham2k-cluster-spots", fieldKey: "ignoreRbn", value: false, state: {} })
+  arrive(dxLine("TI9XX", 14018, "CW tnx QSO"))
+  status = { ...status, lastSeq: seq }
+  await board()
+  pushes.length = 0
+  await ext.runHook("cluster", "onLines", { lines: [{ seq: ++seq, at: Date.now(), text: rbnLine("TI9XX", 14017.9, "CW 18 dB 24 WPM CQ") }] })
+  assert.deepEqual(pushes, [], "nothing changes on the board")
+  assert.deepEqual(calls((await board()).filter((spot) => spot.their.call === "TI9XX")), ["TI9XX 14018"])
+})
+
+test("while ignored, a skimmer spot after a station's own QRT does not bring it back", async () => {
+  await ext.runHook("settingsPanel", "onChangeField", { panelKey: "ham2k-cluster-spots", fieldKey: "ignoreRbn", value: true, state: {} })
+  arrive(dxLine("HK0XX", 18075, "CW", 8))
+  arrive(selfLine("HK0XX", "HK0XX", 18075, "CW QRT tnx all", 4))
+  arrive(rbnLine("HK0XX", 18075, "CW 11 dB 25 WPM CQ", 1))
+  status = { ...status, lastSeq: seq }
+  assert.equal((await board()).some((spot) => spot.their.call === "HK0XX"), false)
 })
