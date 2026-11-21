@@ -42,7 +42,8 @@ async function render(hook: any, { size = [900, 220] as [number, number], config
     layer: (id: string) => scope.layers.find((l: { id: string }) => l.id === id),
   }
 }
-const event = (action: string, extra: Record<string, unknown> = {}) => ({ instanceId: 'a', event: { action, controlId: 'map', phase: 'activate', ...extra } })
+const event = (action: string, extra: Record<string, unknown> = {}, config: Record<string, unknown> = {}) =>
+  ({ instanceId: 'a', config, event: { action, controlId: 'map', phase: 'activate', ...extra } })
 const spotIds = (r: Rendered) => r.scope.annotations.map((a: { id: string }) => a.id).filter((id: string) => id.startsWith('spot:')).sort()
 
 // With no sweep the app's band scope draws the window alone; zoomed out or panned, the map lets it
@@ -350,7 +351,7 @@ test('every placement’s view is kept under one key, the oldest let go, and a k
   const { hook } = bandMap({}, kept)
   for (let n = 0; n < 20; n++) {
     await hook.render({ environment: env(900, 220), clock: { nowMillis: 1e12 }, instanceId: `p${n}`, config: {}, operation: {} }, { getSpots: async () => spots })
-    await hook.onEvent({ instanceId: `p${n}`, event: { action: 'scope', controlId: 'map', phase: 'commit', gesture: 'zoom', value: 60000 } })
+    await hook.onEvent({ instanceId: `p${n}`, config: {}, event: { action: 'scope', controlId: 'map', phase: 'commit', gesture: 'zoom', value: 60000 } })
   }
   assert.deepEqual([...kept.keys()], ['views'])
   const views = kept.get('views') as Record<string, unknown>
@@ -450,4 +451,77 @@ test('a right-click on a group’s “more” line takes nothing down', async ()
   await hook.onEvent(event('forget', { annotation: net.id, at: { line: 11 } }))
   assert.deepEqual(removed, [])
   assert.equal((await show()).annotation('spot:note:user:tag-1').badge.text, '+12')
+})
+
+/** A station of two radios: set A's on 20m phone, SO2R's Radio B on 40m CW, and a third no set works. */
+const so2r = (id?: string) => ({
+  A: { id: 'ra', set: 'A', frequencyHz: 14250000, mode: 'USB', modes: ['USB', 'CW'] },
+  B: { id: 'rb', set: 'B', frequencyHz: 7030000, mode: 'CW', modes: ['USB', 'CW'] },
+  ra: { id: 'ra', set: 'A', frequencyHz: 14250000, mode: 'USB', modes: ['USB', 'CW'] },
+  rx: { id: 'rx', set: null, frequencyHz: 7040000, mode: 'CW', modes: ['USB', 'CW'] },
+}[id ?? 'A'] ?? null)
+
+test('the form picks the radio from the app’s list of radio choices, and offers the panels’ themes', async () => {
+  const [panel] = await bandMap().hook.getPanels({}, {})
+  const field = (key: string) => panel.form.find((f: { key?: string }) => f.key === key)
+  assert.deepEqual([field('radio').options, field('radio').value], ['$core.radioChoices', 'A'])
+  assert.deepEqual(field('theme').options.map((o: { value: string }) => o.value), ['auto', 'light', 'dark', 'teal'])
+})
+
+// Under SO2R a map placed for Radio B shows B's band and scope, not the logging radio's; and the
+// logging controls are set A's, so they say nothing of where B is.
+test('a map following Radio B draws its band and its scope, never the logging controls’', async () => {
+  const asked: unknown[] = []
+  const { hook } = bandMap({ readRadio: async (id?: string) => (asked.push(id), so2r(id)) })
+  const r = await render(hook, { config: { radio: 'B' }, qso: { freq: 14250, band: '20m', mode: 'SSB' }, board: [at('K1CW', 7025, { band: '40m' })] })
+  assert.deepEqual(asked, ['B'])
+  assert.match(r.title, /40m/)
+  assert.equal(r.scope.radio, 'rb')
+  // Radio B missing (not SO2R, or none set up): the band alone, not set A's draft drawn as B's dial.
+  const { hook: alone } = bandMap({ readRadio: async () => ({}) })
+  const none = await render(alone, { config: { radio: 'B' }, qso: { freq: 7030, band: '40m', mode: 'CW' } })
+  assert.equal(none.scope.radio, 'none')
+  assert.equal(none.layer('draft'), undefined)
+})
+
+// The logging fields tune the logging radio: a suggestion from B's map would move A's radio, and
+// fill A's fields with a station heard on B's band.
+test('a spot clicked on a map following Radio B tunes Radio B, and leaves the logging fields alone', async () => {
+  const { hook, suggested, tuned } = bandMap({ readRadio: async (id?: string) => so2r(id) })
+  const config = { radio: 'B' }
+  await render(hook, { config, board: [at('K1CW', 7025, { band: '40m' })] })
+  await hook.onEvent(event('spot', { annotation: 'spot:K1CW' }, config))
+  assert.deepEqual(suggested, [])
+  assert.deepEqual(tuned, [{ id: 'rb', frequencyHz: 7025000 }])
+  // A click on the picture the app did not tune itself tunes B too.
+  await hook.onEvent(event('scope', { value: 7031000 }, config))
+  assert.deepEqual(tuned.at(-1), { id: 'rb', frequencyHz: 7031000 })
+})
+
+// Picked by name, the radio set A works is still the one the logging fields tune; one no set works is not.
+test('a radio picked from the station is worked from the logging fields only where set A works it', async () => {
+  for (const [radio, suggests] of [['ra', true], ['rx', false]] as const) {
+    const { hook, suggested, tuned } = bandMap({ readRadio: async (id?: string) => so2r(id) })
+    const band = radio === 'ra' ? '20m' : '40m', khz = radio === 'ra' ? 14260 : 7025
+    await render(hook, { config: { radio }, board: [at('K1Z', khz, { band })] })
+    await hook.onEvent(event('spot', { annotation: 'spot:K1Z' }, { radio }))
+    assert.equal(suggested.length, suggests ? 1 : 0, radio)
+    assert.deepEqual(tuned, suggests ? [] : [{ id: 'rx', frequencyHz: 7025000 }], radio)
+  }
+})
+
+// Teal is KI2D's Radio Panel's face: the map on it whatever the app's brightness, its accents dark
+// enough to read on a mid-tone, and the worked apart from the rest, which black and near-black are not.
+test('on Teal the map draws on the panels’ teal face, its accents deepened to read there', async () => {
+  const notes = (notices: string[], worked = false) => ({ annotations: { worked, isSelf: false, notices } })
+  const board = [at('K1NEW', 14010, notes(['newBand'])), at('K1MULT', 14060, notes(['newMult'])), at('K1OLD', 14110, notes([], true)), at('K1A', 14160, notes([]))]
+  const { hook } = bandMap({ readRadio: async () => null })
+  for (const brightness of ['light', 'dark']) {
+    const r = await render(hook, { board, brightness, config: { theme: 'teal' } })
+    assert.equal(r.scope.backgroundColor, '#a9c4cb')
+    assert.equal(r.scope.waterfallColors[0], '#a9c4cb')
+    assert.deepEqual(['K1NEW', 'K1MULT', 'K1OLD', 'K1A'].map(call => r.annotation(`spot:${call}`).color), ['#ff0b6b0b', '#ff9a3a00', '#ff40575e', '#ff000000'])
+  }
+  // Automatic is the app's own colours, as before the map had themes.
+  assert.equal((await render(hook, { board })).scope.backgroundColor, '#123456')
 })

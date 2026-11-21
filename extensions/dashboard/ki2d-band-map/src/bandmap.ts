@@ -15,6 +15,7 @@ import type {
 } from '@ham2k/extension-sdk'
 import { bandEdges, bandForKHz, bandPlan, bands, modeStretch, planAllows, plannedMode, radioModeFor, spotPassband, superModeForRadio } from './bands.ts'
 import type { SuperMode } from '@ham2k/lib-operation-data'
+import { panelTheme, themeColors, themeField, themeSurface } from '@ham2k/lib-panel-themes'
 import { markerLabelsEs, markersFor, type BandMarker } from './markers.ts'
 
 type BandMapHost = {
@@ -31,7 +32,7 @@ type BandMapHost = {
 
 const en = {
   title: 'KI2D’s Band Map', description: 'The spots on a band, along its frequencies',
-  band: 'Band', auto: 'Automatic (the radio’s band)', age: 'Spots no older than', minutes: (n: number) => `${n} minutes`,
+  radio: 'Radio', band: 'Band', auto: 'Automatic (the radio’s band)', age: 'Spots no older than', minutes: (n: number) => `${n} minutes`,
   notes: 'Band annotations', notesHelp: 'What is marked on the band among the spots: your band tags (QRM!, NET!) and what extensions mark.',
   waterfall: 'Show Waterfall', panadapter: 'Show Spectrum', direction: 'Scope direction', normal: 'Normal', inverted: 'Inverted',
   mapTitle: (band: string) => `${band} Band Map`, unavailable: 'This app cannot show the band map', more: (n: number) => `+${n} more`,
@@ -40,7 +41,7 @@ const en = {
 }
 const es: typeof en = {
   title: 'Mapa de banda de KI2D', description: 'Los spots de una banda, a lo largo de sus frecuencias',
-  band: 'Banda', auto: 'Automática (la banda de la radio)', age: 'Spots de hasta', minutes: (n: number) => `${n} minutos`,
+  radio: 'Radio', band: 'Banda', auto: 'Automática (la banda de la radio)', age: 'Spots de hasta', minutes: (n: number) => `${n} minutos`,
   notes: 'Anotaciones de la banda', notesHelp: 'Lo marcado en la banda entre los spots: tus etiquetas de banda (QRM!, NET!) y lo que marcan las extensiones.',
   waterfall: 'Mostrar cascada', panadapter: 'Mostrar espectro', direction: 'Dirección del panorámico', normal: 'Normal', inverted: 'Invertida',
   mapTitle: (band: string) => `Mapa de ${band}`, unavailable: 'Esta app no puede mostrar el mapa de banda', more: (n: number) => `+${n} más`,
@@ -49,18 +50,33 @@ const es: typeof en = {
 }
 const words = (locale?: string) => (locale?.startsWith('es') ? es : en)
 
+/** What the map is drawn on: the app's light or dark, or KI2D's Teal face (lib-panel-themes). */
+type Surface = 'light' | 'dark' | 'teal'
 /**
  * The tuned frequency and the passband in KI2D's Radio Panel's colours, so the two panels read as one;
- * on a light surface a deeper cyan, which a pale one on white loses.
+ * on a light surface a deeper cyan, which a pale one on white loses, and on Teal the face's own dark teal.
  */
-const tuned = { line: '#a3e6f2', lineLight: '#0a7f96', width: 3, passbandWaterfall: '#26ffffff', passbandWaterfallLight: '#1f0b5f73' }
-/** The waterfall's stops above the map's surface, quietest first: a slate that deepens on white, and lightens on black. */
-const waterfall = {
+const tuned: { width: number } & Record<Surface, { line: string; passband: string }> = {
+  width: 3,
+  dark: { line: '#a3e6f2', passband: '#26ffffff' },
+  light: { line: '#0a7f96', passband: '#1f0b5f73' },
+  teal: { line: '#00384a', passband: '#2600384a' },
+}
+/**
+ * The waterfall's stops above the map's surface, quietest first: a slate that deepens on white and
+ * lightens on black, and on Teal its teal deepening toward the face's dark accent.
+ */
+const waterfall: Record<Surface, string[]> = {
   light: ['#eef2f5', '#c9d4de', '#8fa3b5', '#56697b', '#2e3d4b'],
   dark: ['#161d24', '#243341', '#3e5568', '#7b93a8', '#c3d2de'],
+  teal: ['#9ebcc4', '#80a5af', '#5b8793', '#356472', '#173f4c'],
 }
-/** The panadapter's trace under the scale's labels, in the waterfall's slate, quiet enough to read them over. */
-const trace = { light: '#8fa3b5', lightFill: '#338fa3b5', dark: '#56697b', darkFill: '#4056697b' }
+/** The panadapter's trace under the scale's labels, in the waterfall's colour, quiet enough to read them over. */
+const trace: Record<Surface, { line: string; fill: string }> = {
+  light: { line: '#8fa3b5', fill: '#338fa3b5' },
+  dark: { line: '#56697b', fill: '#4056697b' },
+  teal: { line: '#5b8793', fill: '#335b8793' },
+}
 /** The filter by mode, for a radio that does not report its own: as KI2D's Radio Panel assumes. */
 const passbands: Record<string, [number, number]> = {
   USB: [100, 2800], LSB: [-2800, -100], CW: [-250, 250], AM: [-3000, 3000], FM: [-5000, 5000],
@@ -68,9 +84,15 @@ const passbands: Record<string, [number, number]> = {
 }
 /**
  * Something new to work a spot for, and a new multiplier, in the Spots panel's own colours
- * (`HaLoColors.important` and `spotMultiplier`, each theme's), so the two panels accent alike.
+ * (`HaLoColors.important` and `spotMultiplier`, each theme's), so the two panels accent alike. Teal's
+ * mid-tone face loses both, and its two inks, black and near-black, would not tell the worked from the
+ * rest: there, each deepened to read on it, and the worked in its outline's slate.
  */
-const accents = { fresh: '#1aa01a', freshDark: '#1ac81a', multiplier: '#c2500f', multiplierDark: '#ff8a4c' }
+const accents: Record<Surface, { fresh: string; multiplier: string; worked?: string }> = {
+  light: { fresh: '#1aa01a', multiplier: '#c2500f' },
+  dark: { fresh: '#1ac81a', multiplier: '#ff8a4c' },
+  teal: { fresh: '#0b6b0b', multiplier: '#9a3a00', worked: '#40575e' },
+}
 const ages = [10, 30, 60]
 
 /** A spot as the map shows it: one per station, its newest report. */
@@ -291,8 +313,9 @@ function keepNewest<K, V>(kept: Map<K, V>, key: K, value: V, most: number) {
   while (kept.size > most) kept.delete(kept.keys().next().value!)
 }
 
-export function bandMapScene(e: PanelEnvironment, view: MapView, t: typeof en): { scene: PanelScene; spots: Map<string, MapSpot> } {
-  const c = e.colors, dark = e.brightness === 'dark'
+/** [e]'s colours are the placement's theme's already; [surface] names it, for the colours the map picks per surface itself. */
+export function bandMapScene(e: PanelEnvironment, view: MapView, t: typeof en, surface: Surface = e.brightness): { scene: PanelScene; spots: Map<string, MapSpot> } {
+  const c = e.colors
   const vertical = e.height > e.width
   const along = Math.max(1, vertical ? e.height : e.width), across = Math.max(1, vertical ? e.width : e.height)
   const [lo, hi] = view.edges, bandHz = Math.round((hi - lo) * 1000)
@@ -319,7 +342,7 @@ export function bandMapScene(e: PanelEnvironment, view: MapView, t: typeof en): 
   const edge = (d = 0) => (part === 'waterfall' ? `waterfall${px(clear + d)}` : `spectrum:bottom${px(-clear - d)}`)
   // On its far edge, moved `d` back toward the axis.
   const far = (d = 0) => (part === 'waterfall' ? `waterfall:bottom${px(-farRoom - d)}` : `spectrum${px(farRoom + d)}`)
-  const tunedLine = dark ? tuned.line : tuned.lineLight
+  const tunedLine = tuned[surface].line, accent = accents[surface]
   const layers: ScopeLayer[] = [], annotations: Annotation[] = []
 
   // Past the band's edges, shaded across the whole picture, the edges themselves solid.
@@ -368,8 +391,8 @@ export function bandMapScene(e: PanelEnvironment, view: MapView, t: typeof en): 
 
   // A note in the ink it suggests; a station as the Spots panel accents it: a new multiplier over
   // anything else new, then our own, then the worked.
-  const ink = (s: MapSpot) => s.color ?? (s.multiplier ? (dark ? accents.multiplierDark : accents.multiplier)
-    : s.fresh ? (dark ? accents.freshDark : accents.fresh) : s.isSelf ? c.secondary : s.worked ? c.onSurfaceVariant : c.onSurface)
+  const ink = (s: MapSpot) => s.color ?? (s.multiplier ? accent.multiplier
+    : s.fresh ? accent.fresh : s.isSelf ? c.secondary : s.worked ? accent.worked ?? c.onSurfaceVariant : c.onSurface)
   // Age shows only as fading: fresh at full strength, the oldest asked for at `faintest`.
   // A spot of a kind the radio is not on — its mode's, or the plan's guess — at `elsewhere` of that.
   const faintest = 0.4, elsewhere = 0.5
@@ -475,10 +498,10 @@ export function bandMapScene(e: PanelEnvironment, view: MapView, t: typeof en): 
     ...(view.center != null ? { centerHz: view.center } : {}),
     ...(display === 'both' ? { split } : {}),
     backgroundColor: c.surface,
-    traceColor: dark ? trace.dark : trace.light, fillColor: dark ? trace.darkFill : trace.lightFill,
+    traceColor: trace[surface].line, fillColor: trace[surface].fill,
     // No grid over a blank spectrum: its lines would mark levels nothing is drawn at.
     gridColor: view.radio ? alpha(c.outlineVariant, 0.5) : '#00000000', gridDashed: true,
-    waterfallSpeed: 5, waterfallColors: [c.surface, ...(dark ? waterfall.dark : waterfall.light)],
+    waterfallSpeed: 5, waterfallColors: [c.surface, ...waterfall[surface]],
     // Tall, the labels lie on the spectrum where it shows, their ends at the axis, and else on the
     // waterfall, starting at it; wide, they line up on the axis's waterfall side, reaching over the spectrum.
     scale: strip ? {
@@ -503,8 +526,8 @@ export function bandMapScene(e: PanelEnvironment, view: MapView, t: typeof en): 
     center: { spectrum: { color: tunedLine, width: tuned.width }, waterfall: { color: tunedLine, width: tuned.width } },
     overlays: view.passband ? [{
       from: view.passband[0], to: view.passband[1],
-      spectrum: { fill: dark ? tuned.passbandWaterfall : tuned.passbandWaterfallLight },
-      waterfall: { fill: dark ? tuned.passbandWaterfall : tuned.passbandWaterfallLight },
+      spectrum: { fill: tuned[surface].passband },
+      waterfall: { fill: tuned[surface].passband },
     }] : [],
     annotations, layers,
   }
@@ -526,6 +549,13 @@ function viewFrom(value: unknown): { band?: string; span?: number; center?: numb
     ...(presets.includes(preset as Preset) ? { preset: preset as Preset } : {}),
   }
 }
+
+/**
+ * The radio the form picks, as `readRadio` takes it: `A` for the radio being logged on, `B` for SO2R's
+ * Radio B, or one of the station's by id. Unset, as on a placement saved before the map offered the
+ * choice, the radio being logged on.
+ */
+export const followedRadio = (config: Record<string, JSONValue>) => (typeof config.radio === 'string' && config.radio ? config.radio : 'A')
 
 export function createBandMap(host: BandMapHost): PanelHook {
   /** The spots each placement's last render drew, by annotation id, and the operation it was for. */
@@ -579,12 +609,15 @@ export function createBandMap(host: BandMapHost): PanelHook {
       return [{
         key: 'band-map', title: t.title, description: t.description, icon: 'map-marker-radius', multiple: true, on: ['spots', 'qso', 'tick:2', 'radio'],
         form: [
+          // The radio being logged on (A, and B under SO2R), then each of the station's by id, in the app's words.
+          { type: 'field', fieldType: 'select', key: 'radio', label: t.radio, value: 'A', options: '$core.radioChoices' },
           { type: 'field', fieldType: 'select', key: 'band', label: t.band, value: 'auto', options: [{ value: 'auto', label: t.auto }, ...bands.map(b => ({ value: b, label: b }))] },
           { type: 'field', fieldType: 'select', key: 'age', label: t.age, value: '30', options: ages.map(n => ({ value: String(n), label: t.minutes(n) })) },
           { type: 'field', fieldType: 'checkbox', key: 'notes', label: t.notes, value: true, description: t.notesHelp },
           { type: 'field', fieldType: 'checkbox', key: 'pan', label: t.panadapter, value: true },
           { type: 'field', fieldType: 'checkbox', key: 'waterfall', label: t.waterfall, value: true },
           { type: 'field', fieldType: 'select', key: 'direction', label: t.direction, value: 'normal', options: [{ value: 'normal', label: t.normal }, { value: 'inverted', label: t.inverted }] },
+          themeField(ctx.locale),
         ],
       }]
     },
@@ -592,10 +625,12 @@ export function createBandMap(host: BandMapHost): PanelHook {
       const t = words(args.environment?.locale ?? ctx.locale)
       if (!args.environment || !args.clock) return { kind: 'markdown', content: t.unavailable }
       const key = args.instanceId ?? 'default'
-      // Where the operator is: the radio, or with none to read, the logging controls' frequency and
-      // mode — which follow the radio where there is one, and the operator where there is not.
-      const radio = await host.readRadio()
-      const draft = args.qso ?? {}, fromDraft = !radio?.frequencyHz
+      // Where the operator is: the radio the map follows, or with none to read, the logging controls'
+      // frequency and mode — which follow the radio where there is one, and the operator where there is
+      // not. Only the logging radio's: following another, the controls say nothing of where it is.
+      const followed = followedRadio(args.config)
+      const radio = await host.readRadio(followed)
+      const draft = followed === 'A' ? args.qso ?? {} : {}, fromDraft = !radio?.frequencyHz
       const radioKHz = !fromDraft ? radio!.frequencyHz! / 1000 : typeof draft.freq === 'number' && draft.freq > 0 ? draft.freq : undefined
       const radioMode = !fromDraft ? radio!.mode ?? undefined : typeof draft.mode === 'string' && draft.mode ? draft.mode : undefined
       // A band picked in the logging controls with no frequency typed is still the operator's band.
@@ -659,7 +694,9 @@ export function createBandMap(host: BandMapHost): PanelHook {
         passband: inBand ? passband : undefined, plan, superMode: kind, inverted: args.config.direction === 'inverted', span: v.span, center: v.center, split: v.split,
         preset: current, next,
       }
-      const { scene, spots } = bandMapScene(args.environment, view, t)
+      const theme = panelTheme(args.config)
+      const environment = { ...args.environment, colors: themeColors(theme, args.environment.colors) }
+      const { scene, spots } = bandMapScene(environment, view, t, themeSurface(theme, args.environment.brightness))
       keepNewest(placements, key, { spots, operationUuid: typeof args.operation.uuid === 'string' ? args.operation.uuid : undefined }, 64)
       return { kind: 'scene', title: t.mapTitle(band), scene }
     },
@@ -670,7 +707,7 @@ export function createBandMap(host: BandMapHost): PanelHook {
       const refusedBy = (result: PanelRadioResult) => {
         if (!result.accepted) throw new Error(t.refused(result.reason))
       }
-      const key = args.instanceId ?? 'default', drawn = placements.get(key)
+      const key = args.instanceId ?? 'default', drawn = placements.get(key), followed = followedRadio(args.config)
       // Where a zoom, a pan or a split drag ended, kept for the next render and a reloaded map; a zoom
       // of 0 is a double click on the axis, the whole band back.
       if (event.action === 'scope') {
@@ -679,7 +716,7 @@ export function createBandMap(host: BandMapHost): PanelHook {
         // A click on the picture the app could not tune itself — the radio is on another band, or
         // there is none to draw — tunes the radio there.
         if (!event.gesture) {
-          const radio = await host.readRadio()
+          const radio = await host.readRadio(followed)
           if (radio?.id) refusedBy(await host.setRadio({ id: radio.id, frequencyHz: Math.round(value) }))
           return { values: {} }
         }
@@ -726,14 +763,17 @@ export function createBandMap(host: BandMapHost): PanelHook {
         if (!spot) return { values: {} }
         // Nothing to log at a note: the radio alone, to where it is, in the mode it is in.
         if (spot.note) {
-          const radio = await host.readRadio()
+          const radio = await host.readRadio(followed)
           if (radio?.id) refusedBy(await host.setRadio({ id: radio.id, frequencyHz: Math.round(spot.khz * 1000) }))
           return { values: {} }
         }
+        // The logging fields move the logging radio: following SO2R's Radio B, or a radio no logging set
+        // works, a suggestion would tune another radio than the one on the map, so that one alone.
+        const other = followed === 'A' ? null : await host.readRadio(followed)
         const qso = { their: { call: spot.call }, freq: spot.khz, band: spot.band, mode: spot.mode, refs: spot.refs }
         // Not accepted is no such operation open; a refusal throws, and is the host's to report.
-        const { accepted } = await host.suggestQso({ qso, operationUuid: drawn?.operationUuid })
-        const radio = accepted ? null : await host.readRadio()
+        const accepted = (followed === 'A' || other?.set === 'A') && (await host.suggestQso({ qso, operationUuid: drawn?.operationUuid })).accepted
+        const radio = accepted ? null : other ?? await host.readRadio(followed)
         if (radio?.id) {
           const mode = radioModeFor(spot.mode ?? spot.planned, spot.khz, radio.modes ?? [])
           refusedBy(await host.setRadio({ id: radio.id, frequencyHz: Math.round(spot.khz * 1000), ...(mode && mode !== radio.mode ? { mode } : {}) }))

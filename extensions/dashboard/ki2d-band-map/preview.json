@@ -7,6 +7,8 @@
     { "label": "crowded, wide", "width": 1100, "height": 260, "spots": { "generate": 80, "band": "20m", "seed": 7 } },
     { "label": "radio on 40m CW", "radio": { "frequencyHz": 7030000, "mode": "CW" }, "spots": { "generate": 25, "band": "40m", "seed": 3 } },
     { "label": "15m chosen, nobody there", "config": { "band": "15m" } },
+    { "label": "teal, wide", "width": 900, "height": 220, "config": { "theme": "teal" } },
+    { "label": "teal, tall, dark app", "width": 360, "height": 640, "app": "dark", "config": { "theme": "teal" } },
     { "label": "no modes, guessed from the band plan", "width": 900, "height": 220, "spots": { "generate": 30, "band": "20m", "seed": 1, "noMode": 1 } },
     { "label": "band tags and notes among the spots", "width": 900, "height": 220, "operation": { "uuid": "preview-op" },
       "annotations": [

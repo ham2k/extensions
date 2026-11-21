@@ -26,7 +26,11 @@ chart, a band map, a contest map and a live scoreboard drawn as the app's native
   extensions' notes), over the radio's band scope where it is on the band,
   zoomed and scrolled natively; a click puts the station into the logging
   fields, and a click on the scope tunes the radio at the app's own step.
-  Needs extension API 20 (Ham2K Logger with band annotations).
+  Each map follows the radio its Radio setting names (`$core.radioChoices`):
+  the one being logged on, SO2R's Radio B, or one of the station's; a click
+  on a map following a radio no one logs on tunes that radio alone.
+  Needs extension API 28 (the app's radio choices, and a band scope beside
+  the radio's own).
 - `ki2d-contest-map`: the last hour's contacts on the station's band, a dot
   apiece on the app's `map` control, fading with age, the newest larger, a
   colour for each band, and a smaller dot for each spotted station not yet
@@ -44,7 +48,7 @@ chart, a band map, a contest map and a live scoreboard drawn as the app's native
   score there every 2, 3 or 5 minutes. Posting needs the app to share its
   scores (`ctx.getScores`, planned for extension API 28).
 
-The weather, solar, rate and scoreboard panels each offer a theme per placement —
+The weather, solar, rate, band map and scoreboard panels each offer a theme per placement —
 Automatic, Light, Dark or Teal — from `packages/lib-panel-themes`.
 
 All of them are published to the extension catalog at

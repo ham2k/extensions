@@ -2,7 +2,7 @@ See who's on the band, laid out along its frequencies, and tap a spot to work it
 
 ## What you get
 
-- **Every spot on your band**, following your radio or the band you pick.
+- **Every spot on your band**, following your radio or the band you pick. Under SO2R, pick which position's radio a map follows, or any radio of your station.
 - **What's worth a call** stands out, as in the Spots panel: something new in green, a new multiplier in orange, stations you've already worked dimmed.
 - **Your band tags** (QRM!, NET!) and what other extensions mark on the band, among the spots.
 - **Band plan markers** for calling frequencies and the digital watering holes.
@@ -16,6 +16,10 @@ Drag along the frequency scale to zoom in or out, and drag the picture to move a
 
 ## Work it
 
-Tap a spot and the station goes into your log, and your radio tunes to it. Spots come from the spot sources you have in the app.
+Tap a spot and the station goes into your log, and your radio tunes to it. On a map following Radio B, or a radio you don't log on, the tap tunes that radio and leaves your log alone. Spots come from the spot sources you have in the app.
 
 Right-click a spot to hide it until the station is spotted again, or one of your band tags to take it down.
+
+## Make it yours
+
+Each map has its own settings: the band, how old a spot it shows, the spectrum and waterfall, which way the scope runs, and a theme: Automatic, Light, Dark, or the Teal of KI2D's other panels.
