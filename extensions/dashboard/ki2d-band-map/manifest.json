@@ -15,7 +15,7 @@
       "description": "Los spots de una banda, dispuestos a lo largo de sus frecuencias, sobre el panorámico de la radio cuando lo tiene"
     }
   },
-  "api": 22,
+  "api": 28,
   "sharedDependencies": {
     "@ham2k/lib-callsigns": "^1.0.0",
     "@ham2k/lib-country-files": "^1.0.0",

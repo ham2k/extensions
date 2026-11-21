@@ -116,20 +116,8 @@ const choices = (values: number[], label: (value: number) => string) => values.m
 
 /** The pane's form, behind its gear in Layout Setup; the app keeps each placed pane's values. */
 const form: (SettingsField | FormHeader)[] = [
-  {
-    type: "field",
-    fieldType: "select",
-    key: "radio",
-    label: "Radio",
-    value: "A",
-    options: [
-      { value: "A", label: "Set A's radio" },
-      { value: "B", label: "Set B's radio" },
-      { value: "pick", label: "A radio of the station" },
-    ],
-    description: "Set A's is the radio you log from, and set B's the second one under SO2R. Two panes on one radio each show their own span.",
-  },
-  { type: "field", fieldType: "select", key: "radioId", label: "Which radio", options: "$core.radios", visibleWhen: { field: "radio", equals: "pick" } },
+  // The radio being logged on (A, and B under SO2R), then each of the station's by id, in the app's words.
+  { type: "field", fieldType: "select", key: "radio", label: "Radio", value: "A", options: "$core.radioChoices" },
   {
     type: "field",
     fieldType: "select",
@@ -143,14 +131,7 @@ const form: (SettingsField | FormHeader)[] = [
     ],
   },
   { type: "field", fieldType: "checkbox", key: "spots", label: "Show spots", value: true },
-  {
-    type: "field",
-    fieldType: "checkbox",
-    key: "notes",
-    label: "Show annotations",
-    value: true,
-    description: "What is marked on the band among the spots: your band tags (QRM!, NET!) and what extensions mark.",
-  },
+  { type: "field", fieldType: "checkbox", key: "notes", label: "Show annotations", value: true },
   { type: "field", fieldType: "select", key: "age", label: "Spots no older than", value: 30, options: choices([10, 30, 60], (v) => `${v} minutes`) },
   {
     type: "field",
@@ -247,11 +228,14 @@ export function settingsFrom(config: Record<string, JSONValue>): Settings {
   }
 }
 
-/** The radio the form picks; one picked from the station and then removed from it shows no radio rather than set A's. */
+/**
+ * The radio the form picks, as `readRadio` takes it: none for set A's, `B` for set B's, or a radio's
+ * id. One picked from the station and then removed from it shows no radio rather than set A's.
+ */
 function radioFrom(config: Record<string, JSONValue>): { radio?: string } {
-  if (config.radio === "B") return { radio: "B" }
-  if (config.radio === "pick") return { radio: typeof config.radioId === "string" && config.radioId ? config.radioId : "-" }
-  return {}
+  const picked = config.radio
+  if (picked === undefined || picked === null || picked === "A") return {}
+  return { radio: typeof picked === "string" && picked ? picked : "-" }
 }
 
 /** A sketch of the passband when the radio does not report its filter's edges. */

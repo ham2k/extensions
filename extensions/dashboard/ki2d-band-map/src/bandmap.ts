@@ -464,10 +464,13 @@ export function bandMapScene(e: PanelEnvironment, view: MapView, t: typeof en): 
   const labelStep = niceStep(hzPerPx * (vertical ? 56 : 84))
   const markStep = [5, 4, 2].map(n => labelStep / n).find(m => m / hzPerPx >= 6)
 
-  const scope: Control = {
+  const scope: Control & { secondary?: boolean } = {
     id: 'map', label: t.mapTitle(view.band), kind: 'bandScope', radio: view.radio ?? noRadio, event: 'scope',
     display, flow: vertical ? (view.inverted ? 'left' : 'right') : view.inverted ? 'up' : 'down', rising: vertical ? 'down' : 'right',
     window: { lowHz: hz(windowLo), highHz: hz(windowHi) }, span: shownHz, maxWidthHz: widestHz, follow: 0.15,
+    // Beside the radio's own band scope: drawn from whatever sweep the radio already sends, asking its
+    // scope for no width, so a whole band here never widens what the other displays draw.
+    secondary: true,
     // The band's middle until the operator pans or picks a view: the window's own runs as far past either edge.
     ...(view.center != null ? { centerHz: view.center } : {}),
     ...(display === 'both' ? { split } : {}),

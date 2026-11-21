@@ -104,11 +104,16 @@ test("the scope is all the pane shows: its settings are behind the gear, with no
   assert.deepEqual(
     descriptor.form!.map((field) => ("key" in field ? field.key : "title" in field ? field.title : field.type)),
     // The radio, the view and the spots up front; what the scope draws and asks of the radio folded under a heading.
-    ["radio", "radioId", "display", "spots", "notes", "age", "spotLevel", "plan", "Band Scope Settings", "floor", "average", "fps", "rows", "waterfallRef", "speed"],
+    ["radio", "display", "spots", "notes", "age", "spotLevel", "plan", "Band Scope Settings", "floor", "average", "fps", "rows", "waterfallRef", "speed"],
   )
+  // One list names the radio being logged on and every radio of the station, in the app's words,
+  // and the options say what each is: a description under either field only repeats them.
+  const field = (key: string) => descriptor.form!.find((f) => "key" in f && f.key === key) as { options?: unknown; description?: string }
+  assert.equal(field("radio").options, "$core.radioChoices")
+  assert.deepEqual([field("radio").description, field("notes").description], [undefined, undefined])
   // Each select's default must be one of its choices, or the form opens on a blank.
   for (const field of descriptor.form!) {
-    // A list of the station's radios is the app's to fill, and starts on none picked.
+    // A system list is the app's to fill: the radio field's `A` is its first choice.
     if (field.type === "field" && field.fieldType === "select" && typeof field.options !== "string") {
       assert.ok(Array.isArray(field.options) && field.options.some((option) => option.value === field.value), `${field.key} opens on a choice`)
       assert.deepEqual(settingsFrom({ [field.key]: field.value }), settingsFrom({}), `${field.key}'s default is the panel's own`)
@@ -142,7 +147,7 @@ test("the pane shows the radio its form picks: set A's, set B's, or one of the s
     },
   })
   const named: (string | undefined)[] = []
-  const configs: PanelRenderArgs["config"][] = [{}, { radio: "A" }, { radio: "B" }, { radio: "pick", radioId: "ft891" }, { radio: "pick", radioId: "" }]
+  const configs: PanelRenderArgs["config"][] = [{}, { radio: "A" }, { radio: "B" }, { radio: "ft891" }, { radio: "" }]
   for (const config of configs) {
     const content = await hook.render(args("picked", config), context)
     const scope = (content as { scene: PanelScene }).scene.controls!.find((c) => c.id.endsWith("spectrum")) as { radio?: string }
