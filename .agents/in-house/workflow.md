@@ -146,6 +146,10 @@ done
   version with different bytes is refused, so every fix that will be
   published needs a new version — in BOTH `manifest.json` and `package.json`,
   then `npm install --package-lock-only` to carry it into the lockfile.
+- **`api` rises only with a new minor version**, never in a patch: the
+  catalog refuses a release whose `api` differs from its minor line's newest
+  version (README, *What is published*). An open level, one HaLo has not yet
+  shipped in a Next build, publishes to `unstable` or `bleeding` only.
 - **the pre-loaded set** also ships packaged inside the app. The list is
   halo-dist's `app/assets/preloaded-extensions/index.json`, read from its
   current `main` (`git -C ~/Work/ham2k/halo-dist show

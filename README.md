@@ -360,6 +360,14 @@ and not which app edition is asking. They cascade: `stable` is visible to
 everyone, `bleeding` only to somebody who went looking. Publishing without
 saying publishes to `stable`.
 
+**`api` rises only with a new minor version** (0.3.x → 0.4.0). The catalog
+offers each app the newest release it can run, which holds only while `api`
+never goes down as versions go up, so it refuses a release whose `api`
+differs from the newest version in its minor line, is lower than an earlier
+version's, or is higher than a later one's. The old line can still take a
+patch for the apps that speak only its level. A level HaLo has not released
+yet is taken on `unstable` and `bleeding` only, until a Next build ships it.
+
 ## Layout
 
 - `packages/*` — shared libraries several extensions use.

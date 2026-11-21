@@ -359,6 +359,8 @@ function manifestFor(code, key, party) {
     // field (`incomplete`), which a host reads from level 15; below it, the
     // contact logs with nothing said. Level 2's history filters, which keep
     // last year's county from passing for one copied minutes ago, come with it.
+    // Raising it moves VERSION's minor (0.3.x → 0.4.0): the catalog refuses a
+    // patch whose `api` differs from its minor line's.
     api: 15,
     keywords: [...new Set(keywords)],
     // Exactly what `src/index.ts` registers, `ref:` included: the panel and the
