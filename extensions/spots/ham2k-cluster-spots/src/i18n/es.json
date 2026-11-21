@@ -10,5 +10,7 @@
   "invalidCall": "El cluster no acepta ese indicativo",
   "invalidFrequency": "El spot necesita una frecuencia",
   "refused": "El nodo del cluster dijo: {{message}}",
-  "notPosted": "El spot no se publicó"
+  "notPosted": "El spot no se publicó",
+  "settingsTitle": "Spots del Cluster",
+  "ignoreRbn": "Ignorar los spots del RBN"
 }

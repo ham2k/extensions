@@ -143,6 +143,13 @@ export function isSignOff(spot: Spot): boolean {
   return !!spotter && spotter === parseCallsign(spot.their.call).baseCall
 }
 
+/// Whether [spot] comes from the Reverse Beacon Network: its skimmers spot
+/// under their call with `-#` on the end (`KM3T-#`), in an announced spot and
+/// a listed one alike.
+export function isRbn(spot: Spot): boolean {
+  return String(spot.spot.sourceInfo?.spotter ?? "").endsWith("-#")
+}
+
 /// The node programs this extension knows how to ask for everything.
 export type NodeProgram = "AR-Cluster" | "DXSpider" | "CC Cluster"
 

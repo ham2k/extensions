@@ -20,6 +20,7 @@ let subscribes = 0
 const sent: string[] = []
 let subscription: Record<string, unknown> | undefined
 const pushes: { method: string; params: Record<string, unknown> }[] = []
+const saved: Record<string, unknown>[] = []
 
 /// The app's side of `match`: patterns as they cross the bridge.
 function matcher(match: unknown): (text: string) => boolean {
@@ -43,6 +44,14 @@ const ext = await loadExtension(() => import("./index.ts"), {
     },
     putSpots: (params) => {
       pushes.push({ method: "putSpots", params })
+      return null
+    },
+    setSettings: (params) => {
+      saved.push(params)
+      return null
+    },
+    replaceSpots: (params) => {
+      pushes.push({ method: "replaceSpots", params })
       return null
     },
     removeSpots: (params) => {
@@ -253,4 +262,45 @@ test("spots go on the board as they come, each under its key, and a station's ow
   const stale = listedLine("ZS6OLD", 21030, "CW", 90)
   await ext.runHook("cluster", "onLines", { lines: [{ seq: ++seq, at: stale.at, text: stale.text }] })
   assert.deepEqual(pushes, [], "the older end of a backfill, past what the board shows, is not pushed")
+})
+
+function rbnLine(call: string, freq: number, comment: string, minutesAgo = 0): string {
+  return dxLine(call, freq, comment, minutesAgo).replace("DX de W3LPL:", "DX de KM3T-#:")
+}
+
+test("RBN spots reach the board until the operator chooses to ignore them, which takes those already there off at once", async () => {
+  const definition = (await ext.runHook("settingsPanel", "getDefinition", { panelKey: "ham2k-cluster-spots" })) as { elements: { key: string; value: unknown }[] }
+  assert.equal(definition.elements.find((element) => element.key === "ignoreRbn")?.value, false, "off unless chosen")
+
+  arrive(rbnLine("9Y4ABC", 14012, "CW 20 dB 28 WPM CQ"))
+  status = { ...status, lastSeq: seq }
+  assert.ok((await board()).some((spot) => spot.their.call === "9Y4ABC"))
+
+  pushes.length = 0
+  await ext.runHook("settingsPanel", "onChangeField", { panelKey: "ham2k-cluster-spots", fieldKey: "ignoreRbn", value: true, state: {} })
+  assert.deepEqual(saved.map(({ values }) => (values as Record<string, unknown>).ignoreRbn), [true], "kept for the next runtime, not only this one")
+  assert.deepEqual(pushes.map(({ method }) => method), ["replaceSpots"])
+  const replaced = pushes[0].params.spots as Spot[]
+  assert.equal(replaced.some((spot) => spot.their.call === "9Y4ABC"), false)
+  assert.ok(replaced.length > 0, "everyone else's spots stay")
+  assert.equal((await board()).some((spot) => spot.their.call === "9Y4ABC"), false)
+})
+
+test("while ignored, a skimmer neither adds a spot nor replaces a person's spot of the same station", async () => {
+  await ext.runHook("settingsPanel", "onChangeField", { panelKey: "ham2k-cluster-spots", fieldKey: "ignoreRbn", value: true, state: {} })
+  arrive(dxLine("V31ABC", 7025, "CW up 2", 2))
+  arrive(rbnLine("V31ABC", 7024.9, "CW 30 dB 25 WPM CQ"))
+  arrive(rbnLine("J52XYZ", 10110, "CW 14 dB 20 WPM CQ"))
+  status = { ...status, lastSeq: seq }
+  const spots = await board()
+  assert.deepEqual(calls(spots.filter((spot) => spot.their.call === "V31ABC")), ["V31ABC 7025"], "the person's spot, not the newer skimmer's")
+  assert.equal(spots.some((spot) => spot.their.call === "J52XYZ"), false)
+
+  pushes.length = 0
+  await ext.runHook("cluster", "onLines", { lines: [{ seq: ++seq, at: Date.now(), text: rbnLine("C6AXX", 14030, "CW 9 dB 24 WPM CQ") }] })
+  assert.deepEqual(pushes, [], "nothing pushed for a batch of skimmer spots")
+
+  await ext.runHook("settingsPanel", "onChangeField", { panelKey: "ham2k-cluster-spots", fieldKey: "ignoreRbn", value: false, state: {} })
+  await ext.runHook("cluster", "onLines", { lines: [{ seq: ++seq, at: Date.now(), text: rbnLine("C6AXX", 14030, "CW 9 dB 24 WPM CQ") }] })
+  assert.ok((await board()).some((spot) => spot.their.call === "C6AXX"), "unticked, the next skimmer spot is taken again")
 })

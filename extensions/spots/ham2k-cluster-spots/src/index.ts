@@ -33,11 +33,11 @@
 // to that one node, which forwards it to the rest of the network.
 
 import { defineExtension, host } from "@ham2k/extension-sdk"
-import type { ClusterHook, ClusterLine, ClusterReply, ClusterStatus, HookContext, PostOtherSpotRequest, PostResult, PostSelfSpotRequest, Spot, SpotEligibility, SpotsHook } from "@ham2k/extension-sdk"
+import type { ClusterHook, ClusterLine, ClusterReply, ClusterStatus, DynamicSettingsPanel, FormDefinition, HookContext, JSONValue, PostOtherSpotRequest, PostResult, PostSelfSpotRequest, SettingsPanelDescriptor, Spot, SpotEligibility, SpotsHook } from "@ham2k/extension-sdk"
 
 import manifest from "../manifest.json" with { type: "json" }
 import { tFor } from "./i18n.ts"
-import { SPOT_LINE_PATTERNS, isPromptFor, isSignOff, nodeProgramFromPrompt, parseSpotLine } from "./parse.ts"
+import { SPOT_LINE_PATTERNS, isPromptFor, isRbn, isSignOff, nodeProgramFromPrompt, parseSpotLine } from "./parse.ts"
 import type { NodeProgram } from "./parse.ts"
 import { firstCall, isTestCall, selfSpotCall, spotComment, type Json } from "./spotText.ts"
 
@@ -105,6 +105,12 @@ const cleared = new Set<string>()
 /// The program behind each node, as `host:port`, once a prompt has named it.
 const programs = new Map<string, NodeProgram>()
 
+/// Whether the operator chose to leave the Reverse Beacon Network's spots off
+/// the board. Read at activation, and changed by the settings panel. The node
+/// still sends them: its skimmer setting belongs to the call on that node, so
+/// turning it off here would turn it off for the operator's other clients too.
+let ignoreRbn = false
+
 /// Holds what [lines] say, and answers what changed on the board for it: the
 /// spots that are new or newer, and the keys of those a station signed off.
 /// Each spot carries its key, so a newer one replaces it on the board too.
@@ -116,6 +122,9 @@ function take(lines: ClusterLine[]): { put: Spot[]; removed: string[] } {
   for (const line of lines) {
     const parsed = parseSpotLine(line.text, line.at)
     if (!parsed || parsed.spot.timeInMillis < oldest) continue
+    // Never held, so a skimmer cannot replace a person's spot of the same
+    // station on the same band and mode.
+    if (ignoreRbn && isRbn(parsed)) continue
     const key = `${parsed.their.call}|${parsed.band ?? ""}|${parsed.mode ?? ""}`
     const spot: Spot = { ...parsed, key }
     const previous = held.get(key)
@@ -136,7 +145,8 @@ function current(now: number): Spot[] {
     if (now - spot.spot.timeInMillis > MAX_AGE_MILLIS) held.delete(key)
   }
   return [...held.values()]
-    .filter((spot) => !isSignOff(spot))
+    // Held from before the operator chose to ignore them.
+    .filter((spot) => !isSignOff(spot) && !(ignoreRbn && isRbn(spot)))
     .sort((a, b) => b.spot.timeInMillis - a.spot.timeInMillis)
     .slice(0, MAX_SPOTS)
 }
@@ -292,12 +302,49 @@ const Cluster = {
   },
 } satisfies ClusterHook
 
+async function loadIgnoreRbn(): Promise<boolean> {
+  const extensions = (await host.getSettings()).extensions as Record<string, JSONValue> | undefined
+  const mine = extensions?.[`extension_${manifest.key}`] as Record<string, JSONValue> | undefined
+  return mine?.ignoreRbn === true
+}
+
+const Settings: DynamicSettingsPanel = {
+  kind: "dynamic",
+
+  async getPanels(_args: Record<string, never>, ctx: HookContext): Promise<SettingsPanelDescriptor[]> {
+    return [{ key: manifest.key, title: tFor(ctx)("settingsTitle"), icon: manifest.icon, sidebar: false, section: "spotting" }]
+  },
+
+  async getDefinition(_args: { panelKey: string }, ctx: HookContext): Promise<FormDefinition> {
+    return { elements: [{ type: "field", fieldType: "checkbox", key: "ignoreRbn", label: tFor(ctx)("ignoreRbn"), value: ignoreRbn }] }
+  },
+
+  /// The board follows at once rather than at its next fetch, up to two
+  /// minutes on. Spots skipped while the box was ticked are not brought back
+  /// by unticking it; the next ones are.
+  async onChangeField({ fieldKey, value }: { fieldKey: string; value: unknown }) {
+    if (fieldKey !== "ignoreRbn") return
+    // Saved first: a save that fails leaves the box, and the board, as stored.
+    await host.setSettings({ ignoreRbn: value === true })
+    ignoreRbn = value === true
+    // A refused push is only logged, as in `onLines`: the setting stands, and
+    // the next fetch answers with `current()`, which puts the board right.
+    try {
+      await host.spots.replace(current(Date.now()))
+    } catch (e) {
+      host.log(`spots not replaced, left for the next fetch: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  },
+}
+
 defineExtension({
   ...manifest,
-  onActivation({ registerHook }) {
+  async onActivation({ registerHook }) {
+    registerHook("settingsPanel", { hook: Settings, key: manifest.key })
     registerHook("spots", { hook: Spots, key: manifest.key })
     // Under the extension's own key: that is the key the app delivers a
     // subscription's lines to.
     registerHook("cluster", { hook: Cluster, key: manifest.key })
+    ignoreRbn = await loadIgnoreRbn()
   },
 })

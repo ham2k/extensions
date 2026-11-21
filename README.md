@@ -256,7 +256,9 @@ band map and a contest map:
 - **`ham2k-cluster-spots`** reads the one telnet connection the app holds to
   the node picked in Settings › DX Cluster (extension API 10), and turns every
   `DX de` line the node sends into a spot on the board, under the spot
-  `source` `cluster`. It posts the other way too: self-spots, and spots of
+  `source` `cluster` — all but the Reverse Beacon Network's (a spotter ending
+  in `-#`) when the operator ticks *Ignore RBN spots* in its settings panel,
+  a filter of its own that leaves the node's skimmer setting alone. It posts the other way too: self-spots, and spots of
   stations worked, go to that one node, which forwards each to the rest of the
   network. A posted spot's comment names every activity, contests first (`NYQP
   SUL/DEL - POTA US-1234`), because a reader's 80-column line shows only the

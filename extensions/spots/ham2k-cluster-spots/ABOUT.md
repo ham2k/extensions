@@ -4,6 +4,8 @@ Read the DX cluster's spots on your Spots panel, and post your own to it.
 
 Every spot your cluster node announces, the moment it announces it, newest per station, band and mode. The node's latest spots from before you connected show up right away too.
 
+The Reverse Beacon Network's skimmers spot every CQ they hear. To see only spots people made, turn on **Ignore RBN spots** in Settings › Spotting › Cluster Spots.
+
 ## Spot
 
 Self-spot, or spot a station you just worked. Your spot leads with what you're activating, such as `POTA US-1234`.

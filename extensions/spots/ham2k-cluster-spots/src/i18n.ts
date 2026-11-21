@@ -1,7 +1,7 @@
 // Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>
 // SPDX-License-Identifier: MIT
 //
-// What a failed spot says.
+// What a failed spot and the settings panel say.
 
 import { createCachedTranslator } from "@ham2k/extension-sdk"
 

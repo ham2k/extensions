@@ -10,5 +10,7 @@
   "invalidCall": "The cluster cannot take that call",
   "invalidFrequency": "The spot needs a frequency",
   "refused": "The cluster node said: {{message}}",
-  "notPosted": "The spot was not posted"
+  "notPosted": "The spot was not posted",
+  "settingsTitle": "Cluster Spots",
+  "ignoreRbn": "Ignore RBN spots"
 }

@@ -7,7 +7,7 @@
 import { test } from "node:test"
 import assert from "node:assert/strict"
 
-import { isPromptFor, modeFromComment, nodeProgramFromPrompt, parseSpotLine, spotTime } from "./parse.ts"
+import { isPromptFor, isRbn, modeFromComment, nodeProgramFromPrompt, parseSpotLine, spotTime } from "./parse.ts"
 
 const arrived = Date.UTC(2026, 9, 20, 12, 35, 10)
 
@@ -152,4 +152,12 @@ test("a spot's time is the day it arrived, or the day before across midnight", (
   assert.equal(spotTime("2359", Date.UTC(2026, 9, 21, 0, 1)), Date.UTC(2026, 9, 20, 23, 59))
   assert.equal(spotTime("1240", arrived), Date.UTC(2026, 9, 20, 12, 40), "a node clock a few minutes ahead is still today")
   assert.equal(spotTime("2575", arrived), arrived, "no such time, so when it arrived")
+})
+
+test("a spot is the RBN's when a skimmer made it, announced or listed, and not when a person with an SSID did", () => {
+  const rbn = (line: string) => isRbn(parseSpotLine(line, arrived)!)
+  assert.equal(rbn("DX de KM3T-#:    14021.0  OH2BH        CW 17 dB 25 WPM CQ             1234Z"), true)
+  assert.equal(rbn("   7041.8 K9NW         20-Oct-2026 1213Z  CW 12 dB 22 WPM CQ          <KM3T-#>"), true)
+  assert.equal(rbn("DX de KI2D-7:    14062.0  K2POTA       CW POTA US-1234                1234Z"), false)
+  assert.equal(rbn("DX de W3LPL:     14025.0  JA1ABC       CW 599                         1234Z FN20"), false)
 })
