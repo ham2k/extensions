@@ -1,8 +1,8 @@
 {
   "key": "ki2d-clublog-livestream",
-  "name": "KI2D’s Club Log Livestream (Experimental)",
+  "name": "KI2D’s Club Log Livestream",
   "shortName": "Club Log Live",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "api": 29,
   "description": "Each contact you log goes to Club Log as you make it, so your Club Log Live Stream follows the operation",
   "category": "integration",
@@ -37,7 +37,7 @@
   },
   "translations": {
     "es": {
-      "name": "Club Log Livestream de KI2D (Experimental)",
+      "name": "Club Log Livestream de KI2D",
       "description": "Cada contacto que registras va a Club Log en el momento, para que tu Live Stream de Club Log siga la operación",
       "keywords": [
         "club log",
