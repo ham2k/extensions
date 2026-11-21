@@ -33,6 +33,7 @@ webhooks, and HamAlert's alerts.
 | `extensions/lookups/` | `lookup` | 8 | 5 ported built-ins, 2 offline callsign sets, Partial Calls |
 | `extensions/spots/` | `spots` | 7 | 1 ported built-in, 6 new spotting sources |
 | `extensions/dashboard/` | `dashboard` | 7 | 1 ported built-in, 3 new panels, 3 SVG reference panels |
+| `extensions/integrations/` | `integration` | 1 | 1 new integration |
 | **total** | | **117** | **39 ported, 75 new, 3 SVG reference panels** |
 
 The 39 are the app's own extensions, ported one for one. The 75 are new:
@@ -465,8 +466,9 @@ yet is taken on `unstable` and `bleeding` only, until a Next build ships it.
 - `extensions/<category>/<key>` — one directory per published extension, grouped
   by the manifest's own `category`. The directory names a group and the manifest
   names one extension, so they differ by a plural: `activity` lives in
-  `activities/`, `contest` in `contests/`, `lookup` in `lookups/`, and `spots`
-  and `dashboard` name themselves. Those are the app's own source tree's
+  `activities/`, `contest` in `contests/`, `lookup` in `lookups/`,
+  `integration` in `integrations/`, and `spots` and `dashboard` name
+  themselves. Those are the app's own source tree's
   spellings, so a built-in ported here lands in the directory it came from.
   `bundles.test.ts` holds each manifest to the directory it sits in.
 - `extensions/bundles.test.ts` — builds, packs and loads every extension. It
@@ -512,8 +514,9 @@ alerts); what every contest does, like a Cabrillo export, goes unsaid. Five rule
 everywhere, and `bundles.test.ts` enforces each:
 
 - **The directory is the category and the key.** `activity` lives in
-  `activities/`, `contest` in `contests/`, `lookup` in `lookups/`, and `spots`
-  and `dashboard` name themselves; the directory's own name is the manifest
+  `activities/`, `contest` in `contests/`, `lookup` in `lookups/`,
+  `integration` in `integrations/`, and `spots` and `dashboard` name
+  themselves; the directory's own name is the manifest
   `key`. The tree IS the categorisation, so nothing else would say a misfiled
   extension is misfiled.
 - **`manifest.hooks` is what the code registers.** The panel and the catalog read
@@ -546,6 +549,7 @@ What each category actually is, with the worked example to read first:
 | `lookup` | `lookup`, or `recentContextLookup` for one that only reads what the app already has; plus `account` for a service with a login, `dataFile` for one with a downloadable list, `settingsPanel`, `command`, `callNotes` | `lookups/ham2k-call-history` (one hook), `lookups/ham2k-qrz` (an account and a network service) |
 | `spots` | `spots`, plus `account` where the service wants a login, and `cluster` for one reading the DX cluster's lines as they arrive | `spots/ham2k-parksnpeaks`, or `spots/ham2k-cluster-spots` for the cluster |
 | `dashboard` | `panel` — a pane the operator adds to a dock, with per-pane config the host persists | `dashboard/ham2k-custom-text` |
+| `integration` | `integration` — the operation's contacts carried somewhere as they are logged, edited and deleted, switched on per operation in its Integrations dialog; plus `account` for a service with a login | `integrations/ki2d-clublog-livestream` |
 
 Then: `npm install` (a new workspace has to reach the root lock), `npm test`,
 `npm run typecheck`, `npm run build`, `npm run pack`. `sharedDependencies` is

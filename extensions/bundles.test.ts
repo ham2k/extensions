@@ -176,6 +176,7 @@ const DIRECTORY_FOR_CATEGORY: Record<string, string> = {
   award: "awards",
   contest: "contests",
   dashboard: "dashboard",
+  integration: "integrations",
   lookup: "lookups",
   spots: "spots",
 }

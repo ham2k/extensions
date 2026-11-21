@@ -4,20 +4,32 @@
 // Sends each contact to Club Log as it is logged, which is what a station's
 // Club Log Live Stream shows (stream.ts has how, and what Club Log allows).
 //
-// The operator turns it on per operation by adding the "Club Log Livestream"
-// activity. That is also what makes it work: the app asks activities for a
-// last look at each contact before it is written (`processQsoBeforeSave`),
-// and only for an operation that carries some activity. The hook changes
-// nothing in the contact; it queues it and returns at once, so a slow or
-// unreachable Club Log never holds up logging.
+// It is an integration: the operator switches it on per operation, on that
+// device, in the operation's Integrations dialog, and each call about the
+// operation hands over what was logged, edited and deleted since the
+// previous one. The call queues those and returns at once, so a slow or
+// unreachable Club Log never holds anything up; the stream's own timer
+// sends them.
 //
 // The token is the operator's own, made on Club Log under Settings → API, and
 // kept in the keychain by the `account` hook. Club Log issues no application
 // key. A timer has no hook context to read the account from, so the stream
-// holds the token the last save handed it.
+// holds the token the last call handed it.
+//
+// Before integrations, the stream was an activity added to the operation.
+// An operation that still carries that activity keeps its name through the
+// ref handler, which also says where the switch is now; it streams nothing.
 
 import { defineExtension, hooks, host } from "@ham2k/extension-sdk"
-import type { AccountHook, ActivityHook, ActivitySuggestion, HookContext, JSONValue, Ref, RefHandlerHook, SuggestArgs } from "@ham2k/extension-sdk"
+import type {
+  AccountHook,
+  HookContext,
+  IntegrationDescribeArgs,
+  IntegrationHook,
+  IntegrationObserveArgs,
+  Ref,
+  RefHandlerHook,
+} from "@ham2k/extension-sdk"
 
 import { tFor } from "./i18n.ts"
 import { API_BASE, Stream, recordOf } from "./stream.ts"
@@ -25,9 +37,10 @@ import type { Problem } from "./stream.ts"
 
 import manifest from "../manifest.json" with { type: "json" }
 
+/// The activity's ref type, from before the integration.
 export const TYPE = "clublogLivestream"
 
-const SEARCH_WORDS = ["CLUB", "LOG", "CLUBLOG", "LIVE", "STREAM", "LIVESTREAM"]
+export const INTEGRATION_KEY = "livestream"
 
 /// The locale of the last hook call, for the notices the stream raises from
 /// a timer.
@@ -35,11 +48,6 @@ let locale = "en"
 
 function tokenOf(ctx: HookContext): string | undefined {
   return ctx.account?.credentials?.token?.trim() || undefined
-}
-
-function hasActivity(operation: Record<string, JSONValue>): boolean {
-  const refs = operation.refs
-  return Array.isArray(refs) && refs.some((ref) => (ref as Record<string, JSONValue>)?.type === TYPE)
 }
 
 function notice(problem: Problem | { key: "noToken" }): void {
@@ -69,48 +77,41 @@ const stream = new Stream({
 
 let toldNoToken = false
 
-const Activity: ActivityHook = {
-  async suggest({ operation, searchTerm }: SuggestArgs, ctx: HookContext): Promise<ActivitySuggestion[]> {
-    if (hasActivity(operation)) return []
-    const words = (searchTerm ?? "").trim().toUpperCase().split(/\s+/).filter(Boolean)
-    if (words.length && !words.every((word) => SEARCH_WORDS.some((known) => known.startsWith(word)))) return []
+const Integration: IntegrationHook = {
+  async getIntegrations(_args, ctx: HookContext) {
     const t = tFor(ctx)
-    return [{ type: TYPE, label: t("activityLabel"), shortLabel: t("activityShortLabel"), name: t("activityDescription") }]
+    return [{ key: INTEGRATION_KEY, title: t("integrationTitle"), description: t("integrationDescription"), icon: manifest.icon, on: ["qsoLogged"] }]
   },
 
-  async processQsoBeforeSave({ qso, operation }, ctx: HookContext) {
-    if (!hasActivity(operation)) return null
+  /// The call this operation's contacts go out under, or what keeps them
+  /// from going out: the stream sends nothing without a station call or a
+  /// token.
+  async describe({ operation }: IntegrationDescribeArgs, ctx: HookContext): Promise<string | null> {
+    const t = tFor(ctx)
+    const call = typeof operation.stationCall === "string" ? operation.stationCall.trim().toUpperCase() : ""
+    if (!call) return t("describeNoCall")
+    if (!tokenOf(ctx)) return t("describeNoToken")
+    return t("describe", { call })
+  },
+
+  async observe({ operation, changes, reasons }: IntegrationObserveArgs, ctx: HookContext) {
     locale = ctx.locale ?? locale
     const token = tokenOf(ctx)
-    if (!token) {
-      if (!toldNoToken) notice({ key: "noToken" })
-      toldNoToken = true
-      return null
-    }
-    toldNoToken = false
-    try {
-      // A null log (no uuid, or one the host does not know) is no log at all,
-      // never an empty one: see Stream.saving.
-      const uuid = typeof operation.uuid === "string" ? operation.uuid : ""
-      const log = uuid ? ((await ctx.getQsos?.(uuid)) ?? undefined) : undefined
-      stream.saving({ token, operation, qso, log })
-    } catch (error) {
-      // The contact is saved either way; this one just does not stream.
-      host.log(`Club Log: could not queue a contact: ${error instanceof Error ? error.message : String(error)}`)
-    }
-    return null
+    if (!token && !toldNoToken) notice({ key: "noToken" })
+    toldNoToken = !token
+    // `open` starts from the log as it stands: the sweep reads it, for what
+    // a restart forgot. Null when the host cannot say, which is no log at
+    // all and never an empty one.
+    const uuid = typeof operation.uuid === "string" ? operation.uuid : ""
+    const log = reasons.includes("open") && uuid ? ((await ctx.getQsos?.(uuid)) ?? undefined) : undefined
+    stream.observed({ token, operation, changes, log })
   },
 }
 
 const RefHandler: RefHandlerHook = {
   async decorateRef({ ref }: { ref: Ref }, ctx: HookContext): Promise<Ref> {
     const t = tFor(ctx)
-    return {
-      ...ref,
-      label: t("activityLabel"),
-      shortLabel: t("activityShortLabel"),
-      name: tokenOf(ctx) ? t("activityDescription") : t("noTokenShort"),
-    }
+    return { ...ref, label: t("integrationTitle"), shortLabel: t("shortLabel"), name: t("activityRetired") }
   },
 }
 
@@ -146,7 +147,7 @@ defineExtension({
   ...manifest,
   onActivation({ registerHook }) {
     registerHook("account", { hook: Account, key: manifest.key })
-    registerHook("activity", { hook: Activity, key: manifest.key })
+    registerHook("integration", { hook: Integration, key: manifest.key })
     registerHook(`ref:${TYPE}`, { hook: RefHandler, key: manifest.key })
   },
 })

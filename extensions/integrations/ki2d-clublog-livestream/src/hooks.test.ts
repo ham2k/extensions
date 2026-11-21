@@ -1,9 +1,11 @@
 // Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>
 // SPDX-License-Identifier: MIT
 //
-// The extension through its hooks: that it is an activity an operator can
-// add, that only an operation carrying it streams, that saving never changes
-// the contact, and how the account check reads Club Log's answers.
+// The extension through its hooks: that it is an integration woken by each
+// contact logged, what its line in the Integrations dialog says, that only
+// an `open` costs a read of the log, that an
+// operation still carrying the activity from before keeps its name, and how
+// the account check reads Club Log's answers.
 
 import { test } from "node:test"
 import assert from "node:assert/strict"
@@ -26,9 +28,8 @@ const ext = await loadExtension(() => import("./index.ts"), {
   },
 })
 
-const streaming = { uuid: "op-1", stationCall: "KI2D", refs: [{ type: "clublogLivestream" }] }
-const plain = { uuid: "op-2", stationCall: "KI2D", refs: [{ type: "potaActivation", ref: "US-1234" }] }
-const qso = { their: { call: "W1AW" }, startAtMillis: Date.UTC(2026, 10, 4, 14), band: "20m", mode: "CW" }
+const operation = { uuid: "op-1", stationCall: "KI2D" }
+const none = { logged: [], updated: [], deleted: [] }
 
 function context(token: string | undefined, reads: string[]): Partial<HookContext> {
   return {
@@ -41,27 +42,49 @@ function context(token: string | undefined, reads: string[]): Partial<HookContex
   }
 }
 
-test("it is offered as an activity, by its words, until the operation has it", async () => {
-  const offered = (await ext.runHook("activity", "suggest", { operation: plain, searchTerm: "club log" })) as { type: string }[]
-  assert.deepEqual(offered.map((ref) => ref.type), ["clublogLivestream"])
-  assert.deepEqual(await ext.runHook("activity", "suggest", { operation: plain, searchTerm: "pota" }), [])
-  assert.deepEqual(await ext.runHook("activity", "suggest", { operation: streaming, searchTerm: "club" }), [])
+function observing(reasons: string[], changes: JSONValue = none) {
+  return { integrationKey: "livestream", operation, qsoCount: 0, config: {}, reasons, clock: { nowMillis: 0, realNowMillis: 0 }, changes }
+}
+
+test("it offers one integration, woken by each contact logged", async () => {
+  const offered = (await ext.runHook("integration", "getIntegrations", {})) as { key: string; title: string; on: string[] }[]
+  assert.deepEqual(
+    offered.map(({ key, title, on }) => ({ key, title, on })),
+    [{ key: "livestream", title: "Club Log Livestream", on: ["qsoLogged"] }],
+  )
 })
 
-test("only an operation with the activity is streamed, and the contact is saved untouched", async () => {
+// The line follows the operation, not the descriptor: the station call is
+// what Club Log files the contacts under, and an operation with no call, or
+// a device with no token, streams nothing at all and must say so.
+test("its line names the call it streams as, or what keeps it from streaming", async () => {
+  const describe = (stationCall: string, token?: string) =>
+    ext.runHook(
+      "integration",
+      "describe",
+      { integrationKey: "livestream", operation: { uuid: "op-1", stationCall }, config: {} },
+      { ctx: context(token, []) },
+    ) as Promise<string>
+  assert.equal(await describe("ki2d ", "cl_abc"), "Stream KI2D contacts to Club Log as they are logged")
+  assert.match(await describe(" ", "cl_abc"), /station call/)
+  assert.match(await describe("KI2D"), /API token/)
+})
+
+// The sweep after a restart needs the log, and nothing else does: a read on
+// every call would be a full read of the log per contact logged.
+test("only an open reads the operation's log", async () => {
   const reads: string[] = []
   const ctx = context("cl_abc", reads)
-  assert.equal(await ext.runHook("activity", "processQsoBeforeSave", { qso, operation: plain }, { ctx }), null)
-  assert.deepEqual(reads, [], "an operation without the activity costs no read of its log")
-
-  assert.equal(await ext.runHook("activity", "processQsoBeforeSave", { qso, operation: streaming }, { ctx }), null)
+  await ext.runHook("integration", "observe", observing(["qsoLogged"], { ...none, logged: [{ uuid: "u1", their: { call: "W1AW" } }] }), { ctx })
+  assert.deepEqual(reads, [])
+  await ext.runHook("integration", "observe", observing(["open"]), { ctx })
   assert.deepEqual(reads, ["op-1"])
 })
 
-test("without a token nothing is read or queued", async () => {
-  const reads: string[] = []
-  assert.equal(await ext.runHook("activity", "processQsoBeforeSave", { qso, operation: streaming }, { ctx: context(undefined, reads) }), null)
-  assert.deepEqual(reads, [])
+test("an operation that still carries the activity from before keeps its name, and says where the switch is", async () => {
+  const ref = (await ext.runHook("ref:clublogLivestream", "decorateRef", { ref: { type: "clublogLivestream" } })) as { label: string; name: string }
+  assert.equal(ref.label, "Club Log Livestream")
+  assert.match(ref.name, /Integrations/)
 })
 
 test("the account check sends the token as a bearer and reads a 401 as a refused token", async () => {

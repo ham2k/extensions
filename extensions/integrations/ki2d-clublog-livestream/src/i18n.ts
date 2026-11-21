@@ -1,7 +1,7 @@
 // Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>
 // SPDX-License-Identifier: MIT
 //
-// User-visible strings: the activity, the account dialog, and the notices
+// User-visible strings: the integration, the account dialog, and the notices
 // for what only the operator can fix.
 
 import { createCachedTranslator } from "@ham2k/extension-sdk"

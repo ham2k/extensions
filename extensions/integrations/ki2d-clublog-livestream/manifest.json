@@ -2,10 +2,10 @@
   "key": "ki2d-clublog-livestream",
   "name": "KI2D’s Club Log Livestream (Experimental)",
   "shortName": "Club Log Live",
-  "version": "0.1.0",
-  "api": 15,
+  "version": "0.2.0",
+  "api": 29,
   "description": "Each contact you log goes to Club Log as you make it, so your Club Log Live Stream follows the operation",
-  "category": "activity",
+  "category": "integration",
   "icon": "broadcast",
   "accentColor": "#1E6FB8",
   "keywords": [
@@ -19,7 +19,7 @@
   ],
   "hooks": [
     "account",
-    "activity",
+    "integration",
     "ref:clublogLivestream"
   ],
   "domains": [

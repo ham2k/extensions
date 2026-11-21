@@ -20,14 +20,19 @@
 // to the letter: a 401 stops everything until the token changes, a 422 or a
 // rejected contact is never sent again, a 429 waits what it says.
 //
-// Contacts are known by `signatureOf`, not uuid: the save hook sees a new
-// contact before the app gives it one. Everything here lives in memory —
-// the host's key-value store does too, and holds 4 KB — so a runtime restart
-// forgets the queue and which contacts have Club Log ids. `sweep` covers the
-// first: the save after a restart sends the operation's last hour again,
-// which Club Log answers as duplicates. The second costs the edits and
-// deletions of contacts sent before the restart, which stay on Club Log as
-// they were sent.
+// What to send comes from the app's integration calls (`observed`): the
+// contacts logged, edited and deleted in the operation since the previous
+// call, each with its uuid. Club Log knows a contact by what it matches on
+// (`signatureOf`), so the stream keeps, per operation, the signature each
+// uuid was last sent under, and Club Log's id for each signature.
+//
+// Everything here lives in memory — the host's key-value store does too, and
+// holds 4 KB — so a runtime restart forgets the queue and which contacts have
+// Club Log ids. The call that follows a restart says `open`, and hands the
+// operation's log for `sweep`, which sends its last hour again; Club Log
+// answers what it already holds as duplicates. The ids are the part no sweep
+// recovers: an edit or a deletion of a contact sent before the restart
+// leaves the old one on Club Log as it was sent.
 
 import type { JSONValue } from "@ham2k/extension-sdk"
 
@@ -86,14 +91,21 @@ export interface StreamDeps {
   tell(problem: Problem): void
 }
 
+/// What an integration call says changed in an operation since its previous
+/// call (`IntegrationChanges`).
+export interface Changes {
+  logged: Qso[]
+  updated: Qso[]
+  deleted: string[]
+}
+
 export type Problem =
   | { key: "tokenRefused" }
   | { key: "callRefused"; call: string; message: string }
   | { key: "rejected"; call: string; theirCall: string; message: string }
 
-/// What Club Log matches a contact on, so a contact keeps it from the save
-/// hook (no uuid yet) to the log (`ctx.getQsos`). An edit that changes any of
-/// it is, to Club Log, a different contact.
+/// What Club Log matches a contact on. An edit that changes any of it is, to
+/// Club Log, a different contact.
 export function signatureOf(qso: Qso): string | undefined {
   const their = qso.their as Record<string, JSONValue> | undefined
   const call = typeof their?.call === "string" ? their.call.trim().toUpperCase() : ""
@@ -110,7 +122,9 @@ export class Stream {
   private queue: Job[] = []
   /// Club Log's id for each contact it holds, by operation then signature.
   private ids = new Map<string, Map<string, number>>()
-  private swept = new Set<string>()
+  /// The signature each contact was last queued under, by operation then
+  /// uuid: what an edit or a deletion, which come by uuid, takes back.
+  private known = new Map<string, Map<string, string>>()
   private token: string | undefined
   private refusedToken: string | undefined
   private lastSentAt = -Infinity
@@ -126,59 +140,67 @@ export class Stream {
     this.deps = deps
   }
 
-  /// What the save hook knows when a contact is about to be written: the
-  /// contact as it will be saved, and the operation's log as it stands, which
-  /// does not hold that contact yet and, for an edit, holds it as it was.
+  /// One integration call about an operation: what changed in it since the
+  /// previous call, and, on `open`, its `log` as it stands for the sweep.
   ///
-  /// Without a `log` — the app hands the save hook its operation without a
-  /// uuid, so there is no log to read — each save is only sent: an edit that
-  /// changes what Club Log matches on leaves the old contact there, and a
-  /// deletion never reaches it. Reconciling against an empty log instead
-  /// would read every contact already sent as deleted.
-  saving(args: { token: string; operation: Qso; qso: Qso; log?: Qso[] }): void {
-    const { operation, qso, log } = args
+  /// Without a token nothing goes out, but what changed still queues, and
+  /// leaves as soon as a call brings one.
+  observed(args: { token?: string; operation: Qso; changes: Changes; log?: Qso[] }): void {
+    const { operation, changes, log } = args
     const operationUuid = String(operation.uuid ?? "")
+    if (!operationUuid) return
     if (args.token !== this.token) this.told.delete("tokenRefused")
     this.token = args.token
     const call = String(operation.stationCall ?? "").trim().toUpperCase()
-    const signature = isUploadable(qso) ? signatureOf(qso) : undefined
 
-    if (log && operationUuid) this.reconcile(operationUuid, call, operation, qso, log)
-
-    if (signature && call) this.post({ kind: "post", signature, operationUuid, call, qso, operation })
+    for (const uuid of changes.deleted) this.forget(operationUuid, uuid)
+    for (const qso of [...changes.logged, ...changes.updated]) this.changed(operationUuid, call, operation, qso)
+    if (log && call) this.sweep(operationUuid, call, operation, log)
     this.schedule()
   }
 
-  private reconcile(operationUuid: string, call: string, operation: Qso, qso: Qso, log: Qso[]): void {
-    const ids = this.idsFor(operationUuid)
-    const before = typeof qso.uuid === "string" ? log.find((stored) => stored.uuid === qso.uuid) : undefined
-
-    // A deletion is noticed at the next save in the operation: nothing tells
-    // an extension a contact went away, but the log no longer holds it.
-    const present = new Set(log.filter(isUploadable).map((stored) => signatureOf(stored)))
-    for (const [signature, qsoid] of ids) {
-      if (!present.has(signature)) this.remove(operationUuid, signature, qsoid)
-    }
-    // Every earlier save has been written by now, so a contact still waiting
-    // that the log lacks was deleted, or its save failed.
-    this.queue = this.queue.filter((job) => job.kind !== "post" || job.operationUuid !== operationUuid || present.has(job.signature))
-
+  /// A contact logged or edited: sent as it now is, and, when an edit moved
+  /// what Club Log matches on, the copy under the old signature taken back.
+  private changed(operationUuid: string, call: string, operation: Qso, qso: Qso): void {
+    const uuid = typeof qso.uuid === "string" ? qso.uuid : undefined
     const signature = isUploadable(qso) ? signatureOf(qso) : undefined
-    const was = before && isUploadable(before) ? signatureOf(before) : undefined
-    if (was && was !== signature) {
-      const qsoid = ids.get(was)
-      if (qsoid !== undefined) this.remove(operationUuid, was, qsoid)
-      this.queue = this.queue.filter((job) => !(job.kind === "post" && job.operationUuid === operationUuid && job.signature === was))
+    if (uuid) {
+      const known = this.knownFor(operationUuid)
+      const was = known.get(uuid)
+      if (was && was !== signature) this.withdraw(operationUuid, was)
+      if (signature) known.set(uuid, signature)
+      else known.delete(uuid)
     }
+    if (signature && call) this.post({ kind: "post", signature, operationUuid, call, qso, operation })
+  }
 
-    if (call && !this.swept.has(operationUuid)) {
-      this.swept.add(operationUuid)
-      const since = this.deps.now() - SWEEP_MS
-      for (const stored of log) {
-        if (stored.uuid === qso.uuid || !isUploadable(stored) || (stored.startAtMillis as number) < since) continue
-        if (ids.has(signatureOf(stored)!)) continue
-        this.post({ kind: "post", signature: signatureOf(stored)!, operationUuid, call, qso: stored, operation })
-      }
+  private forget(operationUuid: string, uuid: string): void {
+    const known = this.knownFor(operationUuid)
+    const was = known.get(uuid)
+    known.delete(uuid)
+    if (was) this.withdraw(operationUuid, was)
+  }
+
+  /// Takes back what was queued or sent under [signature]: a contact still
+  /// waiting is never sent, and one Club Log holds is deleted there.
+  private withdraw(operationUuid: string, signature: string): void {
+    this.queue = this.queue.filter((job) => !(job.kind === "post" && job.operationUuid === operationUuid && job.signature === signature))
+    const qsoid = this.idsFor(operationUuid).get(signature)
+    if (qsoid !== undefined) this.remove(operationUuid, signature, qsoid)
+  }
+
+  /// The operation's last hour, minus what this stream already queued: after
+  /// a restart, what the forgotten queue may have held; on a switch turned
+  /// on mid-operation, what a Live Stream still shows.
+  private sweep(operationUuid: string, call: string, operation: Qso, log: Qso[]): void {
+    const known = this.knownFor(operationUuid)
+    const since = this.deps.now() - SWEEP_MS
+    for (const stored of log) {
+      const uuid = typeof stored.uuid === "string" ? stored.uuid : undefined
+      if (!uuid || known.has(uuid) || !isUploadable(stored) || (stored.startAtMillis as number) < since) continue
+      const signature = signatureOf(stored)!
+      known.set(uuid, signature)
+      this.post({ kind: "post", signature, operationUuid, call, qso: stored, operation })
     }
   }
 
@@ -187,13 +209,19 @@ export class Stream {
     return this.queue.length
   }
 
+  private knownFor(operationUuid: string): Map<string, string> {
+    let known = this.known.get(operationUuid)
+    if (!known) this.known.set(operationUuid, (known = new Map()))
+    return known
+  }
+
   private idsFor(operationUuid: string): Map<string, number> {
     let ids = this.ids.get(operationUuid)
     if (!ids) this.ids.set(operationUuid, (ids = new Map()))
     return ids
   }
 
-  /// The latest save of a contact replaces any earlier one still waiting.
+  /// The latest version of a contact replaces any earlier one still waiting.
   private post(job: Post): void {
     this.queue = this.queue.filter((queued) => !(queued.kind === "post" && queued.operationUuid === job.operationUuid && queued.signature === job.signature))
     this.queue.push(job)
