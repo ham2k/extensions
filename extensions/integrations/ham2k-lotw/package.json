@@ -1,0 +1,29 @@
+{
+  "name": "@ham2k/ext-lotw",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Ham2K Logger extension: uploads to ARRL's Logbook of the World",
+  "author": "Robert Jackson (N1RWJ)",
+  "contributors": ["Sebastian Delmont <sd@ham2k.com>"],
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --import ../../../scripts/sdk-node-resolve.mjs --experimental-strip-types --test 'src/**/*.test.ts'",
+    "typecheck": "tsc --noEmit",
+    "pack": "npm run build && h2kext-pack build --force-name"
+  },
+  "dependencies": {
+    "fflate": "0.8.3",
+    "node-forge": "1.4.3"
+  },
+  "devDependencies": {
+    "@ham2k/extension-sdk": "^1.31.0",
+    "@ham2k/extension-tools": "^1.12.0",
+    "@types/node-forge": "1.3.14",
+    "esbuild": "^0.25.5"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

@@ -23,7 +23,7 @@ webhooks, and HamAlert's alerts.
 
 ## What is here
 
-117 extensions, grouped by the manifest's own `category`:
+118 extensions, grouped by the manifest's own `category`:
 
 | directory | manifest `category` | n | of which |
 |---|---|--:|---|
@@ -33,15 +33,15 @@ webhooks, and HamAlert's alerts.
 | `extensions/lookups/` | `lookup` | 8 | 5 ported built-ins, 2 offline callsign sets, Partial Calls |
 | `extensions/spots/` | `spots` | 7 | 1 ported built-in, 6 new spotting sources |
 | `extensions/dashboard/` | `dashboard` | 7 | 1 ported built-in, 3 new panels, 3 SVG reference panels |
-| `extensions/integrations/` | `integration` | 1 | 1 new integration |
-| **total** | | **117** | **39 ported, 75 new, 3 SVG reference panels** |
+| `extensions/integrations/` | `integration` | 2 | 1 new integration, Logbook of the World uploads |
+| **total** | | **118** | **39 ported, 76 new, 3 SVG reference panels** |
 
-The 39 are the app's own extensions, ported one for one. The 75 are new:
+The 39 are the app's own extensions, ported one for one. The 76 are new:
 three activity programs, four contests and events the app has never shipped
 separately, five state-park
 events, six spotting sources, two award programs, Worked All States and
 DXCC checklists, two offline callsign sets, Partial Calls, a rate chart, a
-band map and a contest map:
+band map, a contest map and Logbook of the World uploads:
 
 - **`ham2k-hota`** — [History on the Air](https://cqhota.app), historic sites
   over 200 years old, written for the catalog from cqhota.app's own
@@ -309,6 +309,18 @@ band map and a contest map:
   optionally explained), and a tap sets the call with `host.updateDraft`;
   the line and the panel share one search per keystroke.
 
+- **`ham2k-lotw`** pushes contacts to ARRL's
+  [Logbook of the World](https://lotw.arrl.org) from Exports, signed on the
+  device with the operator's TQSL certificates: up to three `.p12` files in
+  one account, one per callsign, each offered as a destination for its own
+  call (extension API 29: the `file` account field, `host.randomBytes`, a
+  binary `host.fetch` body with `redirect: "error"`). Written by Robert
+  Jackson, N1RWJ, as his LoTW upload preview, and ported here. It signs with
+  [Forge](https://github.com/digitalbazaar/forge) and compresses with
+  [fflate](https://github.com/101arrowz/fflate), whose licences ship in its
+  `assets/`; it refuses to run in the web build, where secure storage keeps
+  the key that unlocks a credential beside it.
+
 The SVG reference panels carry `ki2d-` keys and install from a file.
 See [dashboard development](extensions/dashboard/README.md) for building and
 packaging them; they require the experimental SVG host APIs.
@@ -551,7 +563,7 @@ What each category actually is, with the worked example to read first:
 | `lookup` | `lookup`, or `recentContextLookup` for one that only reads what the app already has; plus `account` for a service with a login, `dataFile` for one with a downloadable list, `settingsPanel`, `command`, `callNotes` | `lookups/ham2k-call-history` (one hook), `lookups/ham2k-qrz` (an account and a network service) |
 | `spots` | `spots`, plus `account` where the service wants a login, and `cluster` for one reading the DX cluster's lines as they arrive | `spots/ham2k-parksnpeaks`, or `spots/ham2k-cluster-spots` for the cluster |
 | `dashboard` | `panel` — a pane the operator adds to a dock, with per-pane config the host persists | `dashboard/ham2k-custom-text` |
-| `integration` | `integration` — the operation's contacts carried somewhere as they are logged, edited and deleted, switched on per operation in its Integrations dialog; plus `account` for a service with a login | `integrations/ki2d-clublog-livestream` |
+| `integration` | `integration` — the operation's contacts carried somewhere as they are logged, edited and deleted, switched on per operation in its Integrations dialog; or `transfer`, contacts pushed to a service from Exports; plus `account` for a service with a login | `integrations/ki2d-clublog-livestream`, or `integrations/ham2k-lotw` for a push |
 
 Then: `npm install` (a new workspace has to reach the root lock), `npm test`,
 `npm run typecheck`, `npm run build`, `npm run pack`. `sharedDependencies` is
@@ -803,6 +815,12 @@ file they mean — `./params.ts`, not `./params.js`.
 
 `npm run pack` passes `--force-name`, which is what a `ham2k-` key needs; see
 below.
+
+An extension that bundles a library needing esbuild settings beyond the
+preset keeps them in its own `build-options.mjs`, as a default export that
+`build.mjs` spreads into `buildExtension`. `bundles.test.ts` reads the same
+file, so it tests the bundle that is published. `integrations/ham2k-lotw`
+does, for Forge.
 
 ## Bundle sizes, and why they are what they are
 

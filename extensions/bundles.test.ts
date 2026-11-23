@@ -19,7 +19,7 @@ import { readFile, readdir, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { test } from "node:test"
-import { fileURLToPath } from "node:url"
+import { fileURLToPath, pathToFileURL } from "node:url"
 import { createContext, runInContext } from "node:vm"
 
 import { build } from "esbuild"
@@ -219,7 +219,13 @@ test("every extension builds, packs and loads", async (t) => {
       // `ham2k-` key is allowed to pack at all.
       assert.deepEqual(validateManifest(manifest, { forceName: true }), [], `${name}'s manifest would not pack`)
 
-      const { outDir } = await buildExtension(build, { dir, logLevel: "silent" })
+      // An extension whose bundled code needs esbuild settings beyond the
+      // preset keeps them in `build-options.mjs`, which its own `build.mjs`
+      // reads too: without them here, this would test a bundle nobody ships.
+      const options = (await readdir(dir)).includes("build-options.mjs")
+        ? (await import(pathToFileURL(join(dir, "build-options.mjs")).href)).default
+        : {}
+      const { outDir } = await buildExtension(build, { dir, logLevel: "silent", ...options })
       const bundle = await readFile(join(outDir, "index.js"), "utf8")
 
       // The sandbox evaluates a script and has no module loader, so a bundle
