@@ -4,6 +4,7 @@
 import { type HookContext, host as sdkHost } from '@ham2k/extension-sdk'
 import { gzipSync, strToU8 } from 'fflate/browser'
 import {
+  certificateOpenMessage,
   duplicateCertificates,
   filledLotwSlots,
   LotwAccountProblem,
@@ -15,16 +16,22 @@ import { createLotwConnection } from './connection.ts'
 import type { LotwHostPorts } from './host.ts'
 import type { LotwCertificate } from './signing.ts'
 
+const isoDate = (millis: number) => new Date(millis).toISOString().slice(0, 10)
+
 function checkCertificateDates(
-  certificate: Pick<LotwCertificate, 'validFromMillis' | 'validToMillis'>,
+  certificate: Pick<LotwCertificate, 'callsign' | 'validFromMillis' | 'validToMillis'>,
   now: number,
 ): void {
-  if (
-    !Number.isFinite(now) ||
-    now < certificate.validFromMillis ||
-    now > certificate.validToMillis
-  ) {
-    throw new LotwAccountProblem('validity')
+  if (!Number.isFinite(now)) throw new LotwAccountProblem('validity')
+  if (now > certificate.validToMillis) {
+    throw new LotwAccountProblem('expired', certificate.callsign, isoDate(certificate.validToMillis))
+  }
+  if (now < certificate.validFromMillis) {
+    throw new LotwAccountProblem(
+      'notYetValid',
+      certificate.callsign,
+      isoDate(certificate.validFromMillis),
+    )
   }
 }
 
@@ -70,7 +77,7 @@ export function createLotwRuntimeConnection({
       if (await onWeb(host)) throw new Error(webRefusal)
     },
     async checkCertificateStatus(serial, ctx) {
-      if (!ctx.online) return 'unknown'
+      if (!ctx.online) return 'offline'
       return checkLotwCertificateStatus(serial, (url, options) => host.fetch(url, options))
     },
   })
@@ -82,9 +89,10 @@ export function createLotwRuntimeConnection({
     stationCalls(ctx: HookContext) {
       // Resolve the callsigns locally as Exports refreshes. Only Account Test
       // requests certificate status from LoTW. A certificate that will not
-      // open, or is out of date, offers nothing, but stops the others only
-      // when none of them can be offered. Two for one callsign stop them
-      // all: which one would sign is a guess, and the older may be replaced.
+      // open, or is out of date, offers nothing and does not stop the
+      // others; its failure goes back with them. Two for one callsign stop
+      // them all: which one would sign is a guess, and the older may be
+      // replaced.
       const credentials = requireStoredCertificate(ctx)
       const calls: string[] = []
       let failure: unknown
@@ -94,10 +102,8 @@ export function createLotwRuntimeConnection({
           let opened: ReturnType<typeof openLotwCertificate>
           try {
             opened = openLotwCertificate(p12, password)
-          } catch {
-            throw new Error(
-              `Could not open the ${slot.ordinal}LoTW certificate. Check the file and its password.`,
-            )
+          } catch (error) {
+            throw new Error(certificateOpenMessage(error, slot))
           }
           checkCertificateDates(opened.certificate, realNowMillis())
           calls.push(opened.certificate.callsign)
@@ -107,8 +113,7 @@ export function createLotwRuntimeConnection({
       }
       const duplicate = calls.find((call, index) => calls.indexOf(call) !== index)
       if (duplicate !== undefined) throw new Error(duplicateCertificates(duplicate))
-      if (calls.length === 0) throw failure
-      return calls
+      return { calls, failure }
     },
     async connect(ctx: HookContext, stationCall?: string) {
       requireStoredCertificate(ctx)

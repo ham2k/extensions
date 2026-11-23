@@ -10,6 +10,8 @@ Upload your contacts to ARRL's [Logbook of the World](https://lotw.arrl.org), si
 
 In TQSL, save each callsign certificate as a `.p12` file ([ARRL's guide](https://lotw.arrl.org/lotw-help/save-certificate/)). Then in the app, open Settings → Exports & Imports → Services → Logbook of the World, choose each file, and enter its password if you set one. The files stay on this device.
 
+A certificate uploads only the contacts logged under exactly its callsign. Contacts logged as K1ABC/P need a certificate for K1ABC/P; the one for K1ABC does not sign them.
+
 Uploads need the desktop or mobile app and an internet connection. LoTW queues what you send; its processing result is under Your Account → Your Activity in LoTW.
 
 Written by Robert Jackson, N1RWJ.

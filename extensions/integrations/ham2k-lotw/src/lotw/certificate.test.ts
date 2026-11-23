@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs'
 import { describe, it, mock } from 'node:test'
 import forge from 'node-forge'
 import vector from '../fixtures/vector.json' with { type: 'json' }
+import { LotwCertificateFileProblem } from './account.ts'
 import { openLotwCertificate } from './certificate.ts'
 
 const fixturePassword = 'ferry-fixture'
@@ -80,5 +81,36 @@ describe('TrustedQSL certificate backups', () => {
     assert.throws(() => openLotwCertificate(input, fixturePassword), {
       message: /derivation exceeds the work limit/,
     })
+  })
+})
+
+// Each kind picks the operator's message: a wrong password, a file saved
+// without its key, and a file that is not a TQSL certificate need different fixes.
+describe('a certificate file that will not open', () => {
+  const problem = (kind: string) => (error: unknown) =>
+    error instanceof LotwCertificateFileProblem && error.kind === kind
+
+  it('names a wrong password', () => {
+    for (const format of ['legacy', 'current']) {
+      assert.throws(() => openLotwCertificate(fixture(format), 'wrong'), problem('password'))
+    }
+  })
+
+  it('names a file with no private key', () => {
+    const cert = forge.pki.certificateFromPem(
+      readFileSync(new URL('../fixtures/certificate.pem', import.meta.url), 'utf8'),
+    )
+    const p12 = forge.asn1
+      .toDer(forge.pkcs12.toPkcs12Asn1(null, cert, fixturePassword, { algorithm: '3des' }))
+      .getBytes()
+    assert.throws(
+      () => openLotwCertificate(Uint8Array.from(p12, (c) => c.charCodeAt(0)), fixturePassword),
+      problem('noKey'),
+    )
+  })
+
+  it('names a file that is not a certificate at all', () => {
+    const text = new TextEncoder().encode('not a certificate file')
+    assert.throws(() => openLotwCertificate(text, ''), problem('notLotw'))
   })
 })

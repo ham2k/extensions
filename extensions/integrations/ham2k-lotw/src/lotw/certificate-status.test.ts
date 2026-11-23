@@ -47,7 +47,7 @@ describe('LoTW certificate status', () => {
   for (const invalid of ['', '0', '01', '-1', '7&serial=8', '0x12', '9'.repeat(51)]) {
     it(`does not send invalid serial ${invalid}`, async () => {
       const fetch = fakeFetch(reply('Unrevoked'))
-      assert.equal(await checkLotwCertificateStatus(invalid, fetch), 'unknown')
+      assert.equal(await checkLotwCertificateStatus(invalid, fetch), 'unreadable')
       assert.equal(fetch.mock.callCount(), 0)
     })
   }
@@ -62,22 +62,23 @@ describe('LoTW certificate status', () => {
     ['missing serial', '<LoTW_CRL><Status>Unrevoked</Status></LoTW_CRL>'],
   ]) {
     it(`does not trust a ${description}`, async () => {
-      assert.equal(await checkLotwCertificateStatus(serial, fakeFetch(body)), 'unknown')
+      assert.equal(await checkLotwCertificateStatus(serial, fakeFetch(body)), 'unreadable')
     })
   }
 
   for (const status of [206, 302, 401, 500]) {
     it(`does not trust a ${status} response`, async () => {
       const fetch = fakeFetch(reply('Unrevoked'), status)
-      assert.equal(await checkLotwCertificateStatus(serial, fetch), 'unknown')
+      assert.equal(await checkLotwCertificateStatus(serial, fetch), 'unreadable')
     })
   }
 
-  it('returns unknown after a refused or unavailable request', async () => {
+  // The operator is told LoTW did not answer, not that its answer was wrong.
+  it('reports LoTW unreachable after a refused or unavailable request', async () => {
     const fetch = mock.fn<LotwHostPorts['fetch']>(async () => {
       throw new Error(serial)
     })
-    assert.equal(await checkLotwCertificateStatus(serial, fetch), 'unknown')
+    assert.equal(await checkLotwCertificateStatus(serial, fetch), 'unreachable')
     assert.equal(fetch.mock.callCount(), 1)
   })
 })

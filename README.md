@@ -923,7 +923,10 @@ floor is raised.
 
 ## License
 
-MIT — see [LICENSE.md](LICENSE.md). The app and the SDK are MPL-2.0; this repo
-is deliberately the looser of the two, so that an event's own club can take
-what is here and publish under its own name without inheriting a copyleft
-obligation from us.
+MIT — see [LICENSE.md](LICENSE.md) — apart from the six `ki2d-` dashboard
+panels (`ki2d-band-map`, `ki2d-contest-map`, `ki2d-radio-panel`,
+`ki2d-rate-chart`, `ki2d-solar-panel` and `ki2d-weather-panel`), which are
+MPL-2.0, as each one's `package.json` and source headers say. The app and the
+SDK are MPL-2.0; the rest of this repo is deliberately the looser of the two,
+so that an event's own club can take what is here and publish under its own
+name without inheriting a copyleft obligation from us.

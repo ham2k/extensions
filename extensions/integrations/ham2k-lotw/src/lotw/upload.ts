@@ -7,7 +7,7 @@ export class LotwNotSentError extends Error {}
 
 export type LotwUploadResult =
   | { state: 'queued' }
-  | { state: 'rejected' }
+  | { state: 'rejected'; message?: string }
   | { state: 'unknown'; reason: 'http' | 'response' | 'transport' }
 
 export interface LotwUploadRequest {
@@ -60,6 +60,25 @@ function multipart(tq8: Uint8Array): Pick<LotwUploadRequest, 'headers' | 'body'>
   return { headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` }, body }
 }
 
+const MAX_MESSAGE_LENGTH = 200
+
+/**
+ * LoTW's own words on a rejection, from the comment TQSL reads them from
+ * (`<!-- .UPLMESSAGE. … -->`). Markup is dropped and only printable ASCII
+ * is kept, capped in length: the text lands in an operator-facing message.
+ */
+function rejectionMessage(body: string): string | undefined {
+  const matches = [...body.matchAll(/<!--\s*\.UPLMESSAGE\.\s*([\s\S]*?)\s*-->/gi)]
+  if (matches.length !== 1) return undefined
+  const text = matches[0][1]
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/[^\x20-\x7e]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!text) return undefined
+  return text.length > MAX_MESSAGE_LENGTH ? `${text.slice(0, MAX_MESSAGE_LENGTH - 1)}…` : text
+}
+
 export function parseLotwUploadResponse(status: number, body: string): LotwUploadResult {
   if (!Number.isInteger(status) || status < 200 || status >= 300) {
     return { state: 'unknown', reason: 'http' }
@@ -69,7 +88,10 @@ export function parseLotwUploadResponse(status: number, body: string): LotwUploa
   if (matches.length === 1) {
     const result = matches[0][1].trim().toLowerCase()
     if (result === 'accepted') return { state: 'queued' }
-    if (result === 'rejected') return { state: 'rejected' }
+    if (result === 'rejected') {
+      const message = rejectionMessage(body)
+      return message === undefined ? { state: 'rejected' } : { state: 'rejected', message }
+    }
   }
   return { state: 'unknown', reason: 'response' }
 }

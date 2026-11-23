@@ -152,6 +152,27 @@ test('distinguishes rejection from indeterminate upload responses and avoids tra
   assert.equal(transport.mock.callCount(), 1)
 })
 
+test('a rejection carries LoTW’s own reason, as plain text of bounded length', async () => {
+  const rejected = '<!-- .UPL. rejected -->'
+  assert.deepEqual(
+    parseLotwUploadResponse(
+      200,
+      `${rejected}<!-- .UPLMESSAGE. <b>Certificate</b>\n  is   expired\u0007 -->`,
+    ),
+    { state: 'rejected', message: 'Certificate is expired' },
+  )
+  const long = parseLotwUploadResponse(200, `${rejected}<!-- .UPLMESSAGE. ${'x'.repeat(500)} -->`)
+  assert.equal(long.state === 'rejected' && long.message?.length, 200)
+  // Two messages, or one with nothing left once cleaned, give no reason
+  // rather than a guessed one.
+  for (const body of [
+    `${rejected}<!-- .UPLMESSAGE. one --><!-- .UPLMESSAGE. two -->`,
+    `${rejected}<!-- .UPLMESSAGE. <br> -->`,
+  ]) {
+    assert.deepEqual(parseLotwUploadResponse(200, body), { state: 'rejected' })
+  }
+})
+
 test('a transport refusal from before sending is not reported as a possible delivery', async () => {
   // Read as `unknown`, it would send the operator to LoTW's activity page
   // looking for an upload that never left.

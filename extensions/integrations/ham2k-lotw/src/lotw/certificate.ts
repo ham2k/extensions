@@ -3,7 +3,7 @@
 // PKCS#12 import and LoTW OIDs are adapted from the implementation credited
 // in assets/LoTW-SIGNING-NOTICE.txt.
 import forge from 'node-forge'
-import { maxLotwCertificateBytes } from './account.ts'
+import { LotwCertificateFileProblem, maxLotwCertificateBytes } from './account.ts'
 import type { LotwCertificate } from './signing.ts'
 
 type Asn1 = forge.asn1.Asn1
@@ -89,7 +89,12 @@ function readContainer(input: Uint8Array, password: string): forge.pkcs12.Pkcs12
   const originalDepth = asn1.maxDepth
   try {
     asn1.maxDepth = 32
-    const root = parseDer(binary(input))
+    let root: Asn1
+    try {
+      root = parseDer(binary(input))
+    } catch {
+      throw new LotwCertificateFileProblem('notLotw')
+    }
     const mac = children(children(root)[2])
     const macOid = readOid(children(children(mac[0])[0])[0])
     if (!['sha1', 'sha256', 'sha384', 'sha512'].some((name) => macOid === forge.pki.oids[name])) {
@@ -121,7 +126,16 @@ function readContainer(input: Uint8Array, password: string): forge.pkcs12.Pkcs12
       }
       return originalCipher(algorithm, params, secret)
     }
-    return forge.pkcs12.pkcs12FromAsn1(root, true, password)
+    try {
+      return forge.pkcs12.pkcs12FromAsn1(root, true, password)
+    } catch (error) {
+      // Forge's only signal for a wrong password; package.json pins Forge
+      // exactly, and a test opens a fixture with the wrong one.
+      if (error instanceof Error && error.message.startsWith('PKCS#12 MAC could not be verified')) {
+        throw new LotwCertificateFileProblem('password')
+      }
+      throw error
+    }
   } finally {
     pbe.getCipher = originalCipher
     asn1.maxDepth = originalDepth
@@ -251,6 +265,7 @@ export function openLotwCertificate(input: Uint8Array, password: string): OpenLo
   const bags = (type: string) => p12.getBags({ bagType: type })[type] ?? []
   const keys = [...bags(forge.pki.oids.pkcs8ShroudedKeyBag), ...bags(forge.pki.oids.keyBag)]
   const key = keys[0]?.key
+  if (keys.length === 0) throw new LotwCertificateFileProblem('noKey')
   if (keys.length !== 1 || !key) throw new Error('Exactly one RSA private key is required')
   checkPrivateKey(key)
 
@@ -272,7 +287,7 @@ export function openLotwCertificate(input: Uint8Array, password: string): OpenLo
   }
   const constraints = cert.getExtension('basicConstraints')
   if (constraints && 'cA' in constraints && constraints.cA === true) {
-    throw new Error('A LoTW callsign certificate is required')
+    throw new LotwCertificateFileProblem('notLotw')
   }
   const names = cert.subject.attributes.filter((attribute) => attribute.type === oid.call)
   const call = names[0]?.value
@@ -291,7 +306,7 @@ export function openLotwCertificate(input: Uint8Array, password: string): OpenLo
     dxcc < 1 ||
     dxcc > 522
   ) {
-    throw new Error('LoTW callsign or DXCC authorization is missing')
+    throw new LotwCertificateFileProblem('notLotw')
   }
   const qsoFrom = authorizationDate(authorizationValue(cert, oid.first))
   const last = authorizationValue(cert, oid.last)

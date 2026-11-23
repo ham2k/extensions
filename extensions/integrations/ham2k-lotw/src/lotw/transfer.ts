@@ -38,7 +38,9 @@ export interface LotwTransferPorts {
   // work. The extension must not substitute preferences or a text body for
   // missing secure credentials or binary host APIs.
   connect(ctx: HookContext, stationCall?: string): Promise<LotwTransferConnection>
-  stationCalls?(ctx: HookContext): string[]
+  // The callsigns whose certificates open, and the first failure among the
+  // others, if any.
+  stationCalls?(ctx: HookContext): { calls: string[]; failure?: unknown }
   // False where uploads must not be offered at all.
   available?(): Promise<boolean>
   elapsedNowMillis?(): number
@@ -229,17 +231,21 @@ export function createLotwTransferHook(ports: LotwTransferPorts) {
     ) {
       const selection = lotwScopeSelection(scope)
       if (requestedService !== service || selection === null) return []
-      const calls = ports.stationCalls
+      const { calls, failure } = ports.stationCalls
         ? ports.stationCalls(ctx)
-        : [(await ports.connect(ctx)).signing.certificate.callsign]
-      return calls
-        .filter(
-          (call) =>
-            stationCalls.includes(call) &&
-            !isTestOperation(call) &&
-            (selection.stationCall === undefined || selection.stationCall === call),
-        )
+        : { calls: [(await ports.connect(ctx)).signing.certificate.callsign] }
+      const wanted = stationCalls.filter(
+        (call) =>
+          !isTestOperation(call) &&
+          (selection.stationCall === undefined || selection.stationCall === call),
+      )
+      const rows = calls
+        .filter((call) => wanted.includes(call))
         .map((call) => ({ id: call.toLowerCase(), label: call, stationCall: call }))
+      // A certificate that would not open may be the one for these calls:
+      // its reason shows in place of a row that would otherwise just vanish.
+      if (rows.length === 0 && wanted.length > 0 && failure !== undefined) throw failure
+      return rows
     },
     async push(request, ctx) {
       if (active) throw new Error('A LoTW upload is already running.')
@@ -319,7 +325,7 @@ export function createLotwTransferHook(ports: LotwTransferPorts) {
             // accepted location batches; an operator retry can replay them.
             throw new Error(
               result.state === 'rejected'
-                ? 'LoTW refused the upload. Check the certificate in the LoTW account settings and review the contacts before trying again.'
+                ? `LoTW refused the upload${result.message ? ` (“${result.message}”)` : ''}. Check the certificate in the LoTW account settings and review the contacts before trying again.`
                 : 'LoTW did not acknowledge the upload. Check Your Account → Your Activity in LoTW before retrying.',
             )
           }

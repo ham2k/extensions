@@ -2,7 +2,7 @@
   "key": "ham2k-lotw",
   "name": "Logbook of the World",
   "shortName": "LoTW",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Uploads your contacts to ARRL's Logbook of the World, signed with your TQSL certificates.",
   "category": "integration",
   "icon": "cloud-upload-outline",

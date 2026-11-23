@@ -1,6 +1,6 @@
 {
   "name": "@ham2k/ext-lotw",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Ham2K Logger extension: uploads to ARRL's Logbook of the World",
   "author": "Robert Jackson (N1RWJ)",

@@ -650,7 +650,7 @@ test('each certificate is a destination, and a push opens the one for its callsi
   const f = fixture()
   const hook = createLotwTransferHook({
     connect: f.connect,
-    stationCalls: () => ['N1RWJ', 'W1AW', 'K1ABC'],
+    stationCalls: () => ({ calls: ['N1RWJ', 'W1AW', 'K1ABC'] }),
   })
   // K1ABC has a certificate but no contacts here; only the log's calls are offered.
   assert.deepEqual(
@@ -680,6 +680,36 @@ test('each certificate is a destination, and a push opens the one for its callsi
     f.connect.mock.calls.map((call) => call.arguments.slice(1)),
     [['W1AW']],
   )
+})
+
+test('a certificate that would not open is reported only where no row is offered', async () => {
+  const f = fixture()
+  const hook = createLotwTransferHook({
+    connect: f.connect,
+    stationCalls: () => ({ calls: ['W1AW'], failure: new Error('the second certificate') }),
+  })
+  const suggest = (stationCalls: string[]) =>
+    hook.suggestDestinations({ service: 'lotw', scope: { kind: 'log' }, stationCalls }, context)
+  // Thrown in place of an empty list: the broken one may be N1RWJ's.
+  await assert.rejects(suggest(['N1RWJ']), { message: 'the second certificate' })
+  // Never in place of a working row, and not where no call asks for one.
+  assert.deepEqual(await suggest(['W1AW', 'N1RWJ']), [
+    { id: 'w1aw', label: 'W1AW', stationCall: 'W1AW' },
+  ])
+  assert.deepEqual(await suggest([]), [])
+  assert.deepEqual(await suggest(['W1AW/TEST']), [])
+})
+
+test('LoTW’s reason for refusing an upload reaches the operator', async () => {
+  const f = fixture()
+  f.transport.mock.mockImplementationOnce(async () => ({
+    status: 200,
+    body: '<!-- .UPL. rejected --><!-- .UPLMESSAGE. Duplicate file -->',
+  }))
+  await assert.rejects(f.push([record('one')]), {
+    message:
+      'LoTW refused the upload (“Duplicate file”). Check the certificate in the LoTW account settings and review the contacts before trying again.',
+  })
 })
 
 test('no push is offered where uploads are unavailable', async () => {

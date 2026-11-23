@@ -253,15 +253,16 @@ test('the built extension stops before sending when the host cannot supply secur
   assert.equal(f.posts().length, 0)
 })
 
-for (const [reason, scenario] of [
-  ['an unknown reply', { status: 'Not found' }],
-  ['a connection failure', { statusUnavailable: true }],
+// Each says why, so the operator knows whether to retry, reconnect or wait.
+for (const [reason, scenario, why] of [
+  ['an unknown reply', { status: 'Not found' }, 'LoTW’s answer was not a certificate status'],
+  ['a connection failure', { statusUnavailable: true }, 'LoTW did not answer'],
 ] as const) {
   test(`Account Test reports ${reason} without blocking a later upload`, async () => {
     const f = await activate('current', scenario)
     assert.equal(
       await f.account.testCredentials(f.credentials, f.ctx),
-      'Certificate file for W1AW opened. LoTW certificate status could not be checked.',
+      `Certificate file for W1AW opened. LoTW certificate status could not be checked: ${why}.`,
     )
     assert.equal(f.posts().length, 0)
     assert.equal(f.statusChecks().length, 1)
@@ -275,7 +276,7 @@ test('Account Test can open the file while offline', async () => {
   const f = await activate('current')
   assert.equal(
     await f.account.testCredentials(f.credentials, { ...f.ctx, online: false }),
-    'Certificate file for W1AW opened. LoTW certificate status could not be checked.',
+    'Certificate file for W1AW opened. LoTW certificate status could not be checked: this device is offline.',
   )
   assert.equal(f.calls.length, 0)
 })
@@ -301,7 +302,12 @@ test('a valid saved certificate can upload without running Account Test', async 
 
 test('an expired certificate stops a push before any network request', async () => {
   const f = await activate('current', { expired: true })
-  await assert.rejects(f.push(request, f.ctx), { message: /outside its validity dates/ })
+  // Named and dated: with three certificates, "a certificate expired" leaves
+  // the operator guessing which one to renew.
+  await assert.rejects(f.push(request, f.ctx), {
+    message:
+      'The LoTW certificate for W1AW expired on 2030-10-21. Renew it in TQSL, then choose the new .p12 file.',
+  })
   assert.equal(f.calls.length, 0)
 })
 
@@ -316,6 +322,13 @@ test('a wrong certificate password produces no upload or leaked password', async
   await assert.rejects(
     f.account.testCredentials({ ...f.credentials, certificatePassword }, f.ctx),
     withoutPassword,
+  )
+  await assert.rejects(
+    f.account.testCredentials({ ...f.credentials, certificatePassword }, f.ctx),
+    {
+      message:
+        'The password does not open the LoTW certificate. Enter the one you set when you saved it from TQSL.',
+    },
   )
   await assert.rejects(
     f.push(request, {
@@ -382,7 +395,28 @@ test('a certificate that will not open does not stop another callsign uploading'
     assert.equal(f.posts().length, 1)
     // Account Test still names the one that failed, so the operator fixes it.
     await assert.rejects(f.account.testCredentials(f.credentials, f.ctx), {
-      message: /^Could not open the (second )?LoTW certificate\./,
+      message: /^The password does not open the (second )?LoTW certificate\./,
     })
   }
+})
+
+test('a certificate that will not open says why where its callsign would be offered', async () => {
+  // Without the reason, the LoTW row for a broken certificate's callsign
+  // simply is not there, and nothing says what to fix.
+  const notACertificate = Buffer.from('not a certificate file').toString('base64')
+  const f = await activate('current', {
+    credentials: { certificate2: notACertificate, certificate2Password: '' },
+  })
+  const suggest = (stationCalls: string[]) =>
+    f.transfer.suggestDestinations(
+      { service: 'lotw', scope: { kind: 'log' }, stationCalls },
+      f.ctx,
+    )
+  await assert.rejects(suggest(['K1ABC']), {
+    message:
+      'The second LoTW certificate file is not a TQSL callsign certificate. Choose the .p12 file you saved from TQSL.',
+  })
+  // A callsign whose certificate opens still gets its row.
+  assert.deepEqual(local(await suggest(['K1ABC', 'W1AW'])), [destination])
+  assert.deepEqual(local(await suggest([])), [])
 })

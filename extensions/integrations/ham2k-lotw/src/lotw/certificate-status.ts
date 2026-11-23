@@ -2,7 +2,14 @@
 // SPDX-License-Identifier: MIT
 import type { LotwHostPorts } from './host.ts'
 
-export type LotwCertificateStatus = 'unrevoked' | 'revoked' | 'superseded' | 'unknown'
+/** A lookup's answer, or why there is none: offline, no reply, or a reply that is not a status. */
+export type LotwCertificateStatus =
+  | 'unrevoked'
+  | 'revoked'
+  | 'superseded'
+  | 'offline'
+  | 'unreachable'
+  | 'unreadable'
 
 const maxResponseLength = 16_384
 // HaLo allows 10 seconds for Account Test, including local P12 validation.
@@ -15,7 +22,7 @@ export async function checkLotwCertificateStatus(
   serial: string,
   fetch: LotwHostPorts['fetch'],
 ): Promise<LotwCertificateStatus> {
-  if (!/^[1-9][0-9]{0,49}$/.test(serial)) return 'unknown'
+  if (!/^[1-9][0-9]{0,49}$/.test(serial)) return 'unreadable'
 
   try {
     const { status, body } = await fetch(`https://lotw.arrl.org/lotw/crl?serial=${serial}`, {
@@ -26,16 +33,16 @@ export async function checkLotwCertificateStatus(
       timeout,
     })
     if (status !== 200 || typeof body !== 'string' || body.length > maxResponseLength) {
-      return 'unknown'
+      return 'unreadable'
     }
     const match = statusReply.exec(body)
-    if (!match || match[1] !== serial) return 'unknown'
+    if (!match || match[1] !== serial) return 'unreadable'
     if (match[2] === 'Unrevoked') return 'unrevoked'
     if (match[2] === 'Revoked') return 'revoked'
     return 'superseded'
   } catch {
     // The network can fail before a trustworthy status reaches the sandbox.
     // Do not expose errors containing the URL or certificate serial.
-    return 'unknown'
+    return 'unreachable'
   }
 }

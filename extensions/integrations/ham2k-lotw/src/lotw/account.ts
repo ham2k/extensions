@@ -50,11 +50,49 @@ const invalidFor = (slot: LotwCertificateSlot) =>
 const invalid = invalidFor(lotwCertificateSlots[0])
 const maxEncodedLength = 4 * Math.ceil(maxLotwCertificateBytes / 3)
 const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+const fileProblems = {
+  password: (ordinal: string) =>
+    `The password does not open the ${ordinal}LoTW certificate. Enter the one you set when you saved it from TQSL.`,
+  noKey: (ordinal: string) =>
+    `The ${ordinal}LoTW certificate file holds no private key, so it cannot sign. Save the callsign certificate from TQSL again and choose that file.`,
+  notLotw: (ordinal: string) =>
+    `The ${ordinal}LoTW certificate file is not a TQSL callsign certificate. Choose the .p12 file you saved from TQSL.`,
+}
+
+/**
+ * A certificate file that will not open for a reason the operator can act
+ * on. Its kind selects a fixed message: the parser's own words can carry
+ * private material, so they never reach the operator.
+ */
+export class LotwCertificateFileProblem extends Error {
+  readonly kind: keyof typeof fileProblems
+  constructor(kind: keyof typeof fileProblems) {
+    super(kind)
+    this.kind = kind
+  }
+}
+
+/** The operator's message for a certificate in `slot` that failed to open. */
+export function certificateOpenMessage(error: unknown, slot: LotwCertificateSlot): string {
+  return error instanceof LotwCertificateFileProblem
+    ? fileProblems[error.kind](slot.ordinal)
+    : invalidFor(slot)
+}
+
+const certificateName = (call?: string) => (call ? `the certificate for ${call}` : 'this certificate')
 const accountProblems = {
-  missing: 'Choose a LoTW certificate file (.p12) in the LoTW account settings first.',
-  validity: 'The LoTW certificate is outside its validity dates. Check your clock and certificate.',
-  revoked: 'LoTW reports this certificate was revoked. Choose a current .p12 file.',
-  superseded: 'LoTW reports this certificate was replaced. Choose the latest .p12 file.',
+  missing: () => 'Choose a LoTW certificate file (.p12) in the LoTW account settings first.',
+  validity: () =>
+    'The LoTW certificate is outside its validity dates. Check your clock and certificate.',
+  expired: (call?: string, date?: string) =>
+    `The LoTW certificate for ${call} expired on ${date}. Renew it in TQSL, then choose the new .p12 file.`,
+  notYetValid: (call?: string, date?: string) =>
+    `The LoTW certificate for ${call} is valid only from ${date}. Check this device’s date and time.`,
+  revoked: (call?: string) =>
+    `LoTW reports ${certificateName(call)} was revoked. Choose a current .p12 file.`,
+  superseded: (call?: string) =>
+    `LoTW reports ${certificateName(call)} was replaced. Choose the latest .p12 file.`,
 }
 
 /** Two slots for one callsign: which certificate signs would be a guess. */
@@ -63,9 +101,8 @@ export const duplicateCertificates = (call: string) =>
 
 /** Only fixed, operator-facing messages may pass through the credential error boundary. */
 export class LotwAccountProblem extends Error {
-  constructor(problem: keyof typeof accountProblems, call?: string) {
-    const message = accountProblems[problem]
-    super(call ? message.replace('this certificate', `the certificate for ${call}`) : message)
+  constructor(problem: keyof typeof accountProblems, call?: string, date?: string) {
+    super(accountProblems[problem](call, date))
   }
 }
 
@@ -149,7 +186,7 @@ export async function loadLotwAccount(
   } catch (error) {
     // Parser/password/key errors can include private material or filenames.
     if (error instanceof LotwAccountProblem) throw error
-    throw new Error(invalidFor(slot))
+    throw new Error(certificateOpenMessage(error, slot))
   }
 }
 
@@ -197,6 +234,13 @@ const certificateFields = lotwCertificateSlots.flatMap((slot, index) => [
     type: 'secret' as const,
   },
 ])
+
+// In order of precedence: offline explains every other lookup too.
+const uncheckedReasons = {
+  offline: 'this device is offline',
+  unreachable: 'LoTW did not answer',
+  unreadable: 'LoTW’s answer was not a certificate status',
+}
 
 /** Why this platform cannot hold a certificate, or undefined where it can. */
 async function platformRefusal(ports: LotwAccountPorts): Promise<string | undefined> {
@@ -246,10 +290,12 @@ export function createLotwAccountHook(ports: LotwAccountPorts): AccountHook {
         }
       })
       const calls = opened.map(({ call }) => call)
-      const unchecked = statuses.includes('unknown')
       const list = calls.join(', ')
+      const unchecked = (Object.keys(uncheckedReasons) as (keyof typeof uncheckedReasons)[]).find(
+        (status) => statuses.includes(status),
+      )
       if (unchecked) {
-        return `Certificate file${calls.length > 1 ? 's' : ''} for ${list} opened. LoTW certificate status could not be checked.`
+        return `Certificate file${calls.length > 1 ? 's' : ''} for ${list} opened. LoTW certificate status could not be checked: ${uncheckedReasons[unchecked]}.`
       }
       return calls.length > 1
         ? `Certificates for ${list} are ready.`
