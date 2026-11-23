@@ -42,12 +42,23 @@ fails like a code error, not a setup one.
 npm ci
 ```
 
-A worktree without its own `node_modules` does not fail: Node and `tsc` walk up
-the tree and find the main checkout's `node_modules`, whose workspace symlinks
-point at the main checkout's `packages/`. Typecheck and tests then run against
-the main checkout's copy of every shared package — a change to
-`packages/qso-parties` in the worktree is invisible, and the errors that do
-appear name properties that plainly exist in the file you are looking at.
+`npm test` and `npm run typecheck` begin with `scripts/check-install.mjs`,
+which stops them with "Run `npm ci`" when this checkout's `node_modules` does
+not hold what `package-lock.json` names: a package missing, at another
+version, linked in, or no longer in the lockfile, or a workspace link that
+points into another checkout. The last is the worktree trap. A worktree
+without its own `node_modules` (or with a symlink to the main checkout's) has
+Node and `tsc` walk up to the main checkout's, whose workspace symlinks point
+at the main checkout's `packages/`, so everything would run against the main
+checkout's copy of every shared package — a change to `packages/qso-parties`
+in the worktree invisible, and errors naming properties that plainly exist in
+the file you are looking at.
+
+The check runs only in those two root scripts. The fast subsets below
+(`npm test -w …`, `npm run typecheck -w …`) and a bare `node --test` skip it,
+and in a worktree without its own install they still run against the main
+checkout's packages. In a checkout other sessions' dev servers run from,
+`npm ci` swaps `node_modules` out from under them.
 
 `H2K_CATALOG_TOKEN` (needed only to publish) comes from `mise.local.toml` in
 the main checkout (gitignored), which mise also applies in every worktree

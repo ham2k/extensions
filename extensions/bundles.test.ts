@@ -187,12 +187,21 @@ const DIRECTORY_FOR_CATEGORY: Record<string, string> = {
 /// `category`. Walked rather than listed — an extension added and never named
 /// here would be one nobody builds, which is the state this test exists to end,
 /// and a whole CATEGORY added and never named would hide a dozen at once.
+///
+/// A directory holding nothing but what a build leaves behind is not one: those
+/// are gitignored, so they outlive an extension that moved or was removed, and
+/// walking one would fail the gate on a leftover that exists on one machine
+/// only. Anything else in it — sources without a manifest, say — and it is
+/// walked, and fails.
 async function extensionDirs(): Promise<string[]> {
   const found: string[] = []
   for (const category of await readdir(extensionsDir, { withFileTypes: true })) {
     if (!category.isDirectory()) continue
     for (const entry of await readdir(join(extensionsDir, category.name), { withFileTypes: true })) {
-      if (entry.isDirectory()) found.push(`${category.name}/${entry.name}`)
+      if (!entry.isDirectory()) continue
+      const contents = await readdir(join(extensionsDir, category.name, entry.name))
+      if (contents.every(isBuildLeftover)) continue
+      found.push(`${category.name}/${entry.name}`)
     }
   }
   return found.sort()
@@ -391,6 +400,12 @@ test("every extension builds, packs and loads", async (t) => {
     })
   }
 })
+
+/// What `.gitignore` keeps out of an extension's directory: build output,
+/// installs and packed archives.
+function isBuildLeftover(name: string): boolean {
+  return ["build", "dist", "node_modules", ".DS_Store"].includes(name) || /\.(h2kext|tgz)$/.test(name)
+}
 
 async function tempDir(): Promise<string> {
   const { mkdtemp } = await import("node:fs/promises")

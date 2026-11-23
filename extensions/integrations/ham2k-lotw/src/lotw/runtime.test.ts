@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict'
 import { verify, X509Certificate } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { test } from 'node:test'
 import { isNativeError } from 'node:util/types'
 import { createContext, runInContext } from 'node:vm'
@@ -41,13 +42,13 @@ const request: PushRequest = {
   ],
 }
 
-// Built by build.mjs itself, on load, rather than read from a build/ left by
-// an earlier run: the gate runs this before anything else builds, and a stale
-// bundle would pass these tests for code that has since changed. Forge signs
-// inside the sandbox only through the settings build.mjs applies, so the
-// source alone cannot stand in for the bundle.
-const bundle = import(new URL('../../build.mjs', import.meta.url).href).then(() =>
-  readFile(new URL('../../build/index.js', import.meta.url), 'utf8'),
+// Built by build.mjs itself, on load, and read from the directory it reports,
+// rather than from a build/ left by an earlier run: the gate runs this before
+// anything else builds, and a stale bundle would pass these tests for code that
+// has since changed. Forge signs inside the sandbox only through the settings
+// build.mjs applies, so the source alone cannot stand in for the bundle.
+const bundle = import(new URL('../../build.mjs', import.meta.url).href).then(({ outDir }) =>
+  readFile(join(outDir, 'index.js'), 'utf8'),
 )
 
 const sandboxModules = Promise.all(

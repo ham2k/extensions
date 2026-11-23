@@ -17,8 +17,8 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present && node --experimental-strip-types --test 'extensions/*.test.ts'",
-    "typecheck": "tsc --noEmit && npm run typecheck --workspaces --if-present",
+    "test": "node scripts/check-install.mjs && npm run test --workspaces --if-present && node --experimental-strip-types --test 'extensions/*.test.ts'",
+    "typecheck": "node scripts/check-install.mjs && tsc --noEmit && npm run typecheck --workspaces --if-present",
     "pack": "npm run pack --workspaces --if-present"
   },
   "devDependencies": {

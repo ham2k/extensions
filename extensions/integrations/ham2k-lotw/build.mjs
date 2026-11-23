@@ -15,7 +15,7 @@ import { build } from 'esbuild'
 import { buildExtension } from '@ham2k/extension-tools'
 import options from './build-options.mjs'
 
-const { outDir } = await buildExtension(build, { dir: import.meta.dirname, ...options })
+export const { outDir } = await buildExtension(build, { dir: import.meta.dirname, ...options })
 await cp(join(import.meta.dirname, 'assets'), join(outDir, 'assets'), { recursive: true })
 
 console.log('built', outDir)

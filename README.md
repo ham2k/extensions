@@ -486,7 +486,13 @@ yet is taken on `unstable` and `bleeding` only, until a Next build ships it.
   spellings, so a built-in ported here lands in the directory it came from.
   `bundles.test.ts` holds each manifest to the directory it sits in.
 - `extensions/bundles.test.ts` — builds, packs and loads every extension. It
-  belongs to no workspace, so the root `npm test` names it directly.
+  belongs to no workspace, so the root `npm test` names it directly. A
+  directory holding only gitignored output (`build/`, `node_modules/`, a
+  packed `.h2kext`) is no extension, and it skips it.
+- `scripts/check-install.mjs` — the first step of the root `npm test` and
+  `npm run typecheck`: stops them with "Run `npm ci`" when `node_modules` does
+  not hold what `package-lock.json` names, or its workspace links point into
+  another checkout.
 - `scripts/convert-parties.mjs` — the party generator.
 - `scripts/generate-event-extensions.mjs` — the event generator: one extension
   per party, from that party's own module. See **Adding an event**.
@@ -820,7 +826,9 @@ An extension that bundles a library needing esbuild settings beyond the
 preset keeps them in its own `build-options.mjs`, as a default export that
 `build.mjs` spreads into `buildExtension`. `bundles.test.ts` reads the same
 file, so it tests the bundle that is published. `integrations/ham2k-lotw`
-does, for Forge.
+does, for Forge. Its runtime tests load that bundle too: they import its
+`build.mjs`, which builds and exports the `outDir` it wrote, and read the
+bundle from there.
 
 ## Bundle sizes, and why they are what they are
 
