@@ -41,6 +41,15 @@ const request: PushRequest = {
   ],
 }
 
+// Built by build.mjs itself, on load, rather than read from a build/ left by
+// an earlier run: the gate runs this before anything else builds, and a stale
+// bundle would pass these tests for code that has since changed. Forge signs
+// inside the sandbox only through the settings build.mjs applies, so the
+// source alone cannot stand in for the bundle.
+const bundle = import(new URL('../../build.mjs', import.meta.url).href).then(() =>
+  readFile(new URL('../../build/index.js', import.meta.url), 'utf8'),
+)
+
 const sandboxModules = Promise.all(
   Object.keys(manifest.sharedDependencies).map(async (name) => {
     const loaded = await import(name)
@@ -71,7 +80,7 @@ type Scenario = {
 
 async function activate(kind: 'current' | 'legacy', scenario: Scenario = {}) {
   const [source, sharedModules, p12, certPem] = await Promise.all([
-    readFile(new URL('../../build/index.js', import.meta.url), 'utf8'),
+    bundle,
     sandboxModules,
     readFile(new URL(`synthetic-${kind}.p12`, fixtures)),
     readFile(new URL('certificate.pem', fixtures)),
