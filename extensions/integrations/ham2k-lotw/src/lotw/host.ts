@@ -2,7 +2,12 @@
 // Copyright ©️ 2026 Sebastian Delmont <sd@ham2k.com>
 // SPDX-License-Identifier: MIT
 import { host as sdkHost } from '@ham2k/extension-sdk'
-import { LotwNotSentError, type LotwUploadRequest, type LotwUploadTransport } from './upload.ts'
+import {
+  LotwNotSentError,
+  type LotwUploadRequest,
+  type LotwUploadTransport,
+  LotwUploadTransportError,
+} from './upload.ts'
 
 export type LotwHostPorts = Pick<typeof sdkHost, 'randomBytes' | 'fetch'> &
   Partial<Pick<typeof sdkHost, 'getVersionInfo'>>
@@ -12,7 +17,19 @@ const maxRandomBytes = 4096
 const endpoint = 'https://lotw.arrl.org/lotw/upload'
 const entropyFailure = 'Secure randomness is unavailable for LoTW signing.'
 const invalidRequest = 'Could not prepare the LoTW upload request, so nothing was sent.'
-const uploadFailure = 'LoTW did not acknowledge the upload. It may already have reached the server.'
+
+function uploadFailureDetail(error: unknown): string {
+  // HaLo passes fetch exceptions across the bridge as text. Recognize its
+  // known forms without passing through text that may contain private data.
+  const message = error instanceof Error ? error.message : ''
+  if (/^TimeoutException(?: after [\d:.]+)?:/.test(message)) return 'Request timed out'
+  const redirect = /^ExtensionHostException: fetch refused: 'lotw\.arrl\.org' answered (301|302|303|307|308), and the request does not follow redirects$/.exec(
+    message,
+  )
+  if (redirect) return `Redirect refused (HTTP ${redirect[1]})`
+  if (/^ClientException(?::| with )/.test(message)) return 'Network request failed'
+  return 'Upload request failed'
+}
 
 function validateRequest(request: LotwUploadRequest): void {
   if (
@@ -67,10 +84,10 @@ export function createLotwHostAdapters(host: LotwHostPorts = sdkHost): {
           redirect: 'error',
           timeout: request.timeout,
         })
-      } catch {
+      } catch (error) {
         // A redirect or a lost reply may follow delivery. The caller decides
         // what to do with an uncertain result; this adapter never retries.
-        throw new Error(uploadFailure)
+        throw new LotwUploadTransportError(uploadFailureDetail(error))
       }
     },
   }

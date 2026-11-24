@@ -5,10 +5,13 @@ import { requireTq8Bytes } from './signing.ts'
 /** A transport failure from before anything reached LoTW; its message says so. */
 export class LotwNotSentError extends Error {}
 
+/** An upload transport error with a diagnostic safe to show in HaLo. */
+export class LotwUploadTransportError extends Error {}
+
 export type LotwUploadResult =
   | { state: 'queued' }
   | { state: 'rejected'; message?: string }
-  | { state: 'unknown'; reason: 'http' | 'response' | 'transport' }
+  | { state: 'unknown'; detail: string }
 
 export interface LotwUploadRequest {
   url: 'https://lotw.arrl.org/lotw/upload'
@@ -80,20 +83,30 @@ function rejectionMessage(body: string): string | undefined {
 }
 
 export function parseLotwUploadResponse(status: number, body: string): LotwUploadResult {
-  if (!Number.isInteger(status) || status < 200 || status >= 300) {
-    return { state: 'unknown', reason: 'http' }
+  if (!Number.isInteger(status) || status < 100 || status > 599) {
+    return { state: 'unknown', detail: 'Invalid HTTP status' }
   }
-  if (body.length > MAX_RESPONSE_LENGTH) return { state: 'unknown', reason: 'response' }
+  const httpStatus = `HTTP ${status}`
+  if (status < 200 || status >= 300) return { state: 'unknown', detail: httpStatus }
+  if (body.length > MAX_RESPONSE_LENGTH) {
+    return { state: 'unknown', detail: `${httpStatus} with a response over the size limit` }
+  }
+
   const matches = [...body.matchAll(/<!--\s*\.UPL\.\s+([\s\S]*?)\s*-->/gi)]
-  if (matches.length === 1) {
-    const result = matches[0][1].trim().toLowerCase()
-    if (result === 'accepted') return { state: 'queued' }
-    if (result === 'rejected') {
-      const message = rejectionMessage(body)
-      return message === undefined ? { state: 'rejected' } : { state: 'rejected', message }
-    }
+  if (matches.length === 0) {
+    return { state: 'unknown', detail: `${httpStatus} with no LoTW acknowledgement` }
   }
-  return { state: 'unknown', reason: 'response' }
+  if (matches.length > 1) {
+    return { state: 'unknown', detail: `${httpStatus} with multiple LoTW acknowledgements` }
+  }
+
+  const result = matches[0][1].trim().toLowerCase()
+  if (result === 'accepted') return { state: 'queued' }
+  if (result === 'rejected') {
+    const message = rejectionMessage(body)
+    return message === undefined ? { state: 'rejected' } : { state: 'rejected', message }
+  }
+  return { state: 'unknown', detail: `${httpStatus} with an unrecognized LoTW acknowledgement` }
 }
 
 export async function uploadLotwTq8(
@@ -114,6 +127,8 @@ export async function uploadLotwTq8(
   } catch (error) {
     if (error instanceof LotwNotSentError) throw error
     // A transport failure can happen after LoTW receives the file.
-    return { state: 'unknown', reason: 'transport' }
+    const detail =
+      error instanceof LotwUploadTransportError ? error.message : 'Upload request failed'
+    return { state: 'unknown', detail }
   }
 }

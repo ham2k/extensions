@@ -127,27 +127,37 @@ test('sends unchanged gzip bytes as one multipart upfile and accepts a queue ack
   assert.equal(transport.mock.callCount(), 1)
 })
 
-test('distinguishes rejection from indeterminate upload responses and avoids transport retries', async () => {
+test('distinguishes rejection from indeterminate upload responses without exposing server text', () => {
   const accepted = '<!-- .UPL. accepted -->'
   const rejected = '<!-- .UPL. rejected -->'
   assert.deepEqual(parseLotwUploadResponse(200, rejected), { state: 'rejected' })
-  assert.deepEqual(parseLotwUploadResponse(200, accepted + rejected), {
-    state: 'unknown',
-    reason: 'response',
-  })
-  assert.deepEqual(parseLotwUploadResponse(200, 'server maintenance'), {
-    state: 'unknown',
-    reason: 'response',
-  })
-  assert.deepEqual(parseLotwUploadResponse(503, accepted), { state: 'unknown', reason: 'http' })
+  for (const [status, body, detail] of [
+    [200, accepted + rejected, 'HTTP 200 with multiple LoTW acknowledgements'],
+    [200, 'private response body', 'HTTP 200 with no LoTW acknowledgement'],
+    [
+      200,
+      '<!-- .UPL. private marker text -->',
+      'HTTP 200 with an unrecognized LoTW acknowledgement',
+    ],
+    [200, accepted + 'x'.repeat(64 * 1024), 'HTTP 200 with a response over the size limit'],
+    [503, accepted, 'HTTP 503'],
+    [99, accepted, 'Invalid HTTP status'],
+    [600, accepted, 'Invalid HTTP status'],
+    [Number.NaN, accepted, 'Invalid HTTP status'],
+  ] as const) {
+    assert.deepEqual(parseLotwUploadResponse(status, body), { state: 'unknown', detail })
+  }
+})
+
+test('redacts arbitrary transport errors and does not retry them', async () => {
   const transport = mock.fn(
     async (_request: LotwUploadRequest): Promise<{ status: number; body: string }> => {
-      throw new Error('timeout')
+      throw new Error('private transport error data')
     },
   )
   assert.deepEqual(await uploadLotwTq8(gzipSync('sample synthetic QSO'), transport), {
     state: 'unknown',
-    reason: 'transport',
+    detail: 'Upload request failed',
   })
   assert.equal(transport.mock.callCount(), 1)
 })

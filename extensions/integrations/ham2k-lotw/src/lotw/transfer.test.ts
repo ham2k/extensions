@@ -556,7 +556,17 @@ test('rejects a wrong service/destination and offline execution', async () => {
   assert.equal(f.transport.mock.callCount(), 0)
 })
 
-for (const kind of ['rejected', 'unknown', 'transport'] as const) {
+for (const [kind, message] of [
+  ['rejected', /LoTW refused/],
+  [
+    'unknown',
+    'LoTW upload unconfirmed (HTTP 200 with no LoTW acknowledgement after 0 ms). LoTW may have received the file. Check Your Account → Your Activity in LoTW before retrying.',
+  ],
+  [
+    'transport',
+    'LoTW upload unconfirmed (Upload request failed after 0 ms). LoTW may have received the file. Check Your Account → Your Activity in LoTW before retrying.',
+  ],
+] as const) {
   test(`throws on the first ${kind} upload so core stops later chunks`, async () => {
     const f = fixture()
     if (kind === 'transport')
@@ -569,25 +579,31 @@ for (const kind of ['rejected', 'unknown', 'transport'] as const) {
         body: kind === 'rejected' ? '<!-- .UPL. rejected -->' : 'secret server reply',
       }))
     await assert.rejects(f.push([record('one'), record('two', { MY_GRIDSQUARE: 'FN32AA' })]), {
-      message: kind === 'rejected' ? /LoTW refused/ : /LoTW did not acknowledge/,
+      message,
     })
     assert.equal(f.transport.mock.callCount(), 1)
   })
 }
 
-test('throws after a later location fails, leaving the whole chunk for an operator retry', async () => {
-  const f = fixture()
-  f.transport.mock.mockImplementationOnce(
-    async () => ({ status: 200, body: '<!-- .UPL. accepted -->' }),
-    0,
-  )
-  f.transport.mock.mockImplementationOnce(async () => ({ status: 503, body: 'unavailable' }), 1)
+test('reports the failed upload duration and leaves the whole chunk for an operator retry', async () => {
+  const f = fixture(8_000)
+  f.transport.mock.mockImplementationOnce(async () => {
+    f.advance(5_000)
+    return { status: 200, body: '<!-- .UPL. accepted -->' }
+  }, 0)
+  f.transport.mock.mockImplementationOnce(async () => {
+    f.advance(1_234.6)
+    return { status: 503, body: 'private server reply' }
+  }, 1)
   const records = [
     record('one'),
     record('two', { MY_GRIDSQUARE: 'FN32AA' }),
     record('three', { MY_GRIDSQUARE: 'FN33AA' }),
   ]
-  await assert.rejects(f.push(records), { message: /LoTW did not acknowledge/ })
+  await assert.rejects(f.push(records), {
+    message:
+      'LoTW upload unconfirmed (HTTP 503 after 1235 ms). LoTW may have received the file. Check Your Account → Your Activity in LoTW before retrying.',
+  })
   assert.equal(f.transport.mock.callCount(), 2)
   // Core has no results from the failed chunk; a later explicit retry may
   // replay its accepted subbatch. The adapter never retries by itself.

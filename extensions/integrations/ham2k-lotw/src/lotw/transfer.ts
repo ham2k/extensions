@@ -318,15 +318,20 @@ export function createLotwTransferHook(ports: LotwTransferPorts) {
                 : 'Time ran out partway through this LoTW upload. Push again to send the rest.',
             )
           }
+          const uploadStarted = elapsedNowMillis()
           const result = await uploadLotwTq8(file, transport)
-          if (result.state !== 'queued') {
-            // Throwing stops core from sending later chunks. Core deliberately
-            // records no receipts for this chunk, including any earlier
-            // accepted location batches; an operator retry can replay them.
+          // Throwing stops core from sending later chunks. Core deliberately
+          // records no receipts for this chunk, including any earlier
+          // accepted location batches; an operator retry can replay them.
+          if (result.state === 'rejected') {
             throw new Error(
-              result.state === 'rejected'
-                ? `LoTW refused the upload${result.message ? ` (“${result.message}”)` : ''}. Check the certificate in the LoTW account settings and review the contacts before trying again.`
-                : 'LoTW did not acknowledge the upload. Check Your Account → Your Activity in LoTW before retrying.',
+              `LoTW refused the upload${result.message ? ` (“${result.message}”)` : ''}. Check the certificate in the LoTW account settings and review the contacts before trying again.`,
+            )
+          }
+          if (result.state === 'unknown') {
+            const elapsed = Math.round(elapsedNowMillis() - uploadStarted)
+            throw new Error(
+              `LoTW upload unconfirmed (${result.detail} after ${elapsed} ms). LoTW may have received the file. Check Your Account → Your Activity in LoTW before retrying.`,
             )
           }
         }

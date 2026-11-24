@@ -5,7 +5,7 @@ import { mock, test } from 'node:test'
 import { gzipSync } from 'node:zlib'
 import type { FetchOptions } from '@ham2k/extension-sdk'
 import { createLotwHostAdapters, maxLotwRequestBytes } from './host.ts'
-import { type LotwUploadRequest, uploadLotwTq8 } from './upload.ts'
+import { type LotwUploadRequest, LotwUploadTransportError, uploadLotwTq8 } from './upload.ts'
 
 const entropyFailure = /^Secure randomness is unavailable for LoTW signing\.$/
 const invalidRequest = /^Could not prepare the LoTW upload request, so nothing was sent\.$/
@@ -178,24 +178,31 @@ for (const overrides of [
   })
 }
 
-for (const message of [
-  'redirect refused: private Location',
-  'lost connection with private response',
+for (const [message, detail] of [
+  ['TimeoutException after 0:00:15.000000: private request data', 'Request timed out'],
+  [
+    "ExtensionHostException: fetch refused: 'lotw.arrl.org' answered 302, and the request does not follow redirects",
+    'Redirect refused (HTTP 302)',
+  ],
+  ['ClientException: private response data', 'Network request failed'],
+  ['ClientException with SocketException: private network data', 'Network request failed'],
+  ['Private error body mentions ClientException: private response data', 'Upload request failed'],
 ]) {
-  test(`redacts host failures, treats delivery as uncertain and never retries: ${message}`, async () => {
+  test(`returns only the safe diagnostic for a host failure: ${detail}`, async () => {
     const host = makeHost()
     host.fetch.mock.mockImplementation(async () => {
       throw new Error(message)
     })
     const adapters = createLotwHostAdapters(host)
-    await assert.rejects(adapters.transport(makeRequest()), {
-      message: /^LoTW did not acknowledge the upload\. It may already have reached the server\.$/,
-    })
+    await assert.rejects(
+      adapters.transport(makeRequest()),
+      (error) => error instanceof LotwUploadTransportError && error.message === detail,
+    )
     assert.equal(host.fetch.mock.callCount(), 1)
     host.fetch.mock.resetCalls()
     assert.deepEqual(await uploadLotwTq8(gzipSync('synthetic contacts'), adapters.transport), {
       state: 'unknown',
-      reason: 'transport',
+      detail,
     })
     assert.equal(host.fetch.mock.callCount(), 1)
   })
