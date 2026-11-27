@@ -34,9 +34,9 @@ calendar for special sessions or schedule changes.
 2. Create an operation for the session, add CWT, and select its UTC date/time.
    Set your sent first name, member number or location (or eligible `CWA`
    exchange), and power class.
-3. Under **Settings → Accounts, Services & Data Sources**, refresh
-   **CWops CWT call history** before operating. Earlier app builds call this
-   area **Data Files**.
+3. In the desktop or mobile app, refresh **CWops CWT call history (Super Check
+   History)** under **Settings → Accounts, Services & Data Sources** before
+   operating. Earlier app builds call this area **Data Files**.
 4. Enter a callsign, listen to the exchange, and confirm or correct the
    suggested **Name** and **Nr** values before saving.
 
@@ -67,30 +67,22 @@ UI using the published GitHub bundle, not installation of the reserved
 
 ## Where the call history comes from
 
-The source is the public
-[N1MM call-history collection](https://n1mmwp.hamdocs.com/mmfiles/categories/callhistory/).
-Ham2K API 11 or newer discovers and downloads the latest CWOPS history using
-`n1mm-history:CWOPS`. The host handles pagination, download forms and freshness;
-the extension validates the text and parses names and CWT exchanges. Native Data
-Files persist and replay snapshots offline, without storing a second full dataset
-in the host’s size-limited key-value storage.
+Ham2K downloads the N1MM-format CWOPS file from Super Check History to suggest
+names and CWT exchanges. Confirm the exchange you copy on air.
+[Super Check History](https://supercheckhistory.com/)
 
-Ham2K checks data-file freshness when it loads the extension and when it
-reconnects, downloading a missing file or refreshing one older than 24 hours.
-The one-day setting is a freshness threshold checked at those times, not a
-timer that runs exactly once every 24 hours. You can also refresh manually.
-Use **Settings → Accounts, Services & Data Sources → CWops CWT call history**
-(**Data Files** in earlier app builds) for the native download, refresh, and
-remove controls. The extension always discovers the latest CWOPS file
-automatically; there is no source-override settings page. Source changes are
-maintained in extension updates, and previously saved overrides are ignored.
+On desktop and mobile, Ham2K checks for the file when it loads the extension
+and when it reconnects. A missing file or one older than 24 hours is eligible
+for refresh. To refresh or remove **CWops CWT call history (Super Check
+History)** manually, use **Settings → Accounts, Services & Data Sources**
+(**Data Files** in earlier builds). The web app currently cannot download the
+file because the provider restricts cross-origin requests. Local CWT contacts
+also supply suggestions.
 
-Typing a callsign uses downloaded data and local history; it does not download
-the file for every contact. N1MM requests allow slower responses within a
-bounded refresh. Timed-out or failed refreshes leave the last valid snapshot
-available. The native data-file manager persists that snapshot for offline
-use and replays it when the app starts. Runtime KV is only a secondary
-in-memory cache, not the durable storage mechanism.
+The native app keeps the last successful file across restarts and failed
+refreshes, including data from before the source changed. The extension
+validates the downloaded text and looks up callsigns in an in-memory index.
+Lookup notes show the date of the source data and the download date.
 
 ## Precedence and corrections
 
@@ -98,7 +90,7 @@ Name and number are resolved independently, in this order:
 
 1. The operator's input, including an intentionally cleared field.
 2. Explicit exchanges from earlier QSOs in the current operation.
-3. The selected CWOPS file.
+3. The downloaded CWOPS file.
 4. Explicit exchanges from older CWT QSOs in the host's callsign history.
 
 History queries request `{ refType: 'cwt' }` before the host applies its
@@ -107,26 +99,25 @@ CWT exchanges. Each portable call and its base call receive the same filter.
 Older Ham2K builds ignore it; the extension still rejects unrelated contacts,
 but can only use CWT contacts among the latest five returned for each call.
 
-If these sources provide no exchange, Number/QTH prefills from the station’s
-state, then its country/entity prefix (including callsign country-file lookup).
-The name can fall back to Ham2K’s ordinary name suggestion. Check location
-guesses against what was received: they are saved unless changed or cleared.
-When no location is available, previous untouched suggestions are cleared.
+When no source supplies a received exchange, Number/QTH can show the station’s
+state or entity prefix as a placeholder. Enter the exchange you copy on air.
+The name can fall back to Ham2K’s ordinary name suggestion. Previous untouched
+number suggestions are cleared when there is no known exchange.
 
 The native controls own the first step: suggestions only update untouched
 fields. A previously guessed ref value is not evidence of operator input.
-The save hook records the controls' accepted values; it does not look up a
-replacement exchange during save. The currently edited QSO is excluded from
-history suggestions.
+The save hook preserves explicit values and blanks. It can fill an absent name
+from past CWT contacts or a directory lookup. The currently edited QSO is
+excluded from history suggestions.
 
 Within each source, exact calls match before portable base calls. A base-call
 match may supply a name, member number, or CWA exchange, but never a
-nonmember's location: a portable station might be somewhere else. A location fallback uses the
-current callsign’s lookup data; an absent member number remains unknown.
-Neither a guessed state nor free-text notes establish nonmembership.
+nonmember's location. The location placeholder uses the current callsign’s
+lookup data. A member number remains unknown until the operator enters one or
+a known exchange supplies it.
 
 Lookup notes identify known history/file suggestions and the data file’s
-freshness; they do not report the location fallback.
+freshness.
 
 ## How scoring works
 
@@ -156,7 +147,9 @@ routine CWT participation does not require a log submission.
 
 The parser follows the [N1MM call-history format](https://n1mmwp.hamdocs.com/setup/call-history/):
 comma or semicolon delimiters, quoted fields, `!!Order!!`, comment and contest
-association lines, and `# LastEdit,YYYY-MM-DD` dates. Missing columns remain missing.
+association lines, and dates in `# LastEdit,YYYY-MM-DD`, `# Updated YYYY-MM-DD`,
+or `# Generated by bb-sch, data through YYYY-MM-DD` comments. Missing columns
+remain missing.
 Duplicate calls merge nonempty fields deterministically. `Name` and `Exch1`
 provide the CWT exchange; `State`, `Sect`, and `UserText` are not substitutes
 for an absent `Exch1`. Unsupported directives, incompatible contest
@@ -193,10 +186,8 @@ npm run pack -w @ham2k/ext-cwt
 ```
 
 Tests cover parsing, field precedence, portable calls, offline cache replay,
-failed refreshes and races, the shared eight-second real-time discovery/download
-timer, downloads slower than 3.5 seconds, frozen developer clocks, late
-responses, older hosts without timers, edited/deleted history, native-shaped
-operation arguments, and the registered controls through saved/exported exchanges.
+failed-refresh retention, edited and deleted history, scoring checkpoints, and
+the path from registered controls through saved and exported exchanges.
 The repository's bundle test builds, validates, packs, and loads every
 extension against a stub kernel. These are automated checks, not a native
 Ham2K UI test. See the root README for the reserved `ham2k-` installation rule:

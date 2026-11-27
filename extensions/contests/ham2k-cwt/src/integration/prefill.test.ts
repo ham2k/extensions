@@ -79,7 +79,7 @@ test('scoring connects UUID-less controls to current history, with per-field fal
   assert.equal(results[0]?.source, 'ham2k-cwt')
   const note = String(results[0]?.notes?.[0] ?? '')
   assert.match(note, /nombre Al Bert \(archivo seleccionado\); intercambio 9876 \(operación actual\)/)
-  assert.match(note, /archivo fecha desconocida, descargado 2026-09-19/)
+  assert.match(note, /datos de origen sin fecha, descarga 2026-09-19/)
 })
 
 test('unknown exchanges clear stale suggestions and fall back to a location placeholder and name', async () => {
