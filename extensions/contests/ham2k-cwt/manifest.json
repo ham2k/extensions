@@ -2,7 +2,7 @@
   "key": "ham2k-cwt",
   "name": "CWops CWT",
   "shortName": "CWT",
-  "version": "0.2.11",
+  "version": "0.3.0",
   "description": "Weekly CWops mini-tests: one hour of CW, four sessions a week",
   "category": "contest",
   "icon": "clock-fast",
@@ -19,10 +19,14 @@
   "hooks": [
     "activity",
     "adifFields",
+    "dataFile",
     "export",
+    "lookup",
     "ref:cwt",
-    "scoring"
+    "scoring",
+    "spotCallFilter:v1"
   ],
+  "domains": ["supercheckhistory.com"],
   "relevance": {
     "interests": [
       "cw"

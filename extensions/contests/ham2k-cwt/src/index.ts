@@ -43,6 +43,7 @@ import { tFor } from "./i18n.ts"
 import {
   NUMBER_PATTERN,
   firstName,
+  guessedName,
   suggestedName,
   guessedQth,
   normalizeNumber,
@@ -58,6 +59,10 @@ import {
   sessionsFrom,
 } from "./schedule.ts"
 import { CWTScorer, contestTitle } from "./scorer.ts"
+import { DataFile, fileCache } from "./data/hooks.ts"
+import { createPrefill } from "./integration/prefill.ts"
+import { callFilterCategory } from '../../../../packages/spot-filters/src/index.ts'
+import { callFilter } from './data/spot-filter.ts'
 
 import manifest from "../manifest.json" with { type: "json" }
 
@@ -225,7 +230,7 @@ const ActivityHook = {
 
     const t = tFor(ctx)
     const their = ((qso?.their as Record<string, JSONValue>) ?? {})
-    const name = await suggestedName(ctx, operation, qso)
+    const name = guessedName(their)
     const qth = guessedQth(their)
 
     return [
@@ -412,10 +417,11 @@ const ExportHook = {
   },
 
   async generateExport(args: ExportRequest, ctx: HookContext): Promise<ExportResult> {
-    // Only the two exportTypes offered above. Belt and braces alongside the
-    // keyed delegation in `adifForExport`: a hook answering for an exportType it never
-    // offered makes the ADIF delegation recurse into itself.
-    if (args.exportType !== `${TYPE}-cabrillo` && args.exportType !== `${TYPE}-adif`) {
+    // Accept this contest's registered types and older generic requests only.
+    // The core ADIF type must never delegate back into this hook.
+    const cabrillo = args.exportType === `${TYPE}-cabrillo` || args.exportType === 'cabrillo'
+    const adif = args.exportType === `${TYPE}-adif` || args.exportType === 'contest-adif'
+    if (!refOfType(args.operation, TYPE) || (!cabrillo && !adif)) {
       return { filename: '', mimeType: '', content: '' }
     }
 
@@ -424,7 +430,7 @@ const ExportHook = {
     const ourCall = str(operation.stationCall)
     const ours = ourExchange(opRef)
 
-    if (args.exportType === `${TYPE}-cabrillo`) {
+    if (cabrillo) {
       const power = POWER_CLASSES.find((entry) => entry.value === str(opRef?.power))
       const content = qsonToCabrillo(args.qsos, {
         headers: [
@@ -476,16 +482,21 @@ const ExportHook = {
   },
 }
 
+const prefill = createPrefill(fileCache, ActivityHook)
+
 defineExtension({
   ...manifest,
   onActivation({ registerHook }) {
-    registerHook('activity', { hook: ActivityHook, key: manifest.key })
+    registerHook('activity', { hook: prefill.activity, key: manifest.key })
     registerHook(`ref:${TYPE}`, { hook: RefHandler, key: manifest.key })
     registerHook('adifFields', { hook: AdifFieldsHook, key: manifest.key })
     registerHook('export', { hook: ExportHook, key: manifest.key })
     registerHook('scoring', {
-      hook: contestScorer(CWTScorer, { scope: { refTypes: [TYPE] } }),
+      hook: prefill.scoring(contestScorer(CWTScorer, { scope: { refTypes: [TYPE] } })),
       key: manifest.key,
     })
+    registerHook('lookup', { hook: prefill.lookup, key: manifest.key })
+    registerHook('dataFile', { hook: DataFile, key: DataFile.key })
+    registerHook(callFilterCategory, { hook: callFilter, key: manifest.key })
   },
 })

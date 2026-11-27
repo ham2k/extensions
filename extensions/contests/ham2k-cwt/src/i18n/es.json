@@ -15,5 +15,18 @@
   "cabrilloExport": "Cabrillo para {{contest}}",
   "ourExchangeSubtitle": "{{name}} {{number}}",
   "notConfigured": "¡Sin configurar!",
-  "sessionDescription": "Una hora de CW — nombre y número de CWops"
+  "sessionDescription": "Una hora de CW — nombre y número de CWops",
+  "historyFileName": "Historial de indicativos CWT de CWops (Super Check History)",
+  "historyFileDescription": "Descarga datos del CWT de CWops desde Super Check History para usarlos sin conexión.",
+  "historyEmpty": "Todavía no hay un archivo válido guardado. Descargue el archivo CWT en Ajustes → Cuentas, servicios y fuentes de datos (Archivos de datos en versiones anteriores).",
+  "prefillName": "nombre {{value}} ({{source}})",
+  "prefillExchange": "intercambio {{value}} ({{source}})",
+  "prefillNote": "CWT: {{fields}}{{freshness}}",
+  "prefillFreshness": "; datos de origen {{fileDate}}, descarga {{downloadDate}}",
+  "prefillUnknownDate": "sin fecha",
+  "prefillSourceOperator": "operador",
+  "prefillSourceCurrentOperation": "operación actual",
+  "prefillSourceSelectedFile": "archivo seleccionado",
+  "prefillSourceOlderHistory": "historial anterior de CWT",
+  "spotsFilterLabel": "Archivo de historial CWT"
 }

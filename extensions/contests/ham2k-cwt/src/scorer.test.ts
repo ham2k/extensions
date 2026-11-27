@@ -10,6 +10,7 @@ import { test } from "node:test"
 import assert from "node:assert/strict"
 
 import { CWTScorer } from "./scorer.ts"
+import { contestScorer } from "@ham2k/extension-sdk"
 import type { JSONValue } from "@ham2k/extension-sdk"
 
 const ctx = { online: false } as never
@@ -118,4 +119,67 @@ test('offers no per-day summary', () => {
   // score is not a number the contest defines.
   const { sheet } = run([qso('W1AW', '20m')])
   assert.deepEqual(CWTScorer.summarizeScore({ scoresheet: sheet, operation, ref: sessionRef, scope: 'day' }, ctx), {})
+})
+
+
+test('the shared summary preserves cross-band multipliers, band details and translations', () => {
+  const { sheet } = run([
+    qso('W1AW', '20m'), qso('W1AW', '40m'), qso('K5XYZ', '20m'), qso('W1AW', '20m'),
+  ])
+  for (const [locale, unit] of [['en', 'points'], ['es', 'puntos']]) {
+    const summary = CWTScorer.summarizeScore(
+      { scoresheet: sheet, operation, ref: sessionRef, scope: 'operation' },
+      { online: false, locale },
+    ).cwt
+    assert.equal(summary.total, 6)
+    assert.equal(summary.summary, '6')
+    assert.equal(summary.label, `CWT 1300z: 6 ${unit}`)
+    assert.ok(summary.longSummary?.startsWith('3 QSOs, 3 pts × 2 mults\n\n'))
+    assert.ok(summary.longSummary?.includes('**20m**: 2 QSOs'))
+    assert.ok(summary.longSummary?.includes('**40m**: 1 QSO, 1 pt, 0 mults'))
+  }
+})
+
+test('a saved checkpoint with legacy day counters keeps the operation total only', () => {
+  const { sheet } = run([qso('W1AW'), qso('K5XYZ')])
+  const scoresheet = { ...sheet, dayPoints: 1, dayQsos: 1 }
+  assert.equal(total(scoresheet), 4)
+  assert.deepEqual(CWTScorer.summarizeScore(
+    { scoresheet, operation, ref: sessionRef, scope: 'day' }, ctx,
+  ), {})
+})
+
+test('an incomplete call earns nothing until corrected and does not contaminate live scoring', async () => {
+  const hook = contestScorer(CWTScorer, { scope: { refTypes: ['cwt'] } })
+  const activeOperation = { ...operation, refs: [sessionRef] }
+  const incomplete = { ...qso('W1A?'), uuid: 'heard' }
+  const args = { operation: activeOperation, ref: sessionRef }
+  const pending = await hook.scoreQsos({ ...args, qsos: [incomplete] }, ctx)
+  assert.deepEqual(pending.qsoScores, {})
+  const emptySheet = { workedByCall: {}, bands: {}, bandFirstMults: {}, qsos: 0, points: 0 }
+  assert.deepEqual(pending.scoresheet, emptySheet)
+  assert.equal(pending.operationSummary.cwt.total, 0)
+
+  const corrected = { ...incomplete, their: { call: 'W1AW' } }
+  const preview = await hook.scoreQso?.({
+    ...args,
+    qso: corrected,
+    resumeFrom: pending.scoresheet,
+    resumeDay: pending.scoresheetDay,
+  }, ctx)
+  assert.ok(preview?.notices.includes('newMult'))
+  assert.ok(!preview?.alerts.includes('duplicate'))
+  assert.deepEqual(pending.scoresheet, emptySheet)
+
+  const saved = await hook.scoreQsos({ ...args, qsos: [corrected] }, ctx)
+  assert.equal(saved.qsoScores.heard.value, 1)
+  assert.equal(saved.operationSummary.cwt.qsos, 1)
+  assert.equal(saved.operationSummary.cwt.total, 1)
+  const repeat = await hook.scoreQso?.({
+    ...args,
+    qso: corrected,
+    resumeFrom: saved.scoresheet,
+    resumeDay: saved.scoresheetDay,
+  }, ctx)
+  assert.equal(repeat?.dupe, true)
 })
