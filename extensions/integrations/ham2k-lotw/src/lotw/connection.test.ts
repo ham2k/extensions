@@ -175,7 +175,10 @@ test('a lost upload reply stops without retrying or exposing provider errors', a
       },
       context,
     ),
-    { message: /LoTW did not acknowledge/ },
+    {
+      message:
+        /^LoTW upload unconfirmed \(Upload request failed after \d+ ms\)\. LoTW may have received the file\. Check Your Account → Your Activity in LoTW before retrying\.$/,
+    },
   )
   assert.equal(f.host.fetch.mock.callCount(), 1)
 })
