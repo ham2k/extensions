@@ -4,16 +4,11 @@
 // A services.ham2k.net call set kept on the device as a `ham2k` data file
 // (extension API 22), and the lookup that reads it with no network.
 
-import { createCachedTranslator, host } from "@ham2k/extension-sdk"
+import { host } from "@ham2k/extension-sdk"
 import type { ActivationApi, AnnotatedCallInfo, DataFileDefinition, HookContext, JSONValue, LookupResult } from "@ham2k/extension-sdk"
 
-import { lookupCallRecord } from "./index.ts"
+import { lookupCallRecord, tFor } from "./index.ts"
 import type { CallRecordSource } from "./index.ts"
-
-import en from "./i18n/en.json" with { type: "json" }
-import es from "./i18n/es.json" with { type: "json" }
-
-const tFor = createCachedTranslator({ en: { translation: en }, es: { translation: es } })
 
 /// A services.ham2k.net call set kept on the device: `all` is every public
 /// callsign, `hf` those with HF privileges.
@@ -60,8 +55,13 @@ export function registerOfflineCalls(registerHook: ActivationApi["registerHook"]
   registerHook("dataFile", { hook: offlineCallsDataFile(key, set), key })
   registerHook("lookup", {
     hook: {
-      async lookupCall({ callInfo }: { callInfo: AnnotatedCallInfo; qso: Record<string, JSONValue>; operation: Record<string, JSONValue> }): Promise<LookupResult> {
-        const answer = await lookupCallRecord(callInfo, records, OFFLINE_SOURCE)
+      async lookupCall(
+        { callInfo }: { callInfo: AnnotatedCallInfo; qso: Record<string, JSONValue>; operation: Record<string, JSONValue> },
+        ctx: HookContext,
+      ): Promise<LookupResult> {
+        // A set's record carries a status only if the service ever puts one
+        // in it; there is no network here to find the holder's current call.
+        const answer = await lookupCallRecord(callInfo, records, OFFLINE_SOURCE, { t: tFor(ctx) })
         return answer ? [answer] : []
       },
     },

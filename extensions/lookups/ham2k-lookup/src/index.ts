@@ -3,7 +3,7 @@
 
 import { defineExtension, host } from "@ham2k/extension-sdk"
 import type { AnnotatedCallInfo, HookContext, JSONValue, LookupResult } from "@ham2k/extension-sdk"
-import { lookupCallRecord } from "@ham2k/lib-ham2k-calls"
+import { currentCallAmong, lookupCallRecord, tFor } from "@ham2k/lib-ham2k-calls"
 
 import manifest from "../manifest.json" with { type: "json" }
 
@@ -32,6 +32,50 @@ async function fetchCall(call: string): Promise<Record<string, any> | null> {
   }
 }
 
+/**
+ * The current call found for each inactive call, by "<FRN> <call>", for as
+ * long as the extension runs: looking up the same cancelled call again, or
+ * the background queue going through an old log full of them, asks the
+ * service once. A failed request is not remembered, so the next lookup tries
+ * again.
+ */
+const CURRENT_CALLS = new Map<string, string | undefined>()
+
+/**
+ * The call the holder of an inactive US license uses now: the service lists
+ * every license under the same FCC registration number (FRN), which is the
+ * holder's, not the license's. Undefined when the record has no FRN (older
+ * licenses, and every non-US one) or the holder has no active call.
+ */
+async function currentCallFor(record: Record<string, unknown>): Promise<string | undefined> {
+  const frn = typeof record.frn === 'string' ? record.frn.trim() : ''
+  if (!frn || typeof record.call !== 'string') return undefined
+  const call = record.call
+  const key = `${frn} ${call.toUpperCase()}`
+  if (CURRENT_CALLS.has(key)) return CURRENT_CALLS.get(key)
+  try {
+    const response = await host.fetch(`https://services.ham2k.net/lookups/us-fcc-frn/${encodeURIComponent(frn)}.json`)
+    // The listing answers an unknown FRN with 200 and [], so any other status,
+    // or a body that is no list, is a fault and not "no current call": it is
+    // logged, and not remembered, so the next lookup asks again.
+    if (response.status !== 200) {
+      host.log(`Ham2K Lookup Service could not find the current call for ${call}: FRN ${frn} answered HTTP ${response.status}`)
+      return undefined
+    }
+    const holderRecords = JSON.parse(response.body)
+    if (!Array.isArray(holderRecords)) {
+      host.log(`Ham2K Lookup Service could not find the current call for ${call}: FRN ${frn} answered with no list of calls`)
+      return undefined
+    }
+    const current = currentCallAmong(holderRecords, call)
+    CURRENT_CALLS.set(key, current)
+    return current
+  } catch (e) {
+    host.log(`Ham2K Lookup Service could not find the current call for ${call}: ${(e as Error).message ?? e}`)
+    return undefined
+  }
+}
+
 /** A non-empty string field (a resolved value, not a blank/absent one). */
 const has = (v: unknown): boolean => typeof v === 'string' && v.trim() !== ''
 
@@ -50,7 +94,7 @@ async function lookupCall(
   const isPortable = callInfo.locationScope === 'portable'
   if (has(callInfo.name) && has(callInfo.grid) && (isPortable || has(callInfo.city))) return []
 
-  const answer = await lookupCallRecord(callInfo, fetchCall, 'services.ham2k.net')
+  const answer = await lookupCallRecord(callInfo, fetchCall, 'services.ham2k.net', { t: tFor(ctx), currentCall: currentCallFor })
   // Every answer here took the network (the `!ctx.online` guard above is the
   // only other exit), read generically by the background lookup queue,
   // without knowing this source by name.

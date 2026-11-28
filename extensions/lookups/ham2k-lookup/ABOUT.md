@@ -4,6 +4,7 @@ Look up the calls you log for free, with no account, from Ham2K's own lookup ser
 
 - **Name and location**, with a grid square for US and Canadian calls.
 - **License class**, where the service knows it.
+- Show when a call is inactive or has been replaced.
 
 ## Before you go
 

@@ -5,11 +5,18 @@
 // an extension reaches them: `ham2k-lookup` asks the service for one call at
 // a time, and the offline extensions keep one of its sets on the device and
 // read it from there (`./offline.ts`, its own entry point so that
-// `ham2k-lookup`'s bundle carries none of it). Both read the same record, so
-// they answer alike.
+// `ham2k-lookup`'s bundle carries none of its code; the translations, shared
+// by both, include the offline sets' few strings). Both read the same record,
+// so they answer alike.
 
+import { createCachedTranslator } from "@ham2k/extension-sdk"
 import { cleanLocationParams } from "@ham2k/lib-geo-tools"
 import type { AnnotatedCallInfo, CallInfoLookup } from "@ham2k/extension-sdk"
+
+import en from "./i18n/en.json" with { type: "json" }
+import es from "./i18n/es.json" with { type: "json" }
+
+export const tFor = createCachedTranslator({ en: { translation: en }, es: { translation: es } })
 
 /// The service's ISO-3166 alpha-2 codes as the full names CallInfo.country
 /// carries (QRZ and HamDB both report full names).
@@ -65,11 +72,60 @@ export function callRecordLookup(
 /// The record for a call, or null when the source has none.
 export type CallRecordSource = (call: string) => Promise<Record<string, unknown> | null>
 
+/// FCC license statuses for a license no longer in force: cancelled, expired
+/// and terminated. Not the pending ones, "L" (pending legal status) and "X"
+/// (termination pending), whose license may still be valid.
+const INACTIVE_STATUSES = new Set(["C", "E", "T"])
+
+/// Whether [record] is for a license no longer in force. Only FCC records
+/// say (see INACTIVE_STATUSES). ISED, BNetzA and NKOM publish only current
+/// licenses, which the service marks "A", and a record with no status at
+/// all (the offline sets' compact ones) says nothing either way.
+export function isInactiveRecord(record: Record<string, unknown>): boolean {
+  return typeof record.status === "string" && INACTIVE_STATUSES.has(record.status)
+}
+
+/// The call the holder of an inactive license uses now, from [holderRecords]
+/// (every record the service has under the same FCC registration number, as
+/// `/lookups/us-fcc-frn/<frn>` lists them): their active amateur license
+/// other than [call], the most recently granted when there are several. A
+/// GMRS license shares the registration number but is no amateur call.
+export function currentCallAmong(holderRecords: unknown, call: string): string | undefined {
+  if (!Array.isArray(holderRecords)) return undefined
+  // FCC dates are MM/DD/YYYY, which sort only once turned around.
+  const sortable = (date: unknown) => (typeof date === "string" ? date.replace(/^(\d\d)\/(\d\d)\/(\d{4})$/, "$3$1$2") : "")
+  const active = holderRecords.filter(
+    (r): r is Record<string, unknown> =>
+      !!r && typeof r === "object" && r.status === "A" && (r.service == null || r.service === "amateur") && typeof r.call === "string" && r.call.toUpperCase() !== call.toUpperCase(),
+  )
+  active.sort((a, b) => sortable(b.granted).localeCompare(sortable(a.granted)))
+  return active[0]?.call as string | undefined
+}
+
+/// How [lookupCallRecord] marks an inactive license beside the name: [t]
+/// translates the mark, and [currentCall], when given, finds the call the
+/// holder uses now. A failure to find one leaves the plain "(Inactive)": an
+/// error [currentCall] throws is not reported, so it logs its own.
+export type LicenseStatusOptions = {
+  t: (key: string, options?: any) => string
+  currentCall?: (record: Record<string, unknown>) => Promise<string | undefined>
+}
+
 /// The answer about [callInfo] from [records]: the call as given first, then
 /// its base call. The service knows only plain registered calls, so a
 /// "KI2D/P" is usually answered by "KI2D", and that answer is the operator's
 /// home QTH whatever the call's own scope says.
-export async function lookupCallRecord(callInfo: AnnotatedCallInfo, records: CallRecordSource, source: string): Promise<Ham2kCallLookup | null> {
+///
+/// With [status], the name of a license no longer in force reads
+/// "Name (Inactive)", or "Name (Currently KI2D)" when the holder's current
+/// call can be found. The mark rides in the name because a lookup answer has
+/// no field for a license's standing.
+export async function lookupCallRecord(
+  callInfo: AnnotatedCallInfo,
+  records: CallRecordSource,
+  source: string,
+  status?: LicenseStatusOptions,
+): Promise<Ham2kCallLookup | null> {
   const call = (callInfo.call || "").trim().toUpperCase()
   if (call.length < 3) return null
 
@@ -79,5 +135,17 @@ export async function lookupCallRecord(callInfo: AnnotatedCallInfo, records: Cal
     record = await records(callInfo.baseCall.toUpperCase())
     locationScope = "qth"
   }
-  return record ? callRecordLookup(record, { call, source, locationScope }) : null
+  if (!record) return null
+
+  const answer = callRecordLookup(record, { call, source, locationScope })
+  if (status && answer.name && isInactiveRecord(record)) {
+    let currentCall: string | undefined
+    try {
+      currentCall = await status.currentCall?.(record)
+    } catch {
+      currentCall = undefined
+    }
+    answer.name = `${answer.name} ${currentCall ? status.t("currently", { call: currentCall }) : status.t("inactive")}`
+  }
+  return answer
 }
